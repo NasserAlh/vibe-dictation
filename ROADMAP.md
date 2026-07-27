@@ -34,6 +34,11 @@ issue** = a defect that exists today.
   would remove most of that.
 - **Model management in Settings.** See which models are present, their size, and
   which one is active, without leaving the app.
+- **Show transcriptions in realtime.** Display the recognized text as you speak
+  (in the on-screen dictation indicator), instead of only after the recording
+  stops. Today the engine transcribes the finished recording in one pass, so
+  this means streaming audio to the engine in chunks and rendering partial
+  results as they land.
 
 ## Considering
 
