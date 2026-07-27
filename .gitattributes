@@ -1,0 +1,13 @@
+# Normalize text files to LF in the repository AND the working tree, so this
+# repo follows .editorconfig (end_of_line = lf) regardless of a machine's
+# core.autocrlf. Prevents phantom "modified" files on Windows checkouts.
+* text=auto eol=lf
+
+# Binary assets — never touch line endings.
+*.png   binary
+*.ico   binary
+*.icns  binary
+*.mp3   binary
+*.jar   binary
+*.bin   binary
+*.exe   binary

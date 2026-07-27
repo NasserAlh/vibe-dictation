@@ -1,0 +1,14 @@
+{
+	"private": true,
+	"packageManager": "pnpm@10.4.1",
+	"scripts": {
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"check:i18n": "uv run scripts/check_i18n.py",
+		"check-types": "tsc --noEmit -p desktop/tsconfig.json"
+	},
+	"devDependencies": {
+		"prettier": "^3.5.3",
+		"typescript": "^5.9.3"
+	}
+}

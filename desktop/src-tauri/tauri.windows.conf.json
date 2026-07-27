@@ -1,0 +1,10 @@
+{
+	"bundle": {
+		"externalBin": ["binaries/sona", "binaries/ffmpeg"],
+		"windows": {
+			"nsis": {
+				"installerHooks": "vc_redist.nsh"
+			}
+		}
+	}
+}

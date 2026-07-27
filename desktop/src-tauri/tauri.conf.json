@@ -1,0 +1,44 @@
+{
+	"$schema": "./gen/schemas/desktop-schema.json",
+	"productName": "Vibe Dictation",
+	"version": "1.2.0",
+	"identifier": "net.nasserhub.dictation",
+	"app": {
+		"macOSPrivateApi": true,
+		"windows": [],
+		"withGlobalTauri": true,
+		"security": {
+			"assetProtocol": {
+				"enable": false,
+				"scope": {
+					"allow": [],
+					"deny": [],
+					"requireLiteralLeadingDot": false
+				}
+			},
+			"csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+		}
+	},
+	"build": {
+		"beforeDevCommand": "pnpm dev",
+		"beforeBuildCommand": "pnpm build",
+		"frontendDist": "../dist",
+		"devUrl": "http://localhost:1420"
+	},
+	"bundle": {
+		"active": true,
+		"targets": [
+			"nsis"
+		],
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"externalBin": [
+			"binaries/sona"
+		]
+	}
+}

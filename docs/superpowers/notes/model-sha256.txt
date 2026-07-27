@@ -1,0 +1,7 @@
+# Model content pins — SHA-256
+# Local files hashed 2026-07-14 and cross-checked against the authoritative
+# HuggingFace LFS pointers (huggingface.co/ggerganov/whisper.cpp, raw/main):
+# both MATCH. Verify any copied model against these before first use.
+
+ggml-large-v3.bin        64D182B440B98D5203C4F9BD541544D84C605196C4F7B845DFA11FB23594D1E2  (3,095,033,483 bytes; default model)
+ggml-large-v3-turbo.bin  1FC70F774D38EB169993AC391EEA357EF47C88757EF72EE5943879B7E8E2BC69  (1,624,555,275 bytes; faster alternative)
