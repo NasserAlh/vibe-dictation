@@ -31,6 +31,8 @@ typed at the cursor (or copied to the clipboard). Everything runs on-device.
   output (clipboard is the RTL-safe fallback — MS Word is the reference injection
   target; the Windows 11 tabbed Notepad mangles synthetic keystrokes).
 
+Known issues and where the project is heading: [ROADMAP.md](ROADMAP.md).
+
 ## Build
 
 Prerequisites: Rust (MSVC toolchain), Node + `pnpm`, `uv`, VS 2022 Build Tools
