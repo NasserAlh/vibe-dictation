@@ -5,10 +5,8 @@
 		"editorconfig.editorconfig", // EditorConfig helps maintain consistent coding styles for multiple developers working on the same project across various editors and IDEs
 		"bradlc.vscode-tailwindcss", // Provides Tailwind CSS IntelliSense
 		"dbaeumer.vscode-eslint", // Integrates ESLint JavaScript into VS Code
-		"esbenp.prettier-vscode", // Code formatter using prettier,
-		"svelte.svelte-vscode", // Svelte used in landing website
+		"esbenp.prettier-vscode", // Code formatter using prettier
 		"tamasfe.even-better-toml", // Toml used in cargo files
-		"github.vscode-github-actions",
-		"romerramos.elementarywatson" // Github actions control
+		"romerramos.elementarywatson" // Inline i18n message preview (inlang)
 	]
 }

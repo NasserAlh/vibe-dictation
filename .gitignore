@@ -1,46 +1,34 @@
+# Build outputs
+target/
+node_modules/
+schemas/
+
+# Sidecar binaries (fetched by scripts/pre_build.py)
+desktop/src-tauri/binaries/
+
+# Models and recordings — never committed
+*.bin
 *.wav
 *.opus
-!src/audio/test_audio.wav
-*.srt
-*.vtt
-*.dll
+
+# Compiled binaries and archives
 *.exe
+*.dll
 *.dylib
-target/
-*.old.json
-ffmpeg.framework/
-ffmpeg*-default/
-*.xz
-.DS_Store
-*.pyc
-ffmpeg/
-openblas/
 *.7z
-.env
-!samples/*
-vulkan_sdk/
-vulkan_runtime/
-schemas/
-node_modules/
-.DS_Store
-venv/
-*.bin
-*.onnx
+*.xz
+
+# Signing material
 *.pfx
-*trace*.log
-samples/**/*.txt
-pnpm-workspace.yaml
-desktop/src-tauri/binaries/sona-*
-github-issues/
-dedup_report.json
-ISSUES-REPORT.md
-desktop/src-tauri/binaries/
-!desktop/src-tauri/binaries/.gitkeep
-*.csv
-/sona/
-whisper.cpp/
-aptabase-python/
-tauri-plugin-aptabase/
+
+# Generated i18n state
 **/project.inlang/cache/
 **/project.inlang/project_id
+
+# Local env, logs, OS/tool noise
+.env
+*trace*.log
+.DS_Store
+*.pyc
+venv/
 .superpowers/
