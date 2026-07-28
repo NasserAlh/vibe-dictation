@@ -20,10 +20,10 @@ with **Tauri** (Rust backend + React/TypeScript frontend).
   constant in `desktop/src-tauri/src/ollama.rs`; only the port is configurable.
   Ollama is never spawned, bundled, or downloaded by this app.
 
-### Sona Runner (`sona/` folder)
+### Sona Runner
 
 - **Language**: Rust + whisper.cpp bindings
-- **Location**: Separate repository at `github.com/thewh1teagle/sona` (also cloned locally in `./sona`)
+- **Location**: Separate repository at `github.com/thewh1teagle/sona`
 - **Purpose**: single local runner process for audio transcription and model
   loading (this fork uses transcription only — diarization/streaming UI is removed)
 - Bundled as one `sona` binary sidecar with the desktop app
@@ -45,7 +45,7 @@ with **Tauri** (Rust backend + React/TypeScript frontend).
 3. Binaries are placed in `desktop/src-tauri/binaries/`
 4. `tauri build` bundles `sona` and `ffmpeg` into the final NSIS installer
 
-## Key Point for Agents
+## Where transcription bugs actually live
 
 Native runtime compatibility issues for transcription usually come from the Sona runner or its linked whisper/ggml libraries, not the Vibe UI code.
 
