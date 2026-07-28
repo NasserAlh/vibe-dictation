@@ -9,7 +9,7 @@ before they replace an audited artifact. Both paths end at the same
 [smoke protocol](#new-machine-smoke-protocol).
 
 Written for generic Windows 11 x64; AMD-specific notes in the
-[appendix](#appendix-amd-machines-rx-7900-xtx--ryzen-7950x3d).
+[appendix](#appendix--amd-machines).
 
 ---
 
@@ -24,18 +24,19 @@ Written for generic Windows 11 x64; AMD-specific notes in the
 |---|---|
 | Artifact | `Vibe Dictation_1.0.1_x64-setup.exe` (unsigned NSIS, per-user install; 44,167,947 bytes) |
 | Installer SHA-256 | `4A0051C1ACC840038447CFEA5EF3DAA812C678E0DB88440CB3C4195D63A5922B` |
-| Installed exe SHA-256 | `514B8EA46FDE12C3AC1A2DC14C72C7D93B2E725BC207E5CCDCD5A33157A6B223` (differs from the pre-NSIS built exe by the NSIS bundle-type stamp, per the verification report §9) |
+| Installed exe SHA-256 | `514B8EA46FDE12C3AC1A2DC14C72C7D93B2E725BC207E5CCDCD5A33157A6B223` (differs from the pre-NSIS built exe by the NSIS bundle-type stamp) |
 | What it does | Local speech-to-text dictation (global hotkey → on-device Whisper via Vulkan GPU → text typed at cursor or copied to clipboard). Registers one HKCU Run entry (autostart) and a global hotkey. Injects synthetic keystrokes (may interest endpoint protection). |
 | What it cannot do | **No network code is compiled in** — analytics, updater, downloads, and all HTTP client code are physically absent, verified per release by a binary strings audit and loopback-only netstat sampling during live dictation. The only socket is loopback to its own local engine process. OS-enforced outbound-block firewall rules are added on top (step 6). |
 | Verification (re-runnable) | Steps 1, 5, 7, 8 below — hash check, GPU/device enumeration, firewall rules, netstat sampler + dictate-under-block. |
 
 ### Payload (USB-friendly — no network needed on the target)
 
-From `C:\Users\nasser\Dev\releases\vibe-dictation\v1.0.1\` and the models folder:
+From your release archive (or the [Releases page](https://github.com/NasserAlh/vibe-dictation/releases))
+and the models folder:
 
 1. `Vibe Dictation_1.0.1_x64-setup.exe` + `SHA256.txt`
 2. `ggml-large-v3.bin` (default) and optionally `ggml-large-v3-turbo.bin`
-3. `model-sha256.txt` (from `docs/superpowers/notes/`) — the model pins
+3. `model-sha256.txt` (from `docs/`) — the model pins
 
 The installer already bundles the Sona + ffmpeg sidecars — **no `pre_build.py`,
 no downloads on the target.**
@@ -54,7 +55,7 @@ no downloads on the target.**
    > (e.g. the Claude desktop app's terminal) silently redirects file and HKCU
    > writes to the package's `LocalCache` overlay — producing a "ghost"
    > install that passes every check from inside the container but does not
-   > exist on the real machine (verification report §5c correction).
+   > exist on the real machine.
    > Sanity check: a running process's image file must exist at its
    > `Get-Process` path.
 3. **First launch** (Start menu → Vibe Dictation). This creates the data dirs and
@@ -71,11 +72,11 @@ no downloads on the target.**
    ```
    Expect a JSON entry naming the discrete GPU (e.g.
    `{"description": "NVIDIA GeForce RTX 4090", "name": "Vulkan0", "type": "gpu"}` —
-   the verification report §2 citation). App logs, if needed:
+   a real example). App logs, if needed:
    `%APPDATA%\net.nasserhub.dictation\log_YYYY-MM-DD.txt`.
 6. **Autostart — fixed in v1.0.1, no stopgap needed:** the app writes its HKCU
-   Run entry **quoted** and syncs it to the current exe path on each launch
-   (verification report §9). Leave Settings → Advanced → "Start at login" **ON**
+   Run entry **quoted** and syncs it to the current exe path on each launch.
+   Leave Settings → Advanced → "Start at login" **ON**
    (the default). Confirm the entry is quoted:
    ```powershell
    reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "Vibe Dictation"
@@ -107,7 +108,7 @@ no downloads on the target.**
 > verification (strings audit with positive control, install, netstat, firewall,
 > EN+AR dictation) before it may replace the current audited release anywhere.
 
-### Prerequisites (versions verified on the home build machine)
+### Prerequisites (versions known to work)
 
 | Tool | Version | Notes |
 |---|---|---|
@@ -132,7 +133,7 @@ cd vibe-dictation
 # 1. Fetch the pinned Sona + ffmpeg Vulkan sidecars
 uv run scripts/pre_build.py
 # 2. Verify the fetched sidecar against the pin:
-#    compare with docs/superpowers/notes/sona-sidecar-sha256.txt ("exe:" line)
+#    compare with docs/sona-sidecar-sha256.txt ("exe:" line)
 Get-FileHash desktop\src-tauri\binaries\sona-x86_64-pc-windows-msvc.exe -Algorithm SHA256
 
 # 3. Frontend deps + generated i18n
@@ -157,27 +158,26 @@ pnpm exec tauri build
 
 ---
 
-## Appendix — AMD machines (RX 7900 XTX + Ryzen 7950X3D)
+## Appendix — AMD machines
 
 - **Driver:** Vulkan ships with the standard AMD Adrenalin driver — no extra
   runtime, same build, the whisper.cpp Vulkan backend is vendor-agnostic.
-- **One Vulkan device (verified 2026-07-14).** Although the Ryzen 9 7950X3D has an
-  RDNA2 iGPU, `sona.exe devices` on this machine enumerates a **single** Vulkan
-  device — `AMD Radeon RX 7900 XTX`, index 0; the iGPU surfaces no Vulkan device
-  here. This corrected an earlier *assumption* that the machine would enumerate two
-  devices (verification report §9).
+- **Check how many Vulkan devices you actually have.** A Ryzen CPU with an
+  integrated RDNA2 GPU does not necessarily surface a second Vulkan device — on a
+  7950X3D paired with a discrete Radeon card, `sona.exe devices` enumerated a
+  single device (the discrete card, index 0). Do not assume two; enumerate.
   ```powershell
   & "$env:LOCALAPPDATA\Vibe Dictation\sona.exe" devices
   ```
-- **GPU Device = Auto is correct here.** With a single enumerated device, Auto
-  necessarily binds the discrete XTX — no explicit index needed. Only set an index
-  (Settings → Select Model → GPU Device number) if a future driver/OS change makes
-  the iGPU appear as a second Vulkan device; then pick the entry whose
-  `description` is **"AMD Radeon RX 7900 XTX"**.
-- **Verifying the binding.** Load-bearing: (1) the enumeration above shows a single
-  device, the RX 7900 XTX; (2) near-instant transcription (an iGPU-bound large-v3
-  would be sluggish). Corroborating: dedicated VRAM on the XTX rises ~3 GB on first
-  model load (Task Manager → Performance → the discrete GPU). The app's runtime log
+- **GPU Device = Auto is correct on a single-device machine.** With one enumerated
+  device, Auto necessarily binds the discrete card — no explicit index needed. Only
+  set an index (Settings → Select Model → GPU Device number) if the iGPU appears as
+  a second Vulkan device; then pick the entry whose `description` names your
+  discrete card.
+- **Verifying the binding.** Load-bearing: (1) the enumeration above shows the
+  discrete card; (2) near-instant transcription (an iGPU-bound large-v3 would be
+  sluggish). Corroborating: dedicated VRAM rises ~3 GB on first model load
+  (Task Manager → Performance → the discrete GPU). The app's runtime log
   (`%APPDATA%\net.nasserhub.dictation\log_YYYY-MM-DD.txt`) does **not** print a GPU
   line — its "device" entries are audio devices only — so don't hunt for one there.
 - **Stalls at Vulkan init or first model load:** see [debug.md](debug.md) —
@@ -186,8 +186,6 @@ pnpm exec tauri build
 ---
 
 ## New-machine smoke protocol (both paths end here)
-
-Mirror of the home-machine re-test:
 
 1. **Process paths** — both exes must run from the install path:
    ```powershell

@@ -50,7 +50,7 @@ These are the usual fixes for a stall at Vulkan init or first model load.
   `ggml-*.bin` into the models folder (Settings → Select Model → Models Folder).
   The default is `ggml-large-v3.bin`. See [models.md](models.md).
 - Verify the model file against the pins in
-  [superpowers/notes/model-sha256.txt](superpowers/notes/model-sha256.txt).
+  [model-sha256.txt](model-sha256.txt).
 - Native transcription / GPU issues almost always live in the **Sona sidecar**,
   not this repo (see [architecture.md](architecture.md)). Run the engine directly
   to check GPU enumeration:
@@ -75,4 +75,4 @@ reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "Vibe Dictatio
 ```
 
 Expect `"...\Vibe Dictation\vibe.exe"` **with** the quotes. (v1.0.0 wrote it
-unquoted and needed a manual stopgap — see the verification report §5c/§9.)
+unquoted and needed a manual stopgap.)

@@ -19,9 +19,9 @@ to a user-run local Ollama server ([desktop/src-tauri/src/ollama.rs](desktop/src
 host is a compile-time `127.0.0.1` constant, only the port is configurable).
 When touching Rust deps, the frontend, or Tauri plugins, do
 not reintroduce anything that can open an external connection — any dependency change
-requires the full re-verification pass in [RELEASING.md](RELEASING.md). Design rationale
-and the removed-component inventory:
-[docs/superpowers/specs/2026-07-12-vibe-dictation-lockdown-design.md](docs/superpowers/specs/2026-07-12-vibe-dictation-lockdown-design.md).
+requires the full re-verification pass in [RELEASING.md](RELEASING.md). The removed components are: analytics, the auto-updater, model
+downloading, deep links, YouTube/yt-dlp ingestion, LLM summarisation, and the
+HTTP plugin.
 
 ## Architecture
 
@@ -51,7 +51,8 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
    per-language shortcuts** (EN and AR): the hotkey that starts a recording forces
    that dictation's transcription language — dictation never uses Whisper
    auto-detection (it covert-translates this speaker's English to Arabic;
-   verification report §11) — and only the starting hotkey can stop the recording.
+   it covert-translates accented English into Arabic) — and only the starting
+   hotkey can stop the recording.
 2. Key release / second press → `stop_record` event → backend emits `record_finish`.
 3. Frontend calls `load_model` then `transcribe` (Rust → Sona multipart streaming upload
    in [sona/mod.rs](desktop/src-tauri/src/sona/mod.rs) `transcribe_stream`).
@@ -93,8 +94,7 @@ Autostart syncs to the stored preference on every launch, but **only in release 
 (`if !cfg!(debug_assertions)`). A dev build must never write the login Run entry — dev and
 release share the same store identifier, so a dev instance would point login-autostart at
 a transient `target\debug` exe. See the comment at
-[main.rs:44-77](desktop/src-tauri/src/main.rs#L44-L77) and the incident note in the
-verification report.
+[main.rs:44-77](desktop/src-tauri/src/main.rs#L44-L77).
 
 ## Common commands
 
@@ -136,7 +136,7 @@ parity across locales.
 ## Build & runtime conventions
 
 - **Sidecar is content-pinned.** [.sona-version](.sona-version) picks the tag; the SHA-256
-  is verified against `docs/superpowers/notes/sona-sidecar-sha256.txt` on every fetch. The
+  is verified against `docs/sona-sidecar-sha256.txt` on every fetch. The
   bundled engine is auditable by content, not just tag.
 - **Models are placed manually** — the app performs *no downloads*. Drop a Whisper
   `ggml-*.bin` into the models folder (Settings → Select Model → Models Folder). Default is

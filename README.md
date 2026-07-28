@@ -23,7 +23,7 @@ typed at the cursor (or copied to the clipboard). Everything runs on-device.
 - **Bilingual EN + Arabic** via per-language hotkeys — each dictation is
   transcribed in the language of the hotkey that started it, never auto-detected
   (Whisper `large-v3` by default, chosen by A/B on real speech).
-- **GPU-accelerated** via Vulkan (NVIDIA and AMD; verified on RTX 4090 and
+- **GPU-accelerated** via Vulkan (NVIDIA and AMD; tested on RTX 4090 and
   RX 7900 XTX).
 - **Background utility:** system tray, close-to-tray, autostart at login
   (preference-synced), hotkey armed by default, on-screen dictation indicator.

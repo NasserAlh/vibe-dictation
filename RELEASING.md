@@ -10,7 +10,7 @@ inherited from a previous release.
    -arch=x64` — required so the MSVC `link.exe` wins over coreutils on PATH).
 2. `uv run scripts/pre_build.py` — fetches the pinned Sona + ffmpeg Vulkan
    sidecars (`.sona-version`); verify the zip hash against
-   `docs/superpowers/notes/sona-sidecar-sha256.txt`.
+   `docs/sona-sidecar-sha256.txt`.
    **If the sidecars already exist in `desktop/src-tauri/binaries/`, the
    script skips the fetch** (and even on a fresh fetch the zip is extracted
    in-memory, never written to disk) — in that case verify by hashing the
@@ -59,9 +59,10 @@ inherited from a previous release.
 
 ## Content-pin + archive
 
-- Record SHA-256 of the installer and built exe in the verification report.
-- Copy the installer to `C:\Users\nasser\Dev\releases\vibe-dictation\<tag>\`
-  (outside `target/`, safe from `cargo clean`) and verify the copy's hash.
+- Record SHA-256 of the installer and built exe in your release record.
+- Copy the installer to a release archive outside the repo, e.g.
+  `..\releases\vibe-dictation\<tag>\` — outside `target/`, so `cargo clean`
+  cannot remove it — and verify the copy's hash.
 - Tag the release commit (`vX.Y.Z`) and push with tags.
 
 ## Resolved in v1.0.1
@@ -73,10 +74,7 @@ inherited from a previous release.
   HKCU Run value unquoted with a trailing space, so a spaced install path never
   launched at logon on Windows 11. v1.0.1 owns the write in `src/autostart.rs`
   (quoted, winreg-based) across both the startup sync and the settings toggle,
-  verified over a real reboot (verification report §9). Fleet converged
-  2026-07-14: both machines verified on v1.0.1 over real reboots (report §9/§10;
-  the home PC's earlier "stopgap" turned out to be a container-overlay ghost —
-  §5c correction).
+  verified over a real reboot.
 
 ## Shipped in v1.2.0
 
@@ -128,7 +126,7 @@ inherited from a previous release.
 ## Deferred to a future release (was v1.0.2)
 
 - **Transcription-language control lost + display-locale clobber (FUNCTIONAL
-  GAP, found 2026-07-14 during home-PC acceptance; report §11).** The Task 10
+  GAP, found 2026-07-14 during acceptance testing).** The Task 10
   UI lockdown removed the only transcription-language picker, leaving the
   effective `lang` (localStorage `prefs_modal_args`) invisible and
   user-unreachable (`resetOptions()` orphaned). Sole surviving writer: changing
@@ -141,8 +139,8 @@ inherited from a previous release.
   never touch model lang. Until shipped: never change the display language;
   dictate Arabic or long-form English on `auto`.
 - **ffmpeg resolution pin** — the app-side recording conversion resolves
-  `ffmpeg` from PATH (observed using the scoop shim
-  `C:\Users\nasser\scoop\shims\ffmpeg.exe`) instead of the bundled
+  `ffmpeg` from PATH (observed picking up an unrelated `ffmpeg` shim) instead
+  of the bundled
   `ffmpeg.exe` next to the installed exe; Sona correctly gets the bundled one
   via `SONA_FFMPEG_PATH`. Pin the app-side lookup to the bundled binary so the
   audited install is self-contained and PATH drift can't change conversion

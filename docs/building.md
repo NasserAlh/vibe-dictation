@@ -18,7 +18,7 @@ shadowing it on PATH (e.g. GNU coreutils).
 ## Build
 
 Fetch the pinned Sona + ffmpeg Vulkan sidecars (pin: `.sona-version`; verify
-against `docs/superpowers/notes/sona-sidecar-sha256.txt`):
+against `docs/sona-sidecar-sha256.txt`):
 
 ```console
 uv run scripts/pre_build.py

@@ -3,7 +3,7 @@
 > **This fork:** models are placed manually (the app performs no downloads).
 > The models this fork actually uses are content-pinned — verify any downloaded
 > or copied file against
-> [superpowers/notes/model-sha256.txt](superpowers/notes/model-sha256.txt)
+> [model-sha256.txt](model-sha256.txt)
 > before first use. Deployment steps: [deployment.md](deployment.md).
 
 This page lists models compatible with the engine. **This fork downloads nothing
@@ -40,7 +40,7 @@ General-purpose; more accurate than small, lighter than large.
 ### 🚀 Large v3 — this fork's default
 
 High accuracy across English + Arabic; chosen by an A/B on real bilingual speech
-(see [superpowers/notes/model-ab-results.md](superpowers/notes/model-ab-results.md)).
+(chosen by A/B testing on real bilingual speech).
 
 [🔽 Direct Download](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin?download=true)
 
