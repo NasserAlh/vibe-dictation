@@ -92,5 +92,12 @@ pub fn type_text(text: String) -> Result<()> {
 
 #[tauri::command]
 pub fn get_cargo_features() -> Vec<String> {
-    Vec::new()
+    let mut features = Vec::new();
+    if cfg!(feature = "model-download") {
+        features.push("model-download".to_string());
+    }
+    if cfg!(feature = "keepawake") {
+        features.push("keepawake".to_string());
+    }
+    features
 }

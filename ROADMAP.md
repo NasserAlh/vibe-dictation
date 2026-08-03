@@ -4,7 +4,7 @@ Where Vibe Dictation is going. This is a personal project with no fixed
 schedule — items move when they move.
 
 Status key: **Planned** = intended, **Considering** = not decided, **Known
-issue** = a defect that exists today.
+issue** = a defect that exists today, **Shipped** = done, on main.
 
 ---
 
@@ -25,13 +25,9 @@ issue** = a defect that exists today.
 
 ## Planned
 
-- **Automatic model download option.** Models are placed by hand today. An
-  opt-in, clearly-labelled download would make first-run much easier. It has to
-  stay opt-in and off by default — the zero-egress guarantee is the point of the
-  project, so this would be the one deliberate exception and it must be visible.
 - **Better first-run experience.** Right now a new user installs, then has to
-  find a model, download 3 GB, and point the app at it. A guided first launch
-  would remove most of that.
+  fetch a model (via the opt-in in-app download or by hand) and select it. A
+  guided first launch would remove the remaining steps.
 - **Model management in Settings.** See which models are present, their size, and
   which one is active, without leaving the app.
 - **Show transcriptions in realtime.** Display the recognized text as you speak
@@ -66,6 +62,16 @@ issue** = a defect that exists today.
 - **A general-purpose transcription app.** This is a dictation tool. File
   transcription, subtitles, and batch processing are what upstream
   [Vibe](https://github.com/thewh1teagle/vibe) is for.
+
+## Shipped
+
+- **Automatic model download option** (2026-08). Settings → Select Model →
+  "Download a model". Opt-in per download: nothing is fetched without an
+  explicit confirmation naming the exact URL and size. The downloadable set is
+  exactly the two content-pinned models (large-v3, large-v3-turbo); the URL
+  prefix, redirect host allowlist, and SHA-256 pins are compile-time constants,
+  and a `--no-default-features` build removes the downloader entirely. The
+  deliberate — and only — exception to zero egress.
 
 ---
 

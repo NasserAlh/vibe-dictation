@@ -2,6 +2,7 @@ use serde::Serialize;
 pub mod app;
 pub mod audio;
 pub mod files;
+pub mod model_download_cmd;
 pub mod ollama_cmd;
 pub mod permissions;
 pub mod sona_cmd;

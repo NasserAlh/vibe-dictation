@@ -22,6 +22,12 @@ export function isModelFile(filename: string) {
 	return getModelExtension(filename) !== null
 }
 
+export function formatModelSize(bytes: number) {
+	const gib = bytes / 1024 ** 3
+	if (gib >= 1) return `${gib.toFixed(1)} GB`
+	return `${Math.round(bytes / 1024 ** 2)} MB`
+}
+
 export interface ModelCapabilities {
 	engine: 'whisper' | 'nemotron' | string
 	requires_vad: boolean

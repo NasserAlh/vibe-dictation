@@ -45,6 +45,8 @@ rand = "0.9.2"
 
 # HTTP client for sona communication
 reqwest = { version = "0.13", features = ["multipart", "stream", "json"] }
+# Streaming SHA-256 verification for the opt-in model downloader
+sha2 = { version = "0.10", optional = true }
 
 # Log
 tracing = { version = "0.1.44", features = ["log"] }
@@ -82,5 +84,9 @@ objc2 = "0.6.4"
 objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSWindow"] }
 
 [features]
-default = []
+default = ["model-download"]
 keepawake = ["dep:tauri-plugin-keepawake"]
+# The one deliberate exception to zero egress: the opt-in, content-pinned
+# model downloader (src/model_download.rs). Build with --no-default-features
+# to compile it out entirely.
+model-download = ["dep:sha2"]

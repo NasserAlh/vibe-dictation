@@ -27,7 +27,11 @@ inherited from a previous release.
    `Select-String -Path $exe -Pattern "aptabase","yt-dlp","ytdlp","anthropic","api.anthropic","github.com/thewh1teagle"`
    → zero matches; `"updater"` hits must be only the known h2/rustls/Win32
    substrings; **positive control** `"sona"` must hit (a clean audit must be
-   shown able to find something).
+   shown able to find something). `"huggingface.co"` is **expected** to hit —
+   it is the opt-in model downloader's pinned manifest
+   (`src/model_download.rs`, cargo feature `model-download`, in defaults);
+   confirm the hits are the manifest URL prefix and nothing else. A
+   `--no-default-features` build must have zero `huggingface.co` hits.
 2. **Install** (NSIS `/S`), launch, confirm the HKCU Run entry points at the
    installed exe (autostart preference-sync).
 3. **Netstat sampler** (~2 min, during live dictation): all sockets owned by
@@ -40,9 +44,13 @@ inherited from a previous release.
    LISTENING/ESTABLISHED-only polling misses it (v1.1.0 finding). Sample at
    ~1 s intervals and include TIME_WAIT rows (client trace remains visible
    for ~1–2 min after close; its PID column shows 0 by design).
+   Run the sample with **no model download in progress** — a user-initiated
+   download is the one permitted non-loopback connection (`huggingface.co` /
+   `*.hf.co` CDN over 443) and exists only for the download's duration.
 4. **Firewall**: outbound-block rules for the installed `vibe.exe` + `sona.exe`
    exist (recreate if the install path changed); dictation still works under
-   the block.
+   the block. A model download attempted under the block must fail cleanly
+   (error dialog, `.part` file removed) without affecting dictation.
 5. **Functional**: one English + one Arabic dictation into MS Word (reference
    target; Windows 11 Notepad is a known-bad injection target); latency within
    ~2 s of key release after warmup.
@@ -64,6 +72,22 @@ inherited from a previous release.
   `..\releases\vibe-dictation\<tag>\` — outside `target/`, so `cargo clean`
   cannot remove it — and verify the copy's hash.
 - Tag the release commit (`vX.Y.Z`) and push with tags.
+
+## Unreleased (next release)
+
+- **Opt-in model downloader** (`src/model_download.rs`,
+  `cmd/model_download_cmd.rs`, Settings → Select Model → "Download a model") —
+  the one deliberate exception to zero egress. Per-download confirmation
+  dialog naming the exact URL and size; manifest limited to the two
+  content-pinned models with a compile-time URL prefix, redirect host
+  allowlist (`huggingface.co` / `*.hf.co`), and SHA-256 pins cross-checked
+  against `docs/model-sha256.txt` by a unit test. Streams to a `.part` file,
+  verifies size + hash before moving the file into the models folder, and
+  removes partials on cancel or failure. Cargo feature `model-download` (in
+  defaults); `--no-default-features` deletes the path entirely. Verification
+  impact: strings audit now expects `huggingface.co` (step 1), the netstat
+  sample must run with no download in progress (step 3), and under the
+  firewall block a download fails cleanly while dictation works (step 4).
 
 ## Resolved in v1.0.1
 

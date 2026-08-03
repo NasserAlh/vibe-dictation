@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { Copy, FolderOpen, PencilLine } from 'lucide-react'
+import { Copy, Download, FolderOpen, PencilLine } from 'lucide-react'
 import * as clipboard from '@tauri-apps/plugin-clipboard-manager'
 import { m } from '~/paraglide/messages.js'
 import { ReactComponent as FolderIcon } from '~/icons/folder.svg'
 import { ReactComponent as WrenchIcon } from '~/icons/wrench.svg'
+import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
+import { Progress } from '~/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { SectionCard, type SettingsViewModel } from './shared'
-import { getFriendlyModelName } from '~/lib/model'
+import { formatModelSize, getFriendlyModelName } from '~/lib/model'
 
 function ModelsEmptyState({ folder, onOpen }: { folder: string; onOpen: () => void }) {
 	const [copied, setCopied] = useState(false)
@@ -47,6 +49,56 @@ function ModelsEmptyState({ folder, onOpen }: { folder: string; onOpen: () => vo
 			</div>
 			<p className="text-xs text-muted-foreground">{m.modelsEmptyDocsHint()}</p>
 		</div>
+	)
+}
+
+function ModelDownloadCard({ vm }: { vm: SettingsViewModel }) {
+	// Empty when the binary was built without the model-download cargo feature.
+	if (vm.downloadableModels.length === 0) return null
+
+	return (
+		<SectionCard>
+			<div className="space-y-4">
+				<div className="space-y-1">
+					<Label>{m.modelDownloadTitle()}</Label>
+					<p className="text-xs text-muted-foreground">{m.modelDownloadPrivacyNote()}</p>
+				</div>
+				{vm.downloadableModels.map((model) => {
+					const active = vm.modelDownload?.id === model.id
+					const percent = active && vm.modelDownload ? Math.min(100, Math.floor((vm.modelDownload.downloaded / vm.modelDownload.total) * 100)) : 0
+					return (
+						<div key={model.id} className="space-y-2 rounded-lg border border-border/60 bg-muted/40 p-3">
+							<div className="flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<div className="flex items-center gap-2 text-sm font-medium">
+										{getFriendlyModelName(model.filename)}
+										{model.isDefault && <Badge variant="secondary">{m.modelDownloadDefault()}</Badge>}
+									</div>
+									<p className="text-xs text-muted-foreground">{formatModelSize(model.sizeBytes)}</p>
+								</div>
+								{model.installed ? (
+									<span className="text-xs font-medium text-muted-foreground">{m.modelDownloadInstalled()}</span>
+								) : active ? (
+									<Button variant="ghost" size="sm" onClick={vm.cancelModelDownload}>
+										{m.cancel()}
+									</Button>
+								) : (
+									<Button size="sm" onClick={() => vm.startModelDownload(model)} disabled={vm.modelDownload != null}>
+										<Download className="size-3.5" /> {m.modelDownloadAction()}
+									</Button>
+								)}
+							</div>
+							{active && (
+								<div className="flex items-center gap-2">
+									<Progress value={percent} className="flex-1" />
+									<span className="w-10 text-end font-mono text-xs text-muted-foreground">{percent}%</span>
+								</div>
+							)}
+						</div>
+					)
+				})}
+			</div>
+		</SectionCard>
 	)
 }
 
@@ -164,6 +216,8 @@ export function ModelsSection({ vm }: { vm: SettingsViewModel }) {
 									</div>
 								</div>
 							</SectionCard>
+
+							<ModelDownloadCard vm={vm} />
 
 						</div>
 	)

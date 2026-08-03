@@ -16,7 +16,11 @@ typed at the cursor (or copied to the clipboard). Everything runs on-device.
   upstream app (analytics, auto-updater, model download, deep-link, YouTube/yt-dlp,
   LLM summarization, HTTP plugin) is removed at compile time; the only socket the
   running app opens is loopback to its local speech engine, and permanent Windows
-  Firewall outbound-block rules sit on top. Every release is re-verified by hand:
+  Firewall outbound-block rules sit on top. The one deliberate exception is the
+  opt-in model downloader: nothing is fetched without a per-download
+  confirmation, it can reach only huggingface.co (compile-time pinned URLs and
+  SHA-256 hashes), and a `--no-default-features` build removes it entirely.
+  Every release is re-verified by hand:
   a strings audit of the shipped binary, loopback-only netstat sampling during
   live dictation, and a dictate-under-firewall-block test (see
   [RELEASING.md](RELEASING.md)).
@@ -49,9 +53,11 @@ pnpm exec tauri dev              # develop
 pnpm exec tauri build            # NSIS installer
 ```
 
-Models are placed **manually** (the app performs no downloads): drop a Whisper
-`ggml-*.bin` into the app's models folder (Settings → Select Model → Models
-Folder). See [docs/models.md](docs/models.md) for sources.
+Models are placed **manually** — drop a Whisper `ggml-*.bin` into the app's
+models folder (Settings → Select Model → Models Folder) — or fetched with the
+opt-in in-app downloader (Settings → Select Model → "Download a model";
+per-download confirmation, limited to the two content-pinned models, SHA-256
+verified). See [docs/models.md](docs/models.md) for sources.
 
 Releases follow [RELEASING.md](RELEASING.md) — every artifact re-runs the full
 zero-egress verification (strings audit, loopback netstat, firewall test) before

@@ -17,9 +17,15 @@ trusted from a config flag. The only sockets the running app opens are loopback:
 local Sona speech engine, and — only when the opt-in LLM-formatting setting is enabled —
 to a user-run local Ollama server ([desktop/src-tauri/src/ollama.rs](desktop/src-tauri/src/ollama.rs);
 host is a compile-time `127.0.0.1` constant, only the port is configurable).
+The one deliberate non-loopback exception is the opt-in model downloader
+([desktop/src-tauri/src/model_download.rs](desktop/src-tauri/src/model_download.rs)):
+nothing is fetched without a per-download confirmation in the UI; the URL prefix,
+redirect host allowlist (huggingface.co / *.hf.co), and per-file SHA-256 pins are
+compile-time constants; and the whole path is behind the `model-download` cargo
+feature (in defaults — `--no-default-features` deletes it from the binary).
 When touching Rust deps, the frontend, or Tauri plugins, do
-not reintroduce anything that can open an external connection — any dependency change
-requires the full re-verification pass in [RELEASING.md](RELEASING.md). The removed components are: analytics, the auto-updater, model
+not reintroduce anything else that can open an external connection — any dependency change
+requires the full re-verification pass in [RELEASING.md](RELEASING.md). The removed components are: analytics, the auto-updater, upstream's model
 downloading, deep links, YouTube/yt-dlp ingestion, LLM summarisation, and the
 HTTP plugin.
 
@@ -76,8 +82,8 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
 - [main.rs](desktop/src-tauri/src/main.rs) — Tauri builder, plugin registration, the full
   `invoke_handler!` command list, and Sona-process teardown on exit.
 - [cmd/](desktop/src-tauri/src/cmd/) — all `#[tauri::command]` handlers, grouped by area
-  (`app`, `audio`, `files`, `ollama_cmd`, `permissions`, `sona_cmd`, `transcribe`, `ui`).
-  This is the Rust↔frontend API surface.
+  (`app`, `audio`, `files`, `model_download_cmd`, `ollama_cmd`, `permissions`,
+  `sona_cmd`, `transcribe`, `ui`). This is the Rust↔frontend API surface.
 - [sona/](desktop/src-tauri/src/sona/) — sidecar lifecycle (`process.rs`), HTTP client and
   event stream (`mod.rs`), GPU device enumeration (`devices.rs`), tests (`tests.rs`).
 - [ollama.rs](desktop/src-tauri/src/ollama.rs) — loopback-only client for the optional
@@ -87,6 +93,13 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
   AND re-checked at format time — they would send dictations off-device.
 - [setup.rs](desktop/src-tauri/src/setup.rs) holds `SonaState` (the managed process
   handle); [config.rs](desktop/src-tauri/src/config.rs) has store filename / log constants.
+- [autostart.rs](desktop/src-tauri/src/autostart.rs) — quoted-path Run-entry write
+  (see Autostart quirk below); [model_download.rs](desktop/src-tauri/src/model_download.rs)
+  is the opt-in content-pinned downloader behind the `model-download` feature.
+- Other modules: [cleaner.rs](desktop/src-tauri/src/cleaner.rs) (temp-file cleanup),
+  [ffmpeg.rs](desktop/src-tauri/src/ffmpeg.rs) (ffmpeg binary discovery),
+  [logging.rs](desktop/src-tauri/src/logging.rs), [transcript.rs](desktop/src-tauri/src/transcript.rs),
+  [dictation_indicator.rs](desktop/src-tauri/src/dictation_indicator.rs) (floating status window).
 
 ### Autostart quirk (read before touching main.rs setup)
 
@@ -95,6 +108,18 @@ Autostart syncs to the stored preference on every launch, but **only in release 
 release share the same store identifier, so a dev instance would point login-autostart at
 a transient `target\debug` exe. See the comment at
 [main.rs:44-77](desktop/src-tauri/src/main.rs#L44-L77).
+
+### Frontend layout
+
+- [desktop/src/providers/hotkey.tsx](desktop/src/providers/hotkey.tsx) — core dictation loop
+  (hotkey → mic → transcribe → inject).
+- [desktop/src/providers/preference.tsx](desktop/src/providers/preference.tsx) — settings
+  store provider (output mode, LLM formatting, activation mode, language prefs).
+- [desktop/src/pages/](desktop/src/pages/) — two pages: `dictation-home` (main UI) and
+  `settings`.
+- [desktop/src/components/](desktop/src/components/) — shared UI components; `ui/` is
+  shadcn/ui primitives.
+- Styling: Tailwind v4 with `tailwindcss-animate`; `next-themes` for dark mode.
 
 ## Common commands
 
@@ -121,7 +146,7 @@ cargo fmt && cargo clippy            # Rust format + lint
 pnpm test                            # frontend (vitest); from desktop/
 pnpm test -- <file-or-name>          # single frontend test
 pnpm exec tsc --noEmit -p tsconfig.json
-pnpm exec eslint .
+pnpm lint                            # or: pnpm exec eslint .
 uv run scripts/check_i18n.py         # locale key parity; from repo ROOT
 ```
 
@@ -138,9 +163,13 @@ parity across locales.
 - **Sidecar is content-pinned.** [.sona-version](.sona-version) picks the tag; the SHA-256
   is verified against `docs/sona-sidecar-sha256.txt` on every fetch. The
   bundled engine is auditable by content, not just tag.
-- **Models are placed manually** — the app performs *no downloads*. Drop a Whisper
-  `ggml-*.bin` into the models folder (Settings → Select Model → Models Folder). Default is
-  Whisper `large-v3` (chosen by A/B on real bilingual speech). See [docs/models.md](docs/models.md).
+- **Models are placed manually or via the opt-in pinned downloader.** Manual: drop a
+  Whisper `ggml-*.bin` into the models folder (Settings → Select Model → Models Folder).
+  Downloader: Settings → Select Model → "Download a model" — limited to the two
+  content-pinned models, per-download confirmation, SHA-256 verified against
+  compile-time pins that a unit test keeps in lockstep with
+  [docs/model-sha256.txt](docs/model-sha256.txt). Default is Whisper `large-v3`
+  (chosen by A/B on real bilingual speech). See [docs/models.md](docs/models.md).
 - **GPU:** Vulkan (covers both NVIDIA and AMD); no CUDA path.
 - **Rust crate is still named `vibe`** ([Cargo.toml](desktop/src-tauri/Cargo.toml)) and the
   log directive is `vibe=DEBUG`; the Tauri identifier is `net.nasserhub.dictation`. Debug an

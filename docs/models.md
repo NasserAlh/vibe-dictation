@@ -1,16 +1,19 @@
 # 🌟 Vibe Dictation Models 🌟
 
-> **This fork:** models are placed manually (the app performs no downloads).
-> The models this fork actually uses are content-pinned — verify any downloaded
-> or copied file against
-> [model-sha256.txt](model-sha256.txt)
-> before first use. Deployment steps: [deployment.md](deployment.md).
+> **This fork:** models are placed manually, or fetched with the **opt-in
+> in-app downloader** (Settings → Select Model → "Download a model") — the one
+> deliberate exception to zero egress. The downloader covers exactly the two
+> content-pinned models (Large v3, Large v3 Turbo); it connects only to
+> huggingface.co, only after an explicit per-download confirmation, and
+> verifies the pinned SHA-256 from [model-sha256.txt](model-sha256.txt) before
+> the file is used. Verify manually downloaded or copied files against the
+> same pins. Deployment steps: [deployment.md](deployment.md).
 
-This page lists models compatible with the engine. **This fork downloads nothing
-and has no "Magic Setup" or in-app download.** To add a model: open a **Direct
-Download** link below in a browser, save the `ggml-*.bin` (or `.gguf`) file,
-verify its hash where pinned, and drop it into the models folder (Settings →
-Select Model → Models Folder). The default is **Large v3**.
+This page lists models compatible with the engine. Apart from the opt-in
+downloader above, the app fetches nothing. To add any other model: open a
+**Direct Download** link below in a browser, save the `ggml-*.bin` (or `.gguf`)
+file, verify its hash where pinned, and drop it into the models folder
+(Settings → Select Model → Models Folder). The default is **Large v3**.
 
 Quantized variants (`q5_0`, `q8_0`, `Q4_K_M`, …) are smaller and use less VRAM;
 they are placed the same way — useful on lower-VRAM machines. Grab one from the

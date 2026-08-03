@@ -11,6 +11,8 @@ mod dictation_indicator;
 mod error;
 mod ffmpeg;
 mod logging;
+#[cfg(feature = "model-download")]
+mod model_download;
 mod ollama;
 mod setup;
 mod sona;
@@ -131,6 +133,9 @@ async fn main() -> Result<()> {
             cmd::app::type_text,
             cmd::ollama_cmd::ollama_list_models,
             cmd::ollama_cmd::ollama_format_text,
+            cmd::model_download_cmd::list_downloadable_models,
+            cmd::model_download_cmd::download_model,
+            cmd::model_download_cmd::cancel_model_download,
             autostart::set_autostart,
             cmd::permissions::request_system_audio_permission,
             cmd::permissions::open_system_audio_settings,

@@ -1,0 +1,2 @@
+[permissions]
+allow = ["Edit", "Bash=cd \"C:\\Users\\nasser\\Dev\\vibe-dictation\\desktop\\src-tauri\" && cargo test 2>&1", "Bash=cd \"C:\\Users\\nasser\\Dev\\vibe-dictation\\desktop\" && pnpm exec tsc --noEmit -p tsconfig.json 2>&1", "Bash=cd \"C:\\Users\\nasser\\Dev\\vibe-dictation\\desktop\" && pnpm test 2>&1", "Bash=cd \"C:\\Users\\nasser\\Dev\\vibe-dictation\" && uv run scripts/check_i18n.py 2>&1", "Bash=cd \"C:\\Users\\nasser\\Dev\\vibe-dictation\\desktop\\src-tauri\" && cargo test model_download::tests::live_http_roundtrip_to_huggingface -- --nocapture 2>&1"]

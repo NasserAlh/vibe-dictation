@@ -15,7 +15,15 @@ import { UnlistenFn, listen } from '@tauri-apps/api/event'
 import { load } from '@tauri-apps/plugin-store'
 import { useStoreValue } from '~/lib/use-store-value'
 import { getPrettyVersion } from '~/lib/logs'
-import { isModelFile, type ModelMetadata } from '~/lib/model'
+import { formatModelSize, isModelFile, type ModelMetadata } from '~/lib/model'
+import {
+	cancelModelDownload as invokeCancelModelDownload,
+	downloadModel,
+	listDownloadableModels,
+	modelDownloadProgressEvent,
+	type DownloadableModel,
+	type ModelDownloadProgress,
+} from '~/lib/model-download'
 
 export interface GpuDevice {
 	index: number
@@ -60,6 +68,11 @@ export function viewModel() {
 	const [models, setModels] = useState<NamedPath[]>([])
 	const [modelsFolderPath, setModelsFolderPath] = useState('')
 	const [modelsLoaded, setModelsLoaded] = useState(false)
+	const [downloadableModels, setDownloadableModels] = useState<DownloadableModel[]>([])
+	const [modelDownload, setModelDownload] = useState<ModelDownloadProgress | null>(null)
+	// Progress events race the invoke resolution over IPC; without this guard a
+	// final event landing after cleanup would resurrect the progress bar.
+	const modelDownloadActiveRef = useRef(false)
 	const [appVersion, setAppVersion] = useState('')
 	const preference = usePreferenceProvider()
 	const listenersRef = useRef<UnlistenFn[]>([])
@@ -155,6 +168,52 @@ export function viewModel() {
 		preference.setModelPath(modelPath)
 	}
 
+	async function loadDownloadableModels() {
+		try {
+			setDownloadableModels(await listDownloadableModels())
+		} catch (error) {
+			console.error(error)
+			setDownloadableModels([])
+		}
+	}
+
+	async function startModelDownload(model: DownloadableModel) {
+		const yes = await ask(m.modelDownloadConfirmBody({ size: formatModelSize(model.sizeBytes), url: model.url }), {
+			title: m.modelDownloadConfirmTitle(),
+			kind: 'warning',
+		})
+		if (!yes) return
+		modelDownloadActiveRef.current = true
+		setModelDownload({ id: model.id, downloaded: 0, total: model.sizeBytes })
+		try {
+			const path = await downloadModel(model.id)
+			if (path) {
+				await loadModels()
+				if (!preference.modelPath) await selectModel(path)
+			}
+		} catch (error) {
+			console.error(error)
+			const detail = (error as { message?: string })?.message ?? String(error)
+			await message(detail, { title: m.modelDownloadFailedTitle(), kind: 'error' })
+		} finally {
+			modelDownloadActiveRef.current = false
+			setModelDownload(null)
+			await loadDownloadableModels()
+		}
+	}
+
+	function cancelModelDownload() {
+		invokeCancelModelDownload().catch(console.error)
+	}
+
+	async function onModelDownloadProgress() {
+		listenersRef.current.push(
+			await listen<ModelDownloadProgress>(modelDownloadProgressEvent, (event) => {
+				if (modelDownloadActiveRef.current) setModelDownload(event.payload)
+			}),
+		)
+	}
+
 	async function changeModelsFolder() {
 		const path = await open({ directory: true, multiple: false })
 		if (path) {
@@ -185,6 +244,8 @@ export function viewModel() {
 		loadModels()
 		getDefaultModel()
 		loadGpuDevices()
+		loadDownloadableModels()
+		onModelDownloadProgress()
 		onWindowFocus()
 		return () => {
 			listenersRef.current.forEach((unlisten) => unlisten())
@@ -208,6 +269,10 @@ export function viewModel() {
 		loadModels,
 		selectModel,
 		changeModelsFolder,
+		downloadableModels,
+		modelDownload,
+		startModelDownload,
+		cancelModelDownload,
 		gpuDevices,
 		isMacOS,
 	}
