@@ -2,11 +2,12 @@ use crate::ffmpeg::get_vibe_temp_folder;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, FromSample, Sample, SizedSample, Stream, SupportedStreamConfig};
 use eyre::{bail, eyre, Context, ContextCompat, Result};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
@@ -14,6 +15,50 @@ use crate::error::LogError;
 use crate::ffmpeg::{get_local_time, random_string};
 
 type WavWriterHandle = Arc<Mutex<Option<hound::WavWriter<BufWriter<File>>>>>;
+
+/// Below this much audio a snapshot is pointless — whisper has nothing to say.
+const LIVE_MIN_SECONDS: f64 = 0.4;
+/// Hallucination gate for live partials: whisper reliably invents phrases
+/// ("Thank you.") when fed silence, and the first tick after the hotkey goes
+/// down is mostly silence until the speaker starts. Until the buffer contains
+/// at least one sample this loud, no snapshot is produced. Partials only —
+/// the final pass is never gated.
+const LIVE_MIN_PEAK: f32 = 0.03;
+/// Memory cap for the live buffer (~10 min mono @48 kHz ≈ 115 MB). Past it the
+/// preview freezes at the cap; the WAV writer keeps recording unaffected.
+const LIVE_MAX_SECONDS: usize = 600;
+
+/// In-memory copy of the samples of the recording in progress, filled by the
+/// audio callback when the live transcription preview is on. Feeds
+/// `snapshot_live_recording`, which the frontend re-transcribes every couple
+/// of seconds for the dictation indicator.
+struct LiveCapture {
+    samples: Vec<f32>,
+    sample_rate: u32,
+    channels: u16,
+    max_samples: usize,
+    last_snapshot: Option<PathBuf>,
+    /// Sample count at the moment of the last snapshot. A new snapshot is
+    /// only produced when the audio past this point contains speech — whisper
+    /// re-fed the same speech plus more silence can only hallucinate a
+    /// continuation (live-test finding, 2026-08-09: "Watermelon" + 25 s of
+    /// silence grew a phantom "Thank you").
+    snapshot_len: usize,
+}
+
+type LiveCaptureHandle = Arc<Mutex<Option<LiveCapture>>>;
+
+static LIVE_CAPTURE: Lazy<LiveCaptureHandle> = Lazy::new(|| Arc::new(Mutex::new(None)));
+
+fn clear_live_capture() {
+    if let Ok(mut guard) = LIVE_CAPTURE.lock() {
+        if let Some(capture) = guard.take() {
+            if let Some(path) = capture.last_snapshot {
+                let _ = std::fs::remove_file(path);
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,6 +116,7 @@ pub async fn start_record(
     store_in_documents: bool,
     custom_path: Option<String>,
     recording_name: Option<String>,
+    capture_live: Option<bool>,
 ) -> Result<()> {
     let host = cpal::default_host();
 
@@ -78,7 +124,10 @@ pub async fn start_record(
     let mut stream_handles = Vec::new();
     let mut stream_writers = Vec::new();
 
-    for device in devices {
+    let live_enabled = capture_live.unwrap_or(false);
+    clear_live_capture();
+
+    for (device_index, device) in devices.into_iter().enumerate() {
         tracing::debug!("Recording from device: {}", device.name);
         tracing::debug!("Device ID: {}", device.id);
 
@@ -102,7 +151,25 @@ pub async fn start_record(
         stream_writers.push(writer.clone());
         let writer_2 = writer.clone();
 
-        let stream = build_input_stream(&device, config, writer_2)?;
+        // Live preview taps only the first device — hotkey dictation records
+        // exactly one (the default input).
+        let live = if live_enabled && device_index == 0 {
+            if let Ok(mut guard) = LIVE_CAPTURE.lock() {
+                *guard = Some(LiveCapture {
+                    samples: Vec::new(),
+                    sample_rate: spec.sample_rate,
+                    channels: spec.channels,
+                    max_samples: spec.sample_rate as usize * spec.channels as usize * LIVE_MAX_SECONDS,
+                    last_snapshot: None,
+                    snapshot_len: 0,
+                });
+            }
+            Some(LIVE_CAPTURE.clone())
+        } else {
+            None
+        };
+
+        let stream = build_input_stream(&device, config, writer_2, live)?;
         stream.play()?;
         tracing::debug!("Stream started playing");
 
@@ -113,6 +180,7 @@ pub async fn start_record(
 
     let app_handle_clone = app_handle.clone();
     app_handle.once("stop_record", move |_event| {
+        clear_live_capture();
         for (i, stream_handle) in stream_handles.iter().enumerate() {
             let stream_handle = stream_handle.lock().map_err(|e| eyre!("{:?}", e)).log_error();
             if let Some(mut stream_handle) = stream_handle {
@@ -236,27 +304,141 @@ fn get_output_device_and_config(host: &cpal::Host, audio_device: &AudioDevice) -
     }
 }
 
-fn build_input_stream_typed<T>(device: &Device, config: SupportedStreamConfig, writer: WavWriterHandle) -> Result<Stream>
+fn build_input_stream_typed<T>(
+    device: &Device,
+    config: SupportedStreamConfig,
+    writer: WavWriterHandle,
+    live: Option<LiveCaptureHandle>,
+) -> Result<Stream>
 where
     T: SizedSample + hound::Sample + FromSample<T> + Mul<Output = T> + Copy,
+    f32: FromSample<T>,
 {
     let stream = device.build_input_stream(
         config.into(),
-        move |data: &[T], _: &_| write_input_data::<T, T>(data, &writer),
+        move |data: &[T], _: &_| {
+            write_input_data::<T, T>(data, &writer);
+            if let Some(ref live) = live {
+                append_live_samples(data, live);
+            }
+        },
         |err| tracing::error!("An error occurred on stream: {}", err),
         None,
     )?;
     Ok(stream)
 }
 
-fn build_input_stream(device: &Device, config: SupportedStreamConfig, writer: WavWriterHandle) -> Result<Stream> {
+fn build_input_stream(
+    device: &Device,
+    config: SupportedStreamConfig,
+    writer: WavWriterHandle,
+    live: Option<LiveCaptureHandle>,
+) -> Result<Stream> {
     match config.sample_format() {
-        cpal::SampleFormat::I8 => build_input_stream_typed::<i8>(device, config, writer),
-        cpal::SampleFormat::I16 => build_input_stream_typed::<i16>(device, config, writer),
-        cpal::SampleFormat::I32 => build_input_stream_typed::<i32>(device, config, writer),
-        cpal::SampleFormat::F32 => build_input_stream_typed::<f32>(device, config, writer),
+        cpal::SampleFormat::I8 => build_input_stream_typed::<i8>(device, config, writer, live),
+        cpal::SampleFormat::I16 => build_input_stream_typed::<i16>(device, config, writer, live),
+        cpal::SampleFormat::I32 => build_input_stream_typed::<i32>(device, config, writer, live),
+        cpal::SampleFormat::F32 => build_input_stream_typed::<f32>(device, config, writer, live),
         sample_format => bail!("Unsupported sample format '{}'", sample_format),
     }
+}
+
+fn append_live_samples<T>(input: &[T], live: &LiveCaptureHandle)
+where
+    T: Sample + Copy,
+    f32: FromSample<T>,
+{
+    // try_lock like the WAV writer above: never block the audio callback.
+    if let Ok(mut guard) = live.try_lock() {
+        if let Some(capture) = guard.as_mut() {
+            let room = capture.max_samples.saturating_sub(capture.samples.len());
+            for &sample in input.iter().take(room) {
+                capture.samples.push(f32::from_sample(sample));
+            }
+        }
+    }
+}
+
+fn has_speech_energy(samples: &[f32]) -> bool {
+    samples.iter().any(|sample| sample.abs() >= LIVE_MIN_PEAK)
+}
+
+fn write_live_wav(samples: &[f32], sample_rate: u32, channels: u16, path: &Path) -> Result<()> {
+    let spec = hound::WavSpec {
+        channels,
+        sample_rate,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).context("failed to create live snapshot wav")?;
+    for sample in samples {
+        writer.write_sample(*sample).context("failed to write live snapshot sample")?;
+    }
+    writer.finalize().context("failed to finalize live snapshot wav")?;
+    Ok(())
+}
+
+/// Writes the live-capture buffer to a fresh 16 kHz mono WAV for a partial
+/// transcription pass. Returns `None` when live capture is off or the buffer
+/// is still too short. The previous snapshot is deleted here — the frontend
+/// requests snapshots strictly one at a time, after the previous partial
+/// transcription finished, so sona is done reading it.
+#[tauri::command]
+pub async fn snapshot_live_recording() -> Result<Option<String>> {
+    let (samples, sample_rate, channels, previous) = {
+        let mut guard = LIVE_CAPTURE.lock().map_err(|e| eyre!("{e:?}"))?;
+        let Some(capture) = guard.as_mut() else {
+            return Ok(None);
+        };
+        let min_samples = (capture.sample_rate as f64 * capture.channels as f64 * LIVE_MIN_SECONDS) as usize;
+        if capture.samples.len() < min_samples {
+            return Ok(None);
+        }
+        // Tail-energy gate: transcribe only when speech arrived since the
+        // last snapshot. Covers both the pre-speech case (first tail is the
+        // whole buffer) and mid-dictation silence, where a re-transcription
+        // could only append hallucinated text — and would waste GPU.
+        if !has_speech_energy(&capture.samples[capture.snapshot_len.min(capture.samples.len())..]) {
+            return Ok(None);
+        }
+        (
+            capture.samples.clone(),
+            capture.sample_rate,
+            capture.channels,
+            capture.last_snapshot.take(),
+        )
+    };
+    let covered_len = samples.len();
+    let normalized = tokio::task::spawn_blocking(move || -> Result<PathBuf> {
+        if let Some(previous) = previous {
+            let _ = std::fs::remove_file(previous);
+        }
+        let temp_dir = get_vibe_temp_folder();
+        let raw = temp_dir.join(format!("live_raw_{}.wav", random_string(8)));
+        write_live_wav(&samples, sample_rate, channels, &raw)?;
+        let normalized = temp_dir.join(format!("live_{}.wav", random_string(8)));
+        let converted = crate::ffmpeg::normalize(raw.clone(), normalized.clone(), None);
+        let _ = std::fs::remove_file(&raw);
+        converted?;
+        Ok(normalized)
+    })
+    .await
+    .map_err(|e| eyre!("live snapshot task failed: {e}"))??;
+    {
+        let mut guard = LIVE_CAPTURE.lock().map_err(|e| eyre!("{e:?}"))?;
+        match guard.as_mut() {
+            Some(capture) => {
+                capture.last_snapshot = Some(normalized.clone());
+                capture.snapshot_len = covered_len;
+            }
+            None => {
+                // Recording stopped while the snapshot was being written.
+                let _ = std::fs::remove_file(&normalized);
+                return Ok(None);
+            }
+        }
+    }
+    Ok(Some(normalized.to_string_lossy().to_string()))
 }
 
 fn sample_format(format: cpal::SampleFormat) -> hound::SampleFormat {
@@ -290,5 +472,43 @@ where
                 writer.write_sample(sample).ok();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{has_speech_energy, write_live_wav};
+
+    #[test]
+    fn silence_and_noise_floor_have_no_speech_energy() {
+        let silence = vec![0.0f32; 16000];
+        assert!(!has_speech_energy(&silence));
+        // Typical idle mic noise floor sits well under the gate.
+        let noise: Vec<f32> = (0..16000).map(|i| if i % 2 == 0 { 0.008 } else { -0.008 }).collect();
+        assert!(!has_speech_energy(&noise));
+    }
+
+    #[test]
+    fn speech_level_samples_pass_the_gate() {
+        let mut samples = vec![0.0f32; 16000];
+        samples[8000] = 0.2; // one vowel-level peak is enough
+        assert!(has_speech_energy(&samples));
+        let negative_peak = vec![0.0f32, -0.5, 0.0];
+        assert!(has_speech_energy(&negative_peak));
+    }
+
+    #[test]
+    fn live_wav_roundtrip() {
+        let samples: Vec<f32> = (0..1600).map(|i| ((i as f32) / 1600.0) - 0.5).collect();
+        let path = std::env::temp_dir().join(format!("vibe_live_wav_test_{}.wav", std::process::id()));
+        write_live_wav(&samples, 16000, 1, &path).unwrap();
+        let mut reader = hound::WavReader::open(&path).unwrap();
+        let spec = reader.spec();
+        assert_eq!(spec.sample_rate, 16000);
+        assert_eq!(spec.channels, 1);
+        assert_eq!(spec.sample_format, hound::SampleFormat::Float);
+        let read: Vec<f32> = reader.samples::<f32>().map(|sample| sample.unwrap()).collect();
+        assert_eq!(read, samples);
+        let _ = std::fs::remove_file(&path);
     }
 }

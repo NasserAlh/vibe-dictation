@@ -87,6 +87,13 @@ export function DictationSection() {
 												</span>
 												<Switch checked={indicatorEnabled} onCheckedChange={changeIndicatorEnabled} />
 											</div>
+											<div className="flex items-center justify-between gap-3">
+												<span className="flex items-center gap-1 text-sm font-medium">
+													<InfoTooltip text={m.liveDictationSettingInfo()} />
+													{m.liveDictationSetting()}
+												</span>
+												<Switch checked={hotkey.hotkeyLiveDictation} onCheckedChange={hotkey.setHotkeyLiveDictation} disabled={hotkey.hotkeyOutputMode !== 'type'} />
+											</div>
 											<div className="h-px bg-border/45" />
 											<Field label={m.hotkeyActivationMode()}>
 												<div className="flex gap-2">
@@ -180,6 +187,23 @@ export function DictationSection() {
 												</span>
 												<Switch checked={hotkey.hotkeyNormalizeOutput} onCheckedChange={hotkey.setHotkeyNormalizeOutput} />
 											</div>
+
+											<div className="h-px bg-border/45" />
+
+											<Field
+												label={
+													<span className="flex items-center gap-1">
+														<InfoTooltip text={m.vocabularySettingInfo()} />
+														{m.vocabularySetting()}
+													</span>
+												}>
+												<Textarea
+													rows={5}
+													placeholder={m.vocabularyPlaceholder()}
+													value={hotkey.hotkeyVocabulary}
+													onChange={(e) => hotkey.setHotkeyVocabulary(e.target.value)}
+												/>
+											</Field>
 
 											<div className="h-px bg-border/45" />
 

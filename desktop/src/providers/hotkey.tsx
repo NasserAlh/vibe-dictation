@@ -9,13 +9,18 @@ import * as transcript from '~/lib/transcript'
 import { usePreferenceProvider } from '~/providers/preference'
 import { m } from '~/paraglide/messages.js'
 import { hideDictationIndicator, showDictationIndicator } from '~/lib/dictation-indicator'
+import { injectionDiff, isLikelyPartialHallucination, stableLivePrefix } from '~/lib/live-typing'
+import { applyCorrections, parseVocabulary, vocabularyPrompt, type Vocabulary } from '~/lib/vocabulary'
 import * as config from '~/lib/config'
 import { defaultLlmFormatPrompt, defaultOllamaPort, formatWithOllama } from '~/lib/ollama'
 import { forcedLangOptions, type DictationLang } from '~/lib/dictation-lang'
 import { acceleratorsCollide } from '~/lib/accelerator'
 
-export const DEFAULT_HOTKEY_SHORTCUT = 'CmdOrCtrl+Shift+Space'
-export const DEFAULT_HOTKEY_SHORTCUT_AR = 'CmdOrCtrl+Alt+Space'
+// Single keys, not chords — this is a dictation tool held down while
+// speaking; a three-key combination is hostile to that. Stored prefs
+// (localStorage) override these, so existing profiles keep their choice.
+export const DEFAULT_HOTKEY_SHORTCUT = 'F9'
+export const DEFAULT_HOTKEY_SHORTCUT_AR = 'F10'
 
 export type HotkeyOutputMode = 'clipboard' | 'type'
 export type HotkeyActivationMode = 'push-to-talk' | 'toggle'
@@ -41,6 +46,10 @@ interface HotkeyContextType {
 	setHotkeyLlmPrompt: (prompt: string) => void
 	hotkeyLlmPort: number
 	setHotkeyLlmPort: (port: number) => void
+	hotkeyLiveDictation: boolean
+	setHotkeyLiveDictation: (enabled: boolean) => void
+	hotkeyVocabulary: string
+	setHotkeyVocabulary: (vocabulary: string) => void
 	isHotkeyRecording: boolean
 }
 
@@ -91,6 +100,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const [hotkeyLlmModel, setHotkeyLlmModel] = useLocalStorage('prefs_hotkey_llm_model', '')
 	const [hotkeyLlmPrompt, setHotkeyLlmPrompt] = useLocalStorage('prefs_hotkey_llm_prompt', defaultLlmFormatPrompt)
 	const [hotkeyLlmPort, setHotkeyLlmPort] = useLocalStorage('prefs_hotkey_llm_port', defaultOllamaPort)
+	const [hotkeyLiveDictation, setHotkeyLiveDictation] = useLocalStorage('prefs_hotkey_live_dictation', false)
+	const [hotkeyVocabulary, setHotkeyVocabulary] = useLocalStorage('prefs_hotkey_vocabulary', '')
 	const [isHotkeyRecording, setIsHotkeyRecording] = useState(false)
 
 	const isHotkeyRecordingRef = useRef(false)
@@ -107,6 +118,21 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const registeredShortcutsRef = useRef<string[]>([])
 	const indicatorSessionRef = useRef(0)
 	const indicatorTimerRef = useRef<number | null>(null)
+	const hotkeyLiveDictationRef = useRef(hotkeyLiveDictation)
+	const hotkeyVocabularyRef = useRef(hotkeyVocabulary)
+	// Parsed once per dictation session (handleHotkeyDown), used by both the
+	// partial loop and the final pass.
+	const vocabRef = useRef<Vocabulary>({ terms: [], corrections: [] })
+	const liveDictationTimerRef = useRef<number | null>(null)
+	const liveDictationInFlightRef = useRef<Promise<void> | null>(null)
+	// What live dictation has typed into the target so far — the base every
+	// reconciling edit (partial or final) diffs against.
+	const liveInjectedRef = useRef('')
+	// Set when injection is refused (foreground window changed); the session
+	// then delivers its final text via clipboard instead of the cursor.
+	const liveFrozenRef = useRef(false)
+	// True while the current dictation session is live-typing at the cursor.
+	const liveSessionRef = useRef(false)
 
 	const showIndicator = useCallback((status: 'recording' | 'transcribing' | 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
@@ -135,11 +161,91 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		hotkeyLlmRef.current = { enabled: hotkeyLlmEnabled, model: hotkeyLlmModel, prompt: hotkeyLlmPrompt, port: hotkeyLlmPort }
 	}, [hotkeyLlmEnabled, hotkeyLlmModel, hotkeyLlmPrompt, hotkeyLlmPort])
 
+	useEffect(() => {
+		hotkeyLiveDictationRef.current = hotkeyLiveDictation
+	}, [hotkeyLiveDictation])
+
+	useEffect(() => {
+		hotkeyVocabularyRef.current = hotkeyVocabulary
+	}, [hotkeyVocabulary])
+
+	const stopLiveDictationLoop = useCallback(() => {
+		if (liveDictationTimerRef.current) {
+			window.clearInterval(liveDictationTimerRef.current)
+			liveDictationTimerRef.current = null
+		}
+	}, [])
+
+	// Live dictation: while recording, re-transcribe the growing live-capture
+	// buffer every couple of seconds and type the stable prefix (everything up
+	// to the last completed word) at the cursor, backspace-reconciling earlier
+	// words when a later pass revises them. Partials are best-effort — every
+	// failure is swallowed (the final pass reconciles to the definitive
+	// transcript) — and strictly serialized so sona never runs two
+	// transcriptions at once and injections never interleave.
+	const startLiveDictationLoop = useCallback((lang: DictationLang) => {
+		const session = indicatorSessionRef.current
+		const modelPath = preferenceRef.current.modelPath
+		if (!modelPath) return
+		// Preload once so partial passes (and the final one) skip the model
+		// load. If it fails, stop the loop — the final path retries load_model
+		// and surfaces the error through the normal flow.
+		const preload = invoke('load_model', { modelPath, gpuDevice: preferenceRef.current.gpuDevice }).catch((error) => {
+			console.error('Live dictation model preload error:', error)
+			stopLiveDictationLoop()
+			throw error
+		})
+		// A rejection is otherwise unhandled when the loop stops before any
+		// tick awaits the preload.
+		preload.catch(() => {})
+		const tick = () => {
+			if (liveDictationInFlightRef.current) return
+			if (!isHotkeyRecordingRef.current || indicatorSessionRef.current !== session) return
+			liveDictationInFlightRef.current = (async () => {
+				try {
+					await preload
+					const path = await invoke<string | null>('snapshot_live_recording')
+					if (!path) return
+					if (!isHotkeyRecordingRef.current || indicatorSessionRef.current !== session) return
+					const requiresVad = preferenceRef.current.modelMetadata?.capabilities.requires_vad ?? false
+					const modelsFolder = requiresVad ? await invoke<string>('get_models_folder') : null
+					const options = {
+						path,
+						...forcedLangOptions(preferenceRef.current.modelOptions, lang),
+						init_prompt: vocabularyPrompt(preferenceRef.current.modelOptions.init_prompt ?? '', vocabRef.current.terms),
+						...(requiresVad ? { vad_model: `${modelsFolder}/${config.vadModelFilename}` } : {}),
+						quiet: true,
+					}
+					const res: transcript.Transcript = await invoke('transcribe', { options })
+					const stable = stableLivePrefix(transcript.asText(res.segments, m.speakerPrefix()))
+					// Hallucination check runs on the RAW text (its semantics are
+					// "what whisper actually emitted"); corrections come after.
+					if (!stable || isLikelyPartialHallucination(stable) || liveFrozenRef.current) return
+					// isStoppingRef guard: once the stop is being processed, the
+					// final reconcile owns the target — partials stand down.
+					if (!isHotkeyRecordingRef.current || isStoppingRef.current || indicatorSessionRef.current !== session) return
+					const corrected = applyCorrections(stable, vocabRef.current.corrections)
+					const diff = injectionDiff(liveInjectedRef.current, corrected)
+					if (diff.backspaces === 0 && diff.text === '') return
+					const applied = await invoke<boolean>('inject_live_update', { backspaces: diff.backspaces, text: diff.text })
+					if (applied) liveInjectedRef.current = corrected
+					else liveFrozenRef.current = true
+				} catch (error) {
+					console.error('Live dictation transcription error:', error)
+				} finally {
+					liveDictationInFlightRef.current = null
+				}
+			})()
+		}
+		liveDictationTimerRef.current = window.setInterval(tick, 1500)
+	}, [stopLiveDictationLoop])
+
 	const handleHotkeyDown = useCallback(async (lang: DictationLang) => {
 		if (isHotkeyRecordingRef.current || isStartingRef.current || isStoppingRef.current) return
 		isStartingRef.current = true
 		activeLangRef.current = lang
 		try {
+			vocabRef.current = parseVocabulary(hotkeyVocabularyRef.current)
 			const devices = await invoke<AudioDevice[]>('get_audio_devices')
 			const defaultInput = devices.find((d) => d.isDefault && d.isInput)
 			if (!defaultInput) {
@@ -150,22 +256,36 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			isHotkeyRecordingRef.current = true
 			setIsHotkeyRecording(true)
 
+			// Live dictation only makes sense when output goes to the cursor.
+			const liveDictation = hotkeyLiveDictationRef.current && hotkeyOutputModeRef.current === 'type'
 			await invoke('start_record', {
 				devices: [defaultInput],
 				storeInDocuments: false,
 				customPath: null,
 				recordingName: null,
+				captureLive: liveDictation,
 			})
 			indicatorSessionRef.current += 1
+			liveInjectedRef.current = ''
+			liveFrozenRef.current = false
+			liveSessionRef.current = false
 			showIndicator('recording')
+			if (liveDictation) {
+				// Remember the window holding the cursor: injections are refused
+				// the moment focus moves elsewhere.
+				await invoke('start_live_typing')
+				liveSessionRef.current = true
+				startLiveDictationLoop(lang)
+			}
 		} catch (error) {
 			console.error('Hotkey start_record error:', error)
+			stopLiveDictationLoop()
 			isHotkeyRecordingRef.current = false
 			setIsHotkeyRecording(false)
 		} finally {
 			isStartingRef.current = false
 		}
-	}, [showIndicator])
+	}, [showIndicator, startLiveDictationLoop, stopLiveDictationLoop])
 
 	const handleHotkeyUp = useCallback(async (lang: DictationLang) => {
 		if (!isHotkeyRecordingRef.current || isStoppingRef.current) return
@@ -185,7 +305,18 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			if (!isHotkeyRecordingRef.current) return
 
 			const { path } = event.payload
+			stopLiveDictationLoop()
 			showIndicator('transcribing')
+			// Serialize against an in-flight partial pass so sona never runs
+			// two transcriptions at once and the final reconcile never
+			// interleaves with a partial injection.
+			if (liveDictationInFlightRef.current) {
+				try {
+					await liveDictationInFlightRef.current
+				} catch {
+					// Partial failures never affect the final pass.
+				}
+			}
 
 			try {
 				const modelPath = preferenceRef.current.modelPath
@@ -202,12 +333,16 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				const options = {
 					path,
 					...forcedLangOptions(preferenceRef.current.modelOptions, activeLangRef.current),
+					init_prompt: vocabularyPrompt(preferenceRef.current.modelOptions.init_prompt ?? '', vocabRef.current.terms),
 					...(requiresVad ? { vad_model: `${modelsFolder}/${config.vadModelFilename}` } : {}),
 				}
 				const res: transcript.Transcript = await invoke('transcribe', { options })
 				let resultText = transcript.asText(res.segments, m.speakerPrefix())
 
 				resultText = hotkeyNormalizeOutputRef.current ? transcript.normalizeWhitespace(resultText) : resultText.trim()
+				// Vocabulary corrections before the optional LLM pass, so the
+				// formatter only ever sees the corrected transcript.
+				resultText = applyCorrections(resultText, vocabRef.current.corrections)
 
 				// Optional LLM formatting pass via local Ollama. Never lose the
 				// dictation: on any failure, fall through with the raw transcript.
@@ -222,19 +357,40 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 					}
 				}
 				// Output result
-				if (hotkeyOutputModeRef.current === 'type') {
-					await invoke('type_text', { text: resultText })
+				let effectiveOutput = hotkeyOutputModeRef.current
+				if (effectiveOutput === 'type') {
+					if (!liveSessionRef.current) {
+						await invoke('type_text', { text: resultText })
+					} else if (!liveFrozenRef.current) {
+						// Live dictation already typed the stable prefix; reconcile
+						// the target to the definitive transcript instead of
+						// retyping everything.
+						const diff = injectionDiff(liveInjectedRef.current, resultText)
+						if (diff.backspaces > 0 || diff.text !== '') {
+							const applied = await invoke<boolean>('inject_live_update', { backspaces: diff.backspaces, text: diff.text })
+							if (!applied) liveFrozenRef.current = true
+						}
+					}
+					if (liveSessionRef.current && liveFrozenRef.current) {
+						// Focus left the target window mid-dictation. Never type
+						// into whatever is focused now — deliver via clipboard.
+						effectiveOutput = 'clipboard'
+						await clipboard.writeText(resultText)
+						await notify('Vibe', m.liveDictationFocusLost())
+					}
 				} else {
 					await clipboard.writeText(resultText)
 					await notify('Vibe', m.hotkeyTranscriptionCopied())
 				}
-				finishIndicator('completed', { output: hotkeyOutputModeRef.current })
+				finishIndicator('completed', { output: effectiveOutput })
 			} catch (error) {
 				console.error('Hotkey transcription error:', error)
 				const message = getErrorMessage(error)
 				finishIndicator('error', { message })
 				await notify('Vibe', message)
 			} finally {
+				liveSessionRef.current = false
+				liveInjectedRef.current = ''
 				isStoppingRef.current = false
 				isHotkeyRecordingRef.current = false
 				setIsHotkeyRecording(false)
@@ -244,10 +400,11 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		return () => {
 			unlisten.then((fn) => fn())
 		}
-	}, [finishIndicator, showIndicator])
+	}, [finishIndicator, showIndicator, stopLiveDictationLoop])
 
 	useEffect(() => () => {
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
+		if (liveDictationTimerRef.current) window.clearInterval(liveDictationTimerRef.current)
 	}, [])
 
 	// Register/unregister the per-language shortcuts (one accelerator per
@@ -341,6 +498,10 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		setHotkeyLlmPrompt,
 		hotkeyLlmPort,
 		setHotkeyLlmPort,
+		hotkeyLiveDictation,
+		setHotkeyLiveDictation,
+		hotkeyVocabulary,
+		setHotkeyVocabulary,
 		isHotkeyRecording,
 	}
 

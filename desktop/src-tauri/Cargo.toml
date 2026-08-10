@@ -69,10 +69,12 @@ openssl = { version = "0.10.75", features = ["vendored"] }
 # Quoted HKCU Run-entry write for login autostart (see src/autostart.rs).
 # Already present transitively; pinned here as a direct dep.
 winreg = "0.55"
-# Used to attach to console
+# Used to attach to console, and for the live-dictation foreground-window
+# guard (GetForegroundWindow in cmd/app.rs)
 windows = { version = "0.62.2", features = [
 	"Win32_System_Console",
 	"Win32_Foundation",
+	"Win32_UI_WindowsAndMessaging",
 ] }
 # Used to redirect stdout/stderr from c++ to the attached console
 libc = "0.2.180"

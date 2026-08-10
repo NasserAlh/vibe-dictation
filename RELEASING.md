@@ -75,6 +75,47 @@ inherited from a previous release.
 
 ## Unreleased (next release)
 
+- **Custom vocabulary** (Settings → Dictation, `lib/vocabulary.ts`). One
+  shared list for EN + AR: plain lines bias whisper via the (previously
+  unused) `init_prompt` → sona `prompt` field; `wrong = right` lines are
+  whole-word, case-insensitive replacements applied to partial and final
+  transcripts before the optional Ollama pass (single-pass alternation — no
+  rule cascading; Unicode-boundary matching for Arabic). Frontend-only, no
+  new dependencies, no egress impact; an empty list sends no prompt field
+  and changes nothing.
+- **Default dictation shortcuts are now F9 (EN) and F10 (AR)** — single keys
+  instead of the upstream-inherited three-key chords (owner request; F9/F10
+  matches how the app is actually used). Stored prefs override defaults, so
+  existing profiles are unaffected.
+- **Live dictation — type as you speak** (Settings → Dictation, opt-in, off by
+  default, requires the type-at-cursor output mode). While recording, the
+  audio callback mirrors samples into an in-memory buffer; the frontend
+  snapshots it every ~1.5 s (`snapshot_live_recording` → 16 kHz WAV via the
+  bundled ffmpeg), re-transcribes the growing recording through the existing
+  loopback sona pipeline (`quiet` transcribe mode — no taskbar progress, no
+  segment events), and types the stable prefix at the cursor
+  (`inject_live_update`), backspace-reconciling earlier words when a later
+  pass revises them. Safety: a foreground-window guard (GetForegroundWindow,
+  `windows` crate `Win32_UI_WindowsAndMessaging` feature — no egress) refuses
+  injections once focus leaves the starting window; the final text then goes
+  to the clipboard with a notification. The final pass reconciles the target
+  to the definitive transcript, so the end state is identical to a non-live
+  dictation. The dictation indicator shows status only (the earlier
+  indicator-text preview was removed — owner decision). Silence-hallucination
+  guard, two live-test findings (2026-08-09): pressing the hotkey typed
+  "Thank you" before any speech, and "Watermelon" + 25 s of held silence grew
+  a phantom "Thank you" that later self-corrected. Fix: a **tail-energy
+  gate** — a snapshot is produced only when speech-level samples arrived
+  since the last snapshot, so partials pause entirely during silence (also
+  saving GPU) — plus whole-partial matches against known whisper silence
+  phrases (EN + AR) are suppressed. Partials only; the final pass is never
+  filtered. Release functional check: dictate one word, hold 20+ s of
+  silence — nothing may be appended. No egress impact:
+  loopback only. Functional check for the release pass: dictate with live
+  dictation ON into MS Word, confirm words appear at the cursor while
+  speaking and the final text matches a non-live dictation; click into
+  another window mid-dictation and confirm typing stops and the result
+  arrives via clipboard + notification.
 - **Opt-in model downloader** (`src/model_download.rs`,
   `cmd/model_download_cmd.rs`, Settings → Select Model → "Download a model") —
   the one deliberate exception to zero egress. Per-download confirmation

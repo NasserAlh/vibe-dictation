@@ -59,10 +59,34 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
    auto-detection (it covert-translates this speaker's English to Arabic;
    it covert-translates accented English into Arabic) — and only the starting
    hotkey can stop the recording.
-2. Key release / second press → `stop_record` event → backend emits `record_finish`.
-3. Frontend calls `load_model` then `transcribe` (Rust → Sona multipart streaming upload
-   in [sona/mod.rs](desktop/src-tauri/src/sona/mod.rs) `transcribe_stream`).
-4. Optional: if LLM formatting is enabled (Settings → Dictation), the transcript is sent
+2. Optional live dictation (Settings → Dictation, off by default; requires the
+   **type** output mode): `start_record` also mirrors samples into an in-memory
+   buffer; the frontend snapshots it every ~1.5 s (`snapshot_live_recording` →
+   16 kHz WAV via bundled ffmpeg), re-transcribes the growing recording
+   (`quiet` transcribe mode), and **types the stable prefix at the cursor**
+   (`inject_live_update` — backspaces the divergent tail when a later pass
+   revises earlier words, then types the replacement). A foreground-window
+   guard in [cmd/app.rs](desktop/src-tauri/src/cmd/app.rs) refuses injections
+   the moment focus leaves the window dictation started in; the session then
+   delivers its final text via clipboard + notification instead. Partial
+   passes are strictly serialized (with each other and with the final pass)
+   and every partial failure is swallowed; the final pass reconciles the
+   target to the definitive transcript, so the end state matches a
+   non-live dictation. Silence never types: `snapshot_live_recording` has a
+   tail-energy gate (no speech-level samples *since the last snapshot* → no
+   snapshot, so partials pause entirely during silence instead of re-feeding
+   whisper audio it can only hallucinate a continuation for), and known
+   whisper silence-hallucinations ("Thank you.", "شكرا", the translator
+   credit) are suppressed for partials — never for the final pass
+   ([lib/live-typing.ts](desktop/src/lib/live-typing.ts)).
+3. Key release / second press → `stop_record` event → backend emits `record_finish`.
+4. Frontend calls `load_model` then `transcribe` (Rust → Sona multipart streaming upload
+   in [sona/mod.rs](desktop/src-tauri/src/sona/mod.rs) `transcribe_stream`). Custom
+   vocabulary (Settings → Dictation, [lib/vocabulary.ts](desktop/src/lib/vocabulary.ts))
+   rides this: bias terms are appended to whisper's init prompt, and
+   `wrong = right` rules are applied whole-word to partial and final
+   transcripts — always before the optional Ollama pass.
+5. Optional: if LLM formatting is enabled (Settings → Dictation), the transcript is sent
    to a user-run local Ollama server (`ollama_format_text` →
    [ollama.rs](desktop/src-tauri/src/ollama.rs), loopback-only, model chosen from
    Ollama's `/api/tags`). Any failure falls back to the raw transcript — dictation is
@@ -70,12 +94,14 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
    with a compile-time guard epilogue, and a deterministic divergence check falls back
    to the raw transcript when the model *answers* a command-shaped dictation instead
    of rewriting it (prompt injection by dictation).
-5. Result is routed by output mode: **type** → `type_text` command (enigo synthetic
+6. Result is routed by output mode: **type** → `type_text` command (enigo synthetic
    keystrokes), or **clipboard** → clipboard manager. Clipboard is the RTL-safe fallback
    for Arabic; enigo mangles RTL ordering in some targets. MS Word is the reference
    injection target — the Windows 11 tabbed Notepad mangles synthetic keystrokes.
-6. The floating [dictation_indicator](desktop/src-tauri/src/dictation_indicator.rs) window
-   (a second Tauri window) shows recording/transcribing/completed/error status.
+7. The floating [dictation_indicator](desktop/src-tauri/src/dictation_indicator.rs) window
+   (a second Tauri window) shows recording/transcribing/completed/error status —
+   status only, never transcript text (owner decision: live text belongs at the
+   cursor, not in the indicator).
 
 ### Rust backend layout
 

@@ -30,19 +30,14 @@ issue** = a defect that exists today, **Shipped** = done, on main.
   guided first launch would remove the remaining steps.
 - **Model management in Settings.** See which models are present, their size, and
   which one is active, without leaving the app.
-- **Show transcriptions in realtime.** Display the recognized text as you speak
-  (in the on-screen dictation indicator), instead of only after the recording
-  stops. Today the engine transcribes the finished recording in one pass, so
-  this means streaming audio to the engine in chunks and rendering partial
-  results as they land.
+- **Hotkey recorder in Settings.** The shortcut field is a plain text input:
+  it captures no keystrokes, accepts invalid accelerator strings, and shows
+  nothing when registration fails. Replace it with a real recorder — focus the
+  field, press the key, done — with validation and visible feedback when a
+  shortcut cannot be registered.
 
 ## Considering
 
-- **More languages.** The engine handles many; the app currently ships English
-  and Arabic hotkeys. Adding languages means deciding how many hotkeys is too
-  many, and whether a picker beats one hotkey per language.
-- **Custom vocabulary.** Names, acronyms, and domain terms that Whisper
-  consistently gets wrong could be corrected with a user-supplied word list.
 - **Dictation history.** A short local log of recent dictations, so a lost
   transcript can be recovered. Local-only, with an easy way to clear it.
 - **Continuous integration.** There is no CI today, by design — every release is
@@ -65,6 +60,28 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Shipped
 
+- **Custom vocabulary** (2026-08). Settings → Dictation: one shared list for
+  both languages, one entry per line. A plain line ("Claude") biases Whisper
+  toward the word by joining the engine's init prompt (appended glossary,
+  length-capped). A "wrong = right" line ("clod = Claude") additionally
+  applies a deterministic whole-word, case-insensitive replacement to partial
+  and final transcripts — before the optional LLM formatting pass, so the
+  formatter only ever sees corrected text. Frontend-only; empty list is a
+  strict no-op.
+- **Show transcriptions in realtime** (2026-08). Opt-in "Live dictation —
+  type as you speak" (Settings → Dictation, off by default, requires
+  type-at-cursor output): recognized words are typed directly at the cursor
+  while you speak and self-correct as context improves; the final pass
+  reconciles the target to the definitive transcript. A foreground-window
+  guard stops typing the moment focus leaves the target (the text then
+  arrives via clipboard). The pinned engine has no streaming-input endpoint
+  and Whisper is not a streaming model, so this re-transcribes the growing
+  recording every ~1.5 s through the existing loopback pipeline. Costs extra
+  GPU while recording — only while speech is arriving: a tail-energy gate
+  pauses the loop during silence, which is also what stops Whisper's
+  silence hallucinations ("Thank you.") from ever being typed (found and
+  fixed in live testing; a denylist of known phantom phrases backs it up
+  for partials, and the final pass is never filtered).
 - **Automatic model download option** (2026-08). Settings → Select Model →
   "Download a model". Opt-in per download: nothing is fetched without an
   explicit confirmation naming the exact URL and size. The downloadable set is
@@ -72,6 +89,11 @@ issue** = a defect that exists today, **Shipped** = done, on main.
   prefix, redirect host allowlist, and SHA-256 pins are compile-time constants,
   and a `--no-default-features` build removes the downloader entirely. The
   deliberate — and only — exception to zero egress.
+- **Single-key default shortcuts** (2026-08). F9 (English) and F10 (Arabic)
+  replace the upstream three-key chords. A dictation hotkey is held down while
+  speaking, so chords were hostile to the core use — and with live dictation,
+  held modifiers would corrupt the injected keystrokes. Stored preferences
+  override the defaults, so existing profiles keep their own shortcuts.
 
 ---
 

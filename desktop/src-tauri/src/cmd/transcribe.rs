@@ -49,6 +49,10 @@ pub struct TranscribeOptions {
     pub diarize_model: Option<String>,
     pub stable_timestamps: Option<bool>,
     pub vad_model: Option<String>,
+    /// Set by live-preview partial passes: skip the taskbar progress bar and
+    /// the per-segment events, which would flicker every ~1.5 s while
+    /// recording. Sona itself never sees this field.
+    pub quiet: Option<bool>,
 }
 
 #[tauri::command]
@@ -119,7 +123,9 @@ pub async fn transcribe(
         match event_result {
             Ok(event) => match event {
                 SonaEvent::Progress { progress } => {
-                    let _ = set_progress_bar(&app_handle, Some(progress.into()));
+                    if !options.quiet.unwrap_or(false) {
+                        let _ = set_progress_bar(&app_handle, Some(progress.into()));
+                    }
                 }
                 SonaEvent::Segment {
                     start,
@@ -133,7 +139,9 @@ pub async fn transcribe(
                         text,
                         speaker,
                     };
-                    app_handle.emit_to("main", "new_segment", segment.clone()).log_error();
+                    if !options.quiet.unwrap_or(false) {
+                        app_handle.emit_to("main", "new_segment", segment.clone()).log_error();
+                    }
                     segments.push(segment);
                 }
                 SonaEvent::Result { .. } => {

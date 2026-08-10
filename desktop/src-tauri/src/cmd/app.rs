@@ -90,6 +90,56 @@ pub fn type_text(text: String) -> Result<()> {
     Ok(())
 }
 
+/// Frozen until `start_live_typing` arms a session; re-frozen the moment the
+/// foreground window changes, and only the next session can un-freeze.
+static LIVE_TYPING_FROZEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+#[cfg(windows)]
+static LIVE_TARGET_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+#[cfg(windows)]
+fn foreground_window() -> isize {
+    unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0 as isize }
+}
+
+/// Arms live dictation: remembers the window that holds the cursor so every
+/// later injection can verify the user has not moved elsewhere.
+#[tauri::command]
+pub fn start_live_typing() {
+    #[cfg(windows)]
+    LIVE_TARGET_WINDOW.store(foreground_window(), std::sync::atomic::Ordering::SeqCst);
+    LIVE_TYPING_FROZEN.store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// Applies one live-dictation edit at the cursor: `backspaces` deletions of
+/// the divergent tail, then `text`. Returns `false` — and freezes the session
+/// — when the foreground window is no longer the one dictation started in:
+/// synthetic backspaces must never eat text in a window the user moved to
+/// mid-dictation. The caller falls back to clipboard delivery.
+#[tauri::command]
+pub fn inject_live_update(backspaces: u32, text: String) -> Result<bool> {
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+    use std::sync::atomic::Ordering;
+    if LIVE_TYPING_FROZEN.load(Ordering::SeqCst) {
+        return Ok(false);
+    }
+    #[cfg(windows)]
+    if foreground_window() != LIVE_TARGET_WINDOW.load(Ordering::SeqCst) {
+        LIVE_TYPING_FROZEN.store(true, Ordering::SeqCst);
+        tracing::info!("live typing frozen: foreground window changed mid-dictation");
+        return Ok(false);
+    }
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| eyre::eyre!("Failed to create enigo: {}", e))?;
+    for _ in 0..backspaces {
+        enigo
+            .key(Key::Backspace, Direction::Click)
+            .map_err(|e| eyre::eyre!("Failed to press backspace: {}", e))?;
+    }
+    if !text.is_empty() {
+        enigo.text(&text).map_err(|e| eyre::eyre!("Failed to type text: {}", e))?;
+    }
+    Ok(true)
+}
+
 #[tauri::command]
 pub fn get_cargo_features() -> Vec<String> {
     let mut features = Vec::new();

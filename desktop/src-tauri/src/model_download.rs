@@ -379,10 +379,7 @@ mod tests {
         assert!(total > 0, "must have read at least one byte");
         let partial_hash = to_hex(&hasher.finalize());
         // Sanity: the partial hash must not match the full-file pin.
-        assert_ne!(
-            partial_hash, spec.sha256,
-            "partial hash should not match the full-file pin"
-        );
+        assert_ne!(partial_hash, spec.sha256, "partial hash should not match the full-file pin");
         tracing::info!(
             "live roundtrip OK: {} bytes read from {}, partial SHA-256 {partial_hash}",
             total,
