@@ -10,6 +10,15 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Known issues
 
+- **Silent startup window** (found 2026-08-24, v1.3.0 acceptance testing). For a
+  few seconds after launch, the dictation hotkeys are not yet registered — the
+  frontend registers them only once the webview and React app finish loading —
+  so pressing F9/F10 does nothing, with zero feedback, and a dictation attempted
+  in that window is silently lost. Related but distinct: the model is loaded
+  lazily on the first dictation, so the first transcription after launch is slow
+  (not lossy — recording works; it just waits on the load). With autostart the
+  window is rarely hit in practice, but a launch-then-immediately-dictate flow
+  loses speech with no indication anything went wrong.
 - **Stale commit stamp.** The installed binary can self-report an older commit
   hash than it was built from. A frontend-only change does not re-run the
   `build.rs` stamp step. Cosmetic — it does not affect the app — but it makes
@@ -25,6 +34,14 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Planned
 
+- **Startup ready-feedback** (next cycle's headline). Close the silent startup
+  window: show the dictation indicator in a "starting…" state from launch until
+  the hotkeys are actually registered, then confirm readiness (indicator flash
+  or one-shot notification "Vibe ready — F9/F10"), so a too-early keypress is
+  visibly "not yet" instead of silently ignored. Companion, opt-in: a model
+  warmup setting that preloads the model at startup so the first dictation is
+  as fast as every later one — off by default, since it holds ~3 GB of VRAM
+  from launch on an autostarted app.
 - **Better first-run experience.** Right now a new user installs, then has to
   fetch a model (via the opt-in in-app download or by hand) and select it. A
   guided first launch would remove the remaining steps.
