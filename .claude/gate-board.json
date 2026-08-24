@@ -1,0 +1,20 @@
+{
+  "title": "Vibe Dictation Gate Board",
+  "favicon": "🎙️🔒",
+  "board_url": "docs/gate-board.html",
+  "gates": true,
+  "test_command": "cd desktop && pnpm i18n:generate && pnpm test",
+  "footer": "Vibe Dictation — privacy-locked, Windows-only, on-device dictation. Rust/Tauri + React/TS; unsigned NSIS releases, hand-verified zero egress.",
+  "palette": {
+    "passed": "#2e7d4f",
+    "provisional": "#b8860b",
+    "blocked": "#c0392b",
+    "inert": "#8a8a8a",
+    "accent": "#2b6cb0"
+  },
+  "sources": {
+    "control": "CLAUDE.md",
+    "releasing": "RELEASING.md",
+    "roadmap": "ROADMAP.md"
+  }
+}
