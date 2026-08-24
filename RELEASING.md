@@ -73,7 +73,23 @@ inherited from a previous release.
   cannot remove it — and verify the copy's hash.
 - Tag the release commit (`vX.Y.Z`) and push with tags.
 
-## Unreleased (next release)
+## Shipped in v1.3.0 (2026-08-24)
+
+**Verification record (partial gate — owner ruling, 2026-08-24):** shipped with
+3 of 6 criteria run. Run and passed: strings audit on both the built and
+installed exe (all forbidden patterns zero; positive control hit; sole
+`updater` hit is h2's `next_window_update`; both `huggingface.co` hits are the
+downloader manifest prefix + its error string), NSIS `/S` install with the HKCU
+Run entry pointing at the installed exe, and functional EN + AR dictation into
+MS Word under 2 s. NOT RUN at ship time: netstat sampler, firewall-block test
+(the v1.2.0 outbound-block rules were found missing and had not yet been
+recreated), and the live-dictation functional checks — to be run post-release
+against the installed build. Hashes: installer
+`d4005b86cb253f014caab67fc2cdd2a6889bf1a1680d929207121b6bb3bc7e2b`, installed
+`vibe.exe` `c975c5d6b67917d0c55f3bc874c9d23c7c92f77fd7e3c01e84a6a14727cd29d9`
+(NSIS-stamped; the raw `target/release/vibe.exe` differs by 3 bytes — Tauri's
+`__TAURI_BUNDLE_TYPE_VAR` marker — at
+`54a4ab3b2ce14ed88d86fb86c324b7fd084e78350334fa9b3be50fca92f7e5e0`).
 
 - **Custom vocabulary** (Settings → Dictation, `lib/vocabulary.ts`). One
   shared list for EN + AR: plain lines bias whisper via the (previously
