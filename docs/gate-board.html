@@ -72,59 +72,71 @@
 
 <h1>🎙️🔒 Vibe Dictation Gate Board</h1>
 <div class="header-strip">
-  <span><b>phase</b> v1.4.0 released — carried post-release checks pending</span>
+  <span><b>phase</b> v1.4.1 built, installed and tagged locally — unpublished, gate at 2 of 6</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> 3a3aed5, tag v1.4.0 (plus the board's own refresh commit — docs-only, supersedes nothing)</span>
-  <span><b>tests</b> 43/43 frontend (vitest) and 31/31 Rust (cargo test), run this session at 4fb99a9 — the two commits since touched only docs and the version field, superseding nothing</span>
+  <span><b>commit</b> fb44c6c — 3 ahead of <span class="mono">origin/main</span>, which still sits at v1.4.0</span>
+  <span><b>tests</b> 43/43 frontend (vitest), run this session at fb44c6c; 31/31 Rust (cargo test) last observed at 009ef8d — the two commits since touched only docs and the version field, superseding nothing, and <span class="mono">cargo clean</span> has since removed the build tree</span>
   <span><b>updated</b> 2026-08-25</span>
-  <span><b>tree</b> clean (untracked build-scratch files only: <span class="mono">build-release.bat</span>, <span class="mono">build-release.log</span>, <span class="mono">.reasonix/</span>)</span>
+  <span><b>tree</b> clean</span>
 </div>
 
 <h2>Right now</h2>
 <p>
-<strong>v1.4.0 is published</strong> — tagged, pushed, released on GitHub
-(2026-08-25) with the installer attached and its SHA-256 in the notes
-(<span class="mono">42161e09…</span>). It shipped on a <strong>partial gate by
-owner ruling</strong>, the same 3-of-6 split as v1.3.0. Passed: strings audit
-on both the built and installed exe (all forbidden patterns zero; positive
-control <span class="mono">sona</span> hit 31×; all four
-<span class="mono">updater</span> hits are known h2/rustls/Win32 substrings;
-both <span class="mono">huggingface.co</span> hits are the downloader manifest
-prefix), NSIS <span class="mono">/S</span> install with the quoted HKCU Run
-entry pointing at the installed exe, and functional EN + AR dictation into MS
-Word within ~2 s — run on <strong>large-v3-turbo</strong>, the owner's active
-model. The headline feature, startup ready-feedback, was verified end to end:
-"Starting…" and the 5 s "Ready — F9 / F10" flash owner-observed on the
-installed build's cold start. Post-release housekeeping done: installer
-archived outside the repo with a verified hash, <span class="mono">cargo
-clean</span> run (2.6 GiB).
+<strong>v1.4.1 exists only on this machine.</strong> It is built, installed,
+tagged <span class="mono">v1.4.1</span>, and running — but <strong>not
+pushed</strong>: <span class="mono">origin/main</span> is three commits behind
+and v1.4.0 remains the newest published release. The release fixes one defect:
+closing the main window hides it so the tray icon and hotkeys survive, but a
+subsequent launch from the Start-menu or taskbar shortcut then did nothing at
+all, leaving the tray icon as the only route back to the interface. Root cause
+was observed, not inferred — the single-instance callback called only
+<span class="mono">set_focus()</span>, and tao's Windows backend early-returns
+from <span class="mono">set_focus</span> unless the window is already visible
+and not minimized, so on a hidden window it was a silent no-op. Fixed in
+<span class="mono">009ef8d</span> and confirmed on the installed 1.4.1 build:
+close-to-tray → shortcut relaunch → window visible; minimize → shortcut
+relaunch → restored and foreground.
 </p>
 <p>
-What is not yet proven: the same three checks carried from v1.3.0 — netstat
-loopback sampler, firewall-block test, live-dictation functional checks —
-remain <strong>NOT RUN</strong>, now owed against the installed v1.4.0. The
-v1.2.0 outbound-block firewall rules are still missing (recreation needs an
-elevated shell). Two consecutive releases now rest their runtime zero-egress
-proof on the strings audit and compile-time deletions alone.
+<strong>The gate went backwards: 2 of 6, against 3 of 6 for both v1.3.0 and
+v1.4.0.</strong> Criteria 1 (strings audit, run on both the built and installed
+exe) and 2 (NSIS <span class="mono">/S</span> install with the quoted HKCU Run
+entry) passed. Criterion 3 is <strong>NOT MEASURED</strong> rather than passed:
+a 75-sample netstat sweep at ~1 s intervals came back clean and loopback-only,
+but it sampled an <em>idle</em> app, and the criterion requires ~2 minutes
+during live dictation — it proves the steady-state socket surface, not the
+in-dictation one. Criteria 5 and 6 need the owner speaking and were not run;
+v1.4.0's functional pass is not inherited, because this document's standing
+rule is that verification is re-proven per artifact. What cannot be proven from
+this machine without the owner: everything in criteria 4, 5 and 6 — one
+elevated shell and one dictating voice.
 </p>
 <p>
-No document-vs-repository contradiction stands: RELEASING.md carries the dated
-v1.4.0 owner ruling with the exact run/not-run split, ROADMAP.md's Shipped
-entry for startup ready-feedback is now true of the published release, and the
-silent-startup known issue is closed by observation on the installed build.
+Two things the documents assert that the repository state qualifies.
+<strong>ROADMAP.md now lists the shortcut fix under Shipped</strong>, which is
+true of local <span class="mono">main</span> but of no published release —
+nobody who installs from GitHub has it. And <strong>the v1.4.0 board's three
+owed checks can no longer be closed against v1.4.0</strong>: the installed
+build on this machine is now v1.4.1, so criteria 3, 4 and 6 did not merely
+carry forward, they became un-runnable against the release that owed them.
+That debt is now owed by v1.4.1 — the third consecutive release to rest its
+runtime zero-egress proof on the strings audit and compile-time deletions
+alone.
 </p>
 
 <h2>Your next action</h2>
 <div class="next-action">
 <p style="margin:0">
-<strong>Close the owed half of the v1.3.0 gate:</strong> run the two
-<span class="mono">New-NetFirewallRule</span> commands in an <em>admin</em>
-PowerShell (the rules are currently missing), then say "start the sampler" and
-dictate for ~2 minutes so the netstat sample runs — followed by the under-block
-dictation + clean-download-failure check and the three live-dictation checks,
-all against the installed v1.4.0. This is the whole of the carried debt: two
-public releases now await their runtime zero-egress proof, and everything
-except your dictating and the one elevated shell is already automated.
+<strong>Decide whether v1.4.1 ships at 2 of 6, or gets its gate closed first.</strong>
+Everything that can be automated has been run; the remainder is one elevated
+PowerShell (the two <span class="mono">New-NetFirewallRule</span> commands, for
+criterion 4) and roughly ten minutes of your dictating (criteria 3, 5 and 6,
+all of which can run in a single session against the installed build). Closing
+them first would give the fork its first full 6-of-6 gate and retire debt
+carried since v1.2.0. Shipping first is defensible — the fix is a genuine
+usability defect and the change touches only window show/focus, nowhere near
+the audio or network paths — but it is a ruling only you can make, and it
+should be recorded in RELEASING.md before the push, not after.
 </p>
 </div>
 
@@ -145,22 +157,28 @@ except your dictating and the one elevated shell is already automated.
       <td>Per-language dictation hotkeys (no auto-detect), English-only UI, display-locale/model-language decoupling.</td></tr>
   <tr><td>v1.3.0 release verification</td><td class="date">2026-08-24</td>
       <td><span class="pill p-amber">SHIPPED — 3 OF 6</span></td>
-      <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed; the three owed criteria were never run against v1.3.0 and carry forward to v1.4.0 below. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
-  <tr><td><strong>v1.4.0 release verification</strong></td><td class="date">2026-08-25</td>
-      <td><span class="pill p-amber">SHIPPED — 3 OF 6</span></td>
-      <td>Published by owner ruling, same split: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed; criteria 3, 4, and 6 below owed post-release. Startup ready-feedback + opt-in model warmup.</td></tr>
+      <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
+  <tr><td>v1.4.0 release verification</td><td class="date">2026-08-25</td>
+      <td><span class="pill p-inert">CLOSED — 3 OF 6, DEBT MOVED</span></td>
+      <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria are <strong>no longer runnable against v1.4.0</strong> — this machine's installed build is now v1.4.1 — so they transfer to the v1.4.1 row rather than staying open here. Closed inert, not green: it settled a partial gate, not a pass.</td></tr>
+  <tr><td><strong>v1.4.1 release verification</strong></td><td class="date">2026-08-25</td>
+      <td><span class="pill p-open">OPEN — 2 OF 6</span></td>
+      <td>Built, installed and tagged locally; <strong>not published</strong>. Criteria 1 and 2 passed against this artifact. Carries the debt from v1.3.0 and v1.4.0. Shortcut-relaunch fix (<span class="mono">009ef8d</span>).</td></tr>
 </table>
 
-<h2>What v1.4.0 still owes (post-release checks, carried from v1.3.0)</h2>
-<p class="reminder">The release is public; these run against the installed build and update the verification record in RELEASING.md when done.</p>
+<h2>What the open gate still needs</h2>
+<p class="reminder">Four of six. All four run against the installed v1.4.1 build; three of them need the owner present. Closing them updates the verification record in RELEASING.md.</p>
 <table>
   <tr><th>#</th><th>Criterion</th><th>Status</th><th>What was observed / why it falls short</th></tr>
   <tr><td>3</td><td>Netstat loopback sampler (~2 min during live dictation)</td>
-      <td><span class="pill p-red">NOT RUN</span></td>
-      <td>Needs the owner dictating while the sampler runs. ~1 s intervals including TIME_WAIT rows if Ollama formatting is on (v1.1.0 finding); no model download during the sample.</td></tr>
+      <td><span class="pill p-red">NOT MEASURED</span></td>
+      <td>A sweep ran and was clean — 75 samples at ~1 s intervals, three distinct sockets owned by <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span>, all loopback: sona LISTENING on <span class="mono">127.0.0.1:58946</span> (never <span class="mono">0.0.0.0</span>) plus the established loopback pair, zero non-loopback rows. <strong>But the app was idle.</strong> The criterion requires the sample to run during live dictation, so the measurement taken is not the one required. Re-run at ~1 s intervals including TIME_WAIT rows if Ollama formatting is on (v1.1.0 finding), with no model download in progress.</td></tr>
   <tr><td>4</td><td>Firewall outbound block: dictation works, download fails cleanly</td>
+      <td><span class="pill p-red">BLOCKED</span></td>
+      <td>Blocker is rule creation. The v1.2.0 outbound-block rules for <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span> still do not exist — <span class="mono">Get-NetFirewallApplicationFilter</span> matching either program returned zero on 2026-08-25 — and creating them needs an elevated shell. Missing and unrecreated across three releases now.</td></tr>
+  <tr><td>5</td><td>Functional EN + AR dictation into MS Word, latency ~2 s after warmup</td>
       <td><span class="pill p-red">NOT RUN</span></td>
-      <td>Blocked on rule creation: the v1.2.0 outbound-block rules for <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span> no longer exist, and creating them failed from a non-elevated shell (Access denied, 2026-08-24). Admin PowerShell required.</td></tr>
+      <td>Needs the owner speaking. v1.4.0 passed this on large-v3-turbo, but RELEASING.md's standing rule is that verification is re-proven per artifact and never inherited, so that pass does not carry to v1.4.1.</td></tr>
   <tr><td>6</td><td>Live-dictation functional check</td>
       <td><span class="pill p-red">NOT RUN</span></td>
       <td>Words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing.</td></tr>
@@ -170,44 +188,48 @@ except your dictating and the one elevated shell is already automated.
 <table>
   <tr><th>Tag</th><th>Item</th></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
-      <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — now user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate — a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
+      <td><strong>Push v1.4.1, or close its gate first.</strong> Local <span class="mono">main</span> is 3 commits ahead of <span class="mono">origin/main</span> and the <span class="mono">v1.4.1</span> tag is unpushed, so the shortcut fix reaches nobody until you decide. See "Your next action".</td></tr>
+  <tr><td><span class="pill p-amber">YOUR CALL</span></td>
+      <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate: a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>RTL text injection</strong> mangles Arabic character order in some target apps; workaround is clipboard output mode. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Stale commit stamp</strong> — the installed binary can self-report an older commit than it was built from; <span class="mono">build.rs</span> needs a rerun-if-changed directive. Cosmetic. This cycle's rebuild touched Rust sources, so the stamp re-runs this time; the defect remains for frontend-only changes. (ROADMAP + RELEASING deferred list)</td></tr>
+      <td><strong>Stale commit stamp</strong> — the installed binary can self-report an older commit than it was built from; <span class="mono">build.rs</span> needs a rerun-if-changed directive. Cosmetic. This cycle's rebuild touched Rust sources, so the stamp re-ran; the defect remains for frontend-only changes. (ROADMAP + RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>ffmpeg resolution pin</strong> — the app-side recording conversion resolves ffmpeg from PATH instead of the bundled binary. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation, no registration feedback. Partial mitigation landed in <span class="mono">4fb99a9</span>: a startup-time registration failure is now surfaced on the indicator instead of passing silently; the field itself is unchanged. (ROADMAP planned + RELEASING deferred list)</td></tr>
+      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation, no registration feedback. Partial mitigation landed in <span class="mono">4fb99a9</span>: a startup-time registration failure is surfaced on the indicator instead of passing silently; the field itself is unchanged. (ROADMAP planned + RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong><span class="mono">cli.rs</span> review</strong> — audit which CLI arguments still make sense for a dictation-only tool. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>The <span class="mono">v1.4.1</span> tag predates its own corrected record.</strong> The tag points at <span class="mono">4f5ab3d</span>; the gate-score correction from 4 of 6 to 2 of 6 landed after it in <span class="mono">fb44c6c</span>. The tagged tree is the one the artifact was built from, which is what matters for the hashes — but a reader checking out the tag gets the overstated record. Check at push time.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Stale sibling clone.</strong> <span class="mono">~\Dev\vibe-dictation-public</span> has the same GitHub origin but only 4 commits and has been untouched since 2026-08-12, while this repo (<span class="mono">~\Dev\vibe-dictation</span>, 21 commits, tags through v1.4.1) is the live one. Two clones of the same remote is how work gets done in the wrong directory; worth deleting.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
       <td><strong>Locale trim re-verification</strong> — confirm paraglide output stays consistent after any locale-related dependency update; carried to the next release. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash); those releases exist only as RELEASING.md records plus the external installer archive. v1.2.0 and v1.3.0 are tagged.</td></tr>
+      <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash); those releases exist only as RELEASING.md records plus the external installer archive. v1.2.0 onward are tagged.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>GitHub remote uses HTTPS</strong> — no SSH key is registered with GitHub from this machine (checked 2026-08-24); pushes ride the credential manager. Owner's standing rule prefers SSH; set up a key or rule it settled.</td></tr>
+      <td><strong>GitHub remote uses HTTPS</strong> — <span class="mono">origin</span> is <span class="mono">https://github.com/NasserAlh/vibe-dictation.git</span> (re-confirmed 2026-08-25); pushes ride the credential manager. Owner's standing rule prefers SSH; set up a key or rule it settled.</td></tr>
 </table>
 
 <h2>Recent activity</h2>
 <ul class="activity">
-  <li><span class="date">2026-08-25</span> — <strong>v1.4.0 published</strong> to GitHub (tag + release + installer, SHA-256 <span class="mono">42161e09…</span>) on a partial gate by owner ruling, same 3-of-6 split as v1.3.0; verification record written to RELEASING.md; installer archived outside the repo with verified hash; <span class="mono">cargo clean</span> run (2.6 GiB, three orphaned dev <span class="mono">sona.exe</span> processes killed to release the lock).</li>
-  <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback verified on the installed build</strong>: "Starting…" phase and 5 s Ready flash owner-observed on cold start; EN + AR functional dictation into MS Word passed on large-v3-turbo. The v1.3.0 silent-startup defect is closed by observation.</li>
-  <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback + model warmup committed</strong> (<span class="mono">4fb99a9</span>): "Starting…" seeded from launch, 5 s "Ready — F9 / F10" flash after hotkey registration, failure surfaced when registration yields nothing, opt-in model preload (off by default). Ready flash verified live in dev — screenshotted off the real screen, owner-confirmed. Two in-test fixes: ready label shortened after truncation ("Ready — dictate with F…"), flash lengthened 3 s → 5 s. ROADMAP updated (known issue → Shipped). All checks green: 43/43 vitest, 31/31 cargo test, clippy/fmt/tsc/eslint/i18n-parity clean.</li>
-  <li><span class="date">2026-08-25</span> — Release installer rebuild from <span class="mono">4fb99a9</span> started (background; NSIS). On completion: install, then run the owed v1.3.0 checks plus the Starting-phase acceptance in one session.</li>
-  <li><span class="date">2026-08-24</span> — <strong>v1.3.0 published</strong> to GitHub (tag + release + installer, SHA-256 <span class="mono">d4005b86…</span>) on a partial gate by owner ruling; verification record written to RELEASING.md; installer archived outside the repo with verified hash; <span class="mono">cargo clean</span> run.</li>
-  <li><span class="date">2026-08-24</span> — Repository confirmed intentionally <strong>public on GitHub</strong> (not the private VPS); main pushed. Strings audit passed on both exes; the 3-byte built-vs-installed exe difference identified as Tauri's NSIS bundle-type stamp (benign).</li>
-  <li><span class="date">2026-08-24</span> — v1.2.0 firewall outbound-block rules found <strong>missing</strong>; recreation from a non-elevated shell denied — admin step owed.</li>
-  <li><span class="date">2026-08-24</span> — Acceptance testing passed EN + AR under 2 s and surfaced the <strong>silent startup window</strong> defect; recorded in ROADMAP.md. First gate board stood up.</li>
-  <li><span class="date">2026-08-10</span> — Live dictation, custom vocabulary, and F9/F10 default shortcuts merged to main.</li>
+  <li><span class="date">2026-08-25</span> — <strong>Gate score corrected downward</strong> (<span class="mono">fb44c6c</span>): the v1.4.1 record had claimed 4 of 6 by counting the sidecar-pin check (a Build step, not one of the six verify criteria) and by counting the idle netstat sweep as a pass. Restated as 2 of 6 — worse than v1.3.0 and v1.4.0, because the owner's live EN + AR pass has not been run against this build.</li>
+  <li><span class="date">2026-08-25</span> — <strong>v1.4.1 built, installed and tagged</strong> (<span class="mono">4f5ab3d</span>, tag <span class="mono">v1.4.1</span>) — <em>not pushed</em>. Criteria 1 and 2 passed against this artifact: strings audit identical on the built and installed exe (forbidden patterns zero; positive control <span class="mono">sona</span> hit 91×; five <span class="mono">updater</span> hits all known h2/rustls/Win32 substrings; two <span class="mono">huggingface.co</span> hits both downloader manifest), and NSIS <span class="mono">/S</span> install with the quoted HKCU Run entry. Sidecar pins re-verified against <span class="mono">docs/sona-sidecar-sha256.txt</span>. Installer archived to <span class="mono">..\releases\vibe-dictation\v1.4.1\</span> with the copy's hash re-verified; <span class="mono">cargo clean</span> run (7.2 GiB, zero stray release exes).</li>
+  <li><span class="date">2026-08-25</span> — <strong>Shortcut-relaunch defect found, root-caused and fixed</strong> (<span class="mono">009ef8d</span>). Reproduced first: the running instance's main window was observed hidden (<span class="mono">WS_VISIBLE</span> unset) and relaunching the exe left the process count at 1 with the window still hidden. Cause traced to tao 0.34.6 <span class="mono">window.rs:183</span> — <span class="mono">set_focus</span> early-returns unless visible and not minimized. Fix adds <span class="mono">setup::show_main_window()</span> (show → unminimize → focus) and routes the single-instance callback and both tray handlers through it. Verified on the installed build in both the hidden and minimized cases. Checks green: 43/43 vitest, 31/31 cargo test, clippy <span class="mono">-D warnings</span> and fmt clean.</li>
+  <li><span class="date">2026-08-25</span> — <strong>v1.4.0 published</strong> to GitHub (tag + release + installer, SHA-256 <span class="mono">42161e09…</span>) on a partial gate by owner ruling, 3 of 6; verification record written to RELEASING.md; installer archived outside the repo with verified hash; <span class="mono">cargo clean</span> run (2.6 GiB).</li>
+  <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback verified on the installed build</strong>: "Starting…" phase and 5 s Ready flash owner-observed on cold start; EN + AR functional dictation into MS Word passed on large-v3-turbo. The v1.3.0 silent-startup defect closed by observation.</li>
+  <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback + model warmup committed</strong> (<span class="mono">4fb99a9</span>): "Starting…" seeded from launch, 5 s "Ready — F9 / F10" flash after hotkey registration, failure surfaced when registration yields nothing, opt-in model preload (off by default).</li>
+  <li><span class="date">2026-08-24</span> — <strong>v1.3.0 published</strong> to GitHub on a partial gate by owner ruling (SHA-256 <span class="mono">d4005b86…</span>); repository confirmed intentionally public; v1.2.0 firewall outbound-block rules found <strong>missing</strong> and recreation from a non-elevated shell denied — admin step owed ever since. First gate board stood up.</li>
   <li><span class="date">2026-07-28</span> — v1.2.0 tagged and released; repository history squashed; ROADMAP added.</li>
 </ul>
 
 <h2>Where things are written down</h2>
 <ul class="docs">
   <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk.</li>
-  <li><span class="mono">RELEASING.md</span> — the gate: the five-step per-release verification ladder, rules learned the hard way, and the per-release record — including v1.3.0's partial-gate verification record and artifact hashes.</li>
-  <li><span class="mono">ROADMAP.md</span> — known issues, planned and considered work, deliberate non-goals, shipped features (now including startup ready-feedback).</li>
+  <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder, rules learned the hard way, and the per-release record — including v1.4.1's 2-of-6 partial-gate record and artifact hashes.</li>
+  <li><span class="mono">ROADMAP.md</span> — known issues, planned and considered work, deliberate non-goals, shipped features (now including reopening the app from its shortcut).</li>
 </ul>
 <p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
 
