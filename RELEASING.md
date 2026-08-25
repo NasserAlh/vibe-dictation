@@ -75,15 +75,19 @@ inherited from a previous release.
 
 ## Shipped in v1.4.1 (2026-08-25)
 
-**Verification record (partial gate — 4 of 6 criteria run, better than the
-v1.3.0/v1.4.0 3-of-6 split; the two unrun criteria need the owner's voice and
-an elevated shell).** Run and passed:
+**Verification record (partial gate — 2 of 6 criteria run, WORSE than the
+v1.3.0/v1.4.0 3-of-6 split, because the owner's live EN + AR functional pass
+has not been run against this build).** Not published: built, installed and
+tagged locally only.
 
-1. **Sidecar pins** — `desktop/src-tauri/binaries/` already populated, so the
-   sidecar binaries themselves were hashed against `docs/sona-sidecar-sha256.txt`
-   rather than the zip: `sona` `96C7BA10…F1207` and `ffmpeg` `1326DDE4…3EC5E`,
-   both exact matches.
-2. **Strings audit** on `target/release/vibe.exe` AND the post-install exe,
+Build-step check (not one of the six criteria): sidecar content pins —
+`desktop/src-tauri/binaries/` was already populated, so the sidecar binaries
+themselves were hashed against `docs/sona-sidecar-sha256.txt` rather than the
+zip: `sona` `96C7BA10…F1207` and `ffmpeg` `1326DDE4…3EC5E`, both exact matches.
+
+Run and passed:
+
+1. **Strings audit** on `target/release/vibe.exe` AND the post-install exe,
    identical results on both: forbidden patterns zero; positive control `sona`
    hit 91×; all five `updater` hits are the known substrings (h2
    `next_window_update` / `is_pending_window_update`, rustls `KeyUpdateRequest`
@@ -91,23 +95,25 @@ an elevated shell).** Run and passed:
    `GetUpdateRect`); both `huggingface.co` hits are the downloader manifest
    prefix `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/` and the
    "failed to reach huggingface.co" error string.
-3. **Install** — NSIS `/S`, quoted HKCU Run entry pointing at the installed exe.
-4. **Netstat sampler** — 75 samples at ~1 s intervals (~75 s). Only three
-   distinct sockets owned by `vibe.exe`/`sona.exe`, all loopback: sona
-   LISTENING on `127.0.0.1:58946` (never `0.0.0.0`) and the established
-   loopback pair to the shell. Zero non-loopback rows. **Caveat: sampled at
-   idle, not during live dictation** — the app was launched and warm but no
-   dictation ran, so this proves the steady-state socket surface, not the
-   in-dictation one.
+2. **Install** — NSIS `/S`, quoted HKCU Run entry pointing at the installed exe.
 
-NOT RUN (carried debt, now against v1.4.1):
+Not passed (carried debt, now against v1.4.1):
 
-- **Firewall-block test.** Still no outbound-block rules for the installed
-  `vibe.exe`/`sona.exe` — `Get-NetFirewallApplicationFilter` matching either
-  program returns zero. Missing since v1.2.0 and unrecreated through v1.3.0
-  and v1.4.0. Needs an elevated shell.
-- **Functional EN + AR dictation into MS Word**, and the live-dictation
-  portion of the netstat sample. Both need the owner speaking.
+3. **Netstat sampler — NOT MEASURED.** A sweep ran (75 samples at ~1 s
+   intervals, ~75 s) and was clean: only three distinct sockets owned by
+   `vibe.exe`/`sona.exe`, all loopback — sona LISTENING on `127.0.0.1:58946`
+   (never `0.0.0.0`) plus the established loopback pair to the shell, zero
+   non-loopback rows. **But it sampled an idle app, and the criterion requires
+   ~2 min during live dictation.** It proves the steady-state socket surface,
+   not the in-dictation one, so it does not satisfy the criterion.
+4. **Firewall-block test — BLOCKED.** Still no outbound-block rules for the
+   installed `vibe.exe`/`sona.exe` — `Get-NetFirewallApplicationFilter`
+   matching either program returns zero. Missing since v1.2.0 and unrecreated
+   through v1.3.0 and v1.4.0. Creating them needs an elevated shell.
+5. **Functional EN + AR dictation into MS Word — NOT RUN.** Needs the owner
+   speaking. v1.4.0's pass is not inherited: this document's standing rule is
+   that verification is re-proven per artifact.
+6. **Live-dictation functional check — NOT RUN.** Needs the owner speaking.
 
 Hashes: installer
 `a86b6bba5aaff205c9a35cbb5938de05711be19b0c423639853d246dbc764b77`, installed
