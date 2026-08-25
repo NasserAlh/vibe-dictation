@@ -39,9 +39,10 @@ async fn main() -> Result<()> {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             tracing::debug!("{}, {argv:?}, {cwd}", app.package_info().name);
-            if let Some(webview) = app.get_webview_window("main") {
-                webview.set_focus().map_err(|e| eyre!("{:?}", e)).log_error();
-            }
+            // A second launch (desktop/Start-menu shortcut) lands here. The window
+            // is usually HIDDEN — closing it hides instead of exiting — so it must
+            // be shown and unminimized, not merely focused. See show_main_window.
+            setup::show_main_window(app);
             app.emit("single-instance", argv).map_err(|e| eyre!("{:?}", e)).log_error();
         }))
         // Registered but inert: the autostart Run-entry write goes through

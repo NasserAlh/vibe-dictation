@@ -21,6 +21,22 @@ pub struct SonaState {
     pub loaded_gpu_device: Option<i32>,
 }
 
+/// Bring the main window to the front from ANY state.
+///
+/// `set_focus()` alone is not enough: tao's Windows implementation early-returns
+/// unless the window is already visible and not minimized, so focusing a window
+/// hidden by the close-to-tray handler below is a silent no-op. Closing the
+/// window hides it, so every "reopen the app" path — tray click, tray menu, and
+/// a second launch from the Start-menu/desktop shortcut routed here by
+/// tauri-plugin-single-instance — must show and unminimize first.
+pub fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
 pub fn setup(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     // Create app directories
     let local_app_data_dir = app.path().app_local_data_dir()?;
@@ -132,12 +148,7 @@ fn build_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let mut tray_builder = TrayIconBuilder::new()
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "show" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
+            "show" => show_main_window(app),
             "quit" => {
                 app.exit(0);
             }
@@ -150,11 +161,7 @@ fn build_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(tray.app_handle());
             }
         });
 
