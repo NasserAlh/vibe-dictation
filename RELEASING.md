@@ -73,6 +73,66 @@ inherited from a previous release.
   cannot remove it — and verify the copy's hash.
 - Tag the release commit (`vX.Y.Z`) and push with tags.
 
+## Shipped in v1.4.1 (2026-08-25)
+
+**Verification record (partial gate — 4 of 6 criteria run, better than the
+v1.3.0/v1.4.0 3-of-6 split; the two unrun criteria need the owner's voice and
+an elevated shell).** Run and passed:
+
+1. **Sidecar pins** — `desktop/src-tauri/binaries/` already populated, so the
+   sidecar binaries themselves were hashed against `docs/sona-sidecar-sha256.txt`
+   rather than the zip: `sona` `96C7BA10…F1207` and `ffmpeg` `1326DDE4…3EC5E`,
+   both exact matches.
+2. **Strings audit** on `target/release/vibe.exe` AND the post-install exe,
+   identical results on both: forbidden patterns zero; positive control `sona`
+   hit 91×; all five `updater` hits are the known substrings (h2
+   `next_window_update` / `is_pending_window_update`, rustls `KeyUpdateRequest`
+   / `KeyUpdateReceivedInQuic` / `TooManyKeyUpdateRequests`, Win32
+   `GetUpdateRect`); both `huggingface.co` hits are the downloader manifest
+   prefix `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/` and the
+   "failed to reach huggingface.co" error string.
+3. **Install** — NSIS `/S`, quoted HKCU Run entry pointing at the installed exe.
+4. **Netstat sampler** — 75 samples at ~1 s intervals (~75 s). Only three
+   distinct sockets owned by `vibe.exe`/`sona.exe`, all loopback: sona
+   LISTENING on `127.0.0.1:58946` (never `0.0.0.0`) and the established
+   loopback pair to the shell. Zero non-loopback rows. **Caveat: sampled at
+   idle, not during live dictation** — the app was launched and warm but no
+   dictation ran, so this proves the steady-state socket surface, not the
+   in-dictation one.
+
+NOT RUN (carried debt, now against v1.4.1):
+
+- **Firewall-block test.** Still no outbound-block rules for the installed
+  `vibe.exe`/`sona.exe` — `Get-NetFirewallApplicationFilter` matching either
+  program returns zero. Missing since v1.2.0 and unrecreated through v1.3.0
+  and v1.4.0. Needs an elevated shell.
+- **Functional EN + AR dictation into MS Word**, and the live-dictation
+  portion of the netstat sample. Both need the owner speaking.
+
+Hashes: installer
+`a86b6bba5aaff205c9a35cbb5938de05711be19b0c423639853d246dbc764b77`, installed
+`vibe.exe` `37186b76b237412b63236fcc99148a069ed92a4964e62f1461958fe7f40e1ff9`
+(raw `target/release/vibe.exe` at
+`299f5d5618975409ae9a404bfd9a92fe3b66dec057be087c1570a296d695636d` — the usual
+3-byte Tauri NSIS bundle-type stamp difference, located this release at offset
+`0x737C94`, `UNK` → `NSS`). Installer archived to
+`..\releases\vibe-dictation\v1.4.1\` and the copy's hash re-verified.
+
+- **Reopening from the shortcut** (commit `009ef8d`). Closing the main window
+  hides it so the tray icon and global hotkeys survive — but a subsequent
+  launch from the Start-menu/taskbar shortcut then did nothing at all, leaving
+  the tray icon as the only route back to the UI. The second process hands its
+  argv to the running instance via `tauri-plugin-single-instance` and exits,
+  and that callback only called `set_focus()`; tao's Windows backend
+  early-returns from `set_focus` unless the window is already visible and not
+  minimized, so on a hidden window it was a silent no-op. Only the tray
+  handlers worked, because they call `show()` first. Fixed with
+  `setup::show_main_window()` — show, unminimize, focus — now used by the
+  single-instance callback and both tray handlers; `unminimize` matters
+  independently, since `SW_SHOW` leaves a minimized window minimized.
+  Verified on the installed 1.4.1 build: close-to-tray → shortcut relaunch →
+  window visible; minimize → shortcut relaunch → restored and foreground.
+
 ## Shipped in v1.4.0 (2026-08-25)
 
 **Verification record (partial gate — owner ruling, 2026-08-25):** shipped with

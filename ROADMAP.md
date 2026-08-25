@@ -67,6 +67,12 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Shipped
 
+- **Reopening the app from its shortcut** (2026-08). Closing the window hides
+  it so the tray icon and hotkeys stay alive — but launching from the
+  Start-menu or taskbar shortcut afterwards did nothing at all, leaving the
+  tray icon as the only way back to the interface. The second launch now
+  shows the window, restores it if it was minimized, and brings it to the
+  front.
 - **Startup ready-feedback** (2026-08). Closes the silent startup window found
   in v1.3.0 acceptance testing: for a few seconds after launch the dictation
   hotkeys were not yet registered, so an early F9/F10 press was silently lost.
