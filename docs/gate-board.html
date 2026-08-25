@@ -72,47 +72,44 @@
 
 <h1>🎙️🔒 Vibe Dictation Gate Board</h1>
 <div class="header-strip">
-  <span><b>phase</b> v1.3.0 released — post-release checks pending</span>
+  <span><b>phase</b> v1.3.0 released — post-release checks pending; next-cycle work landing on main</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> 9c4faca (moved from 3b79ead by the board's own refresh commit — docs-only, supersedes nothing)</span>
-  <span><b>tests</b> 43/43 frontend (vitest, run this refresh; Rust suite not run — needs MSVC shell)</span>
-  <span><b>updated</b> 2026-08-24</span>
-  <span><b>tree</b> clean (2 untracked build-scratch files)</span>
+  <span><b>commit</b> 4fb99a9 (plus the board's own refresh commit — docs-only, supersedes nothing)</span>
+  <span><b>tests</b> 43/43 frontend (vitest, run this refresh at 4fb99a9); 31/31 Rust (cargo test, run this session against the identical Rust sources)</span>
+  <span><b>updated</b> 2026-08-25</span>
+  <span><b>tree</b> clean (untracked build-scratch files only: <span class="mono">build-release.bat</span>, <span class="mono">build-release.log</span>, <span class="mono">.reasonix/</span>)</span>
 </div>
 
 <h2>Right now</h2>
 <p>
-<strong>v1.3.0 is published</strong> — tagged, pushed, and released on GitHub
-(2026-08-24) with the installer attached and its SHA-256 in the release notes.
-It shipped on a <strong>partial gate by owner ruling</strong>: 3 of 6 criteria run.
-Passed: strings audit on both the built and installed exe (all forbidden patterns
-zero; the sole <span class="mono">updater</span> hit is h2's
-<span class="mono">next_window_update</span>; both
-<span class="mono">huggingface.co</span> hits are the downloader manifest prefix
-and its error string), the NSIS install with the HKCU Run entry pointing at the
-installed exe, and functional EN + AR dictation into MS Word under 2 s. The
-repository is now confirmed public on GitHub (owner decision this session);
-post-release housekeeping is done — installer archived outside the repo with a
-verified hash, <span class="mono">cargo clean</span> run (10.5 GiB, no stray
-release exes).
+<strong>v1.3.0 remains the published release</strong> (tagged, on GitHub, partial
+gate by owner ruling — 3 of 6 criteria run), and <strong>main has moved past
+it</strong>: commit <span class="mono">4fb99a9</span> (2026-08-25) ships the
+next cycle's headline, <strong>startup ready-feedback</strong>. The floating
+indicator now shows "Starting…" from launch (state seeded on the Rust side
+before the webview loads) until the first hotkey-registration pass settles,
+then flashes "Ready — F9 / F10" for 5 s; if hotkeys are enabled but none
+register, it says so instead of vanishing. A companion opt-in "Preload model at
+startup" setting (off by default, ~3 GB VRAM) removes the slow first
+dictation. The ready flash was verified live this session in the dev build —
+screenshot captured off the actual screen and confirmed by the owner. A release
+installer rebuild from 4fb99a9 was started this session.
 </p>
 <p>
-What is not yet proven: the netstat loopback sampler, the firewall-block test,
-and the live-dictation functional checks were <strong>NOT RUN</strong> at ship
-time. The public release's zero-egress claim currently rests on the strings
-audit and compile-time deletions alone — the runtime half of the proof is owed.
-Compounding it: the v1.2.0 outbound-block firewall rules were found
-<strong>missing entirely</strong> during this cycle, so the standing firewall
-enforcement has been absent for an unknown period; recreating them needs an
-elevated shell.
+What is not yet proven: the three owed v1.3.0 post-release checks — netstat
+loopback sampler, firewall-block test, live-dictation functional checks — are
+still <strong>NOT RUN</strong>, and the v1.2.0 outbound-block firewall rules
+are still missing (recreation needs an elevated shell). The published release's
+runtime zero-egress proof therefore remains outstanding. Also unproven: the
+"Starting…" phase of the new feature has never been seen on an installed build
+— dev boots in under a second, so only the Ready flash was observable; the
+multi-second Starting phase it was built for needs the rebuilt installer.
 </p>
 <p>
-No document-vs-repository contradiction stands: RELEASING.md's rule is a full
-pass per release, and the deviation is recorded there as a dated owner ruling
-with the exact run/not-run split, so the documents and the repository agree
-about what happened. One first-launch defect surfaced in acceptance testing and
-is recorded in ROADMAP.md: the silent startup window (hotkeys register only
-after the frontend loads; an early F9/F10 press is silently ignored).
+No document-vs-repository contradiction stands, but note the version skew:
+ROADMAP.md now lists the silent startup window as fixed (Shipped), which is
+true of main and <em>not</em> of the published v1.3.0 installer — anyone
+running the release still has the defect until the next release ships.
 </p>
 
 <h2>Your next action</h2>
@@ -120,11 +117,12 @@ after the frontend loads; an early F9/F10 press is silently ignored).
 <p style="margin:0">
 <strong>Close the owed half of the v1.3.0 gate:</strong> run the two
 <span class="mono">New-NetFirewallRule</span> commands in an <em>admin</em>
-PowerShell (they were provided in-session; the rules are currently missing),
-then say "start the sampler" and dictate for ~2 minutes so the netstat sample
-runs — followed by the under-block dictation + clean-download-failure check and
-the three live-dictation checks. Until then, the published release's runtime
-zero-egress proof is outstanding.
+PowerShell (the rules are currently missing), then say "start the sampler" and
+dictate for ~2 minutes so the netstat sample runs — followed by the under-block
+dictation + clean-download-failure check and the three live-dictation checks.
+This unblocks the most: it completes the published release's zero-egress proof,
+and the same installed-build session can double as the acceptance pass for the
+new startup ready-feedback once the rebuilt installer is in.
 </p>
 </div>
 
@@ -168,16 +166,16 @@ zero-egress proof is outstanding.
   <tr><th>Tag</th><th>Item</th></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — now user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate — a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
-  <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Silent startup window</strong> (found 2026-08-24 in v1.3.0 acceptance): hotkeys register only after the frontend loads, so an early F9/F10 press is silently ignored and the dictation lost with no feedback. Next cycle's headline: startup ready-feedback (indicator "starting…" until hotkeys register, then a ready confirmation) plus an opt-in model warmup. (ROADMAP)</td></tr>
+  <tr><td><span class="pill p-amber">AWAITING RE-TEST</span></td>
+      <td><strong>Silent startup window</strong> (found 2026-08-24 in v1.3.0 acceptance): fixed on main by commit <span class="mono">4fb99a9</span> — indicator shows "Starting…" from launch, then a 5 s "Ready — F9 / F10" flash once hotkeys register. Ready flash verified live in the dev build (screenshot, owner-confirmed, 2026-08-25); the Starting phase itself has never been seen on an installed build, and the published v1.3.0 installer still has the defect. Acceptance runs against the rebuilt installer. (ROADMAP, Shipped)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>RTL text injection</strong> mangles Arabic character order in some target apps; workaround is clipboard output mode. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Stale commit stamp</strong> — the installed binary can self-report an older commit than it was built from; <span class="mono">build.rs</span> needs a rerun-if-changed directive. Cosmetic. (ROADMAP + RELEASING deferred list)</td></tr>
+      <td><strong>Stale commit stamp</strong> — the installed binary can self-report an older commit than it was built from; <span class="mono">build.rs</span> needs a rerun-if-changed directive. Cosmetic. This cycle's rebuild touched Rust sources, so the stamp re-runs this time; the defect remains for frontend-only changes. (ROADMAP + RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>ffmpeg resolution pin</strong> — the app-side recording conversion resolves ffmpeg from PATH instead of the bundled binary. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation, no registration feedback. (ROADMAP planned + RELEASING deferred list)</td></tr>
+      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation, no registration feedback. Partial mitigation landed in <span class="mono">4fb99a9</span>: a startup-time registration failure is now surfaced on the indicator instead of passing silently; the field itself is unchanged. (ROADMAP planned + RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong><span class="mono">cli.rs</span> review</strong> — audit which CLI arguments still make sense for a dictation-only tool. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
@@ -186,17 +184,19 @@ zero-egress proof is outstanding.
       <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash); those releases exist only as RELEASING.md records plus the external installer archive. v1.2.0 and v1.3.0 are tagged.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
       <td><strong>GitHub remote uses HTTPS</strong> — no SSH key is registered with GitHub from this machine (checked 2026-08-24); pushes ride the credential manager. Owner's standing rule prefers SSH; set up a key or rule it settled.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Commit <span class="mono">4fb99a9</span> not yet pushed</strong> — main is one commit (plus this board refresh) ahead of the GitHub remote as of this refresh.</td></tr>
 </table>
 
 <h2>Recent activity</h2>
 <ul class="activity">
+  <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback + model warmup committed</strong> (<span class="mono">4fb99a9</span>): "Starting…" seeded from launch, 5 s "Ready — F9 / F10" flash after hotkey registration, failure surfaced when registration yields nothing, opt-in model preload (off by default). Ready flash verified live in dev — screenshotted off the real screen, owner-confirmed. Two in-test fixes: ready label shortened after truncation ("Ready — dictate with F…"), flash lengthened 3 s → 5 s. ROADMAP updated (known issue → Shipped). All checks green: 43/43 vitest, 31/31 cargo test, clippy/fmt/tsc/eslint/i18n-parity clean.</li>
+  <li><span class="date">2026-08-25</span> — Release installer rebuild from <span class="mono">4fb99a9</span> started (background; NSIS). On completion: install, then run the owed v1.3.0 checks plus the Starting-phase acceptance in one session.</li>
   <li><span class="date">2026-08-24</span> — <strong>v1.3.0 published</strong> to GitHub (tag + release + installer, SHA-256 <span class="mono">d4005b86…</span>) on a partial gate by owner ruling; verification record written to RELEASING.md; installer archived outside the repo with verified hash; <span class="mono">cargo clean</span> run.</li>
   <li><span class="date">2026-08-24</span> — Repository confirmed intentionally <strong>public on GitHub</strong> (not the private VPS); main pushed. Strings audit passed on both exes; the 3-byte built-vs-installed exe difference identified as Tauri's NSIS bundle-type stamp (benign).</li>
   <li><span class="date">2026-08-24</span> — v1.2.0 firewall outbound-block rules found <strong>missing</strong>; recreation from a non-elevated shell denied — admin step owed.</li>
-  <li><span class="date">2026-08-24</span> — Acceptance testing passed EN + AR under 2 s and surfaced the <strong>silent startup window</strong> defect; recorded in ROADMAP.md with next cycle's ready-feedback fix planned.</li>
-  <li><span class="date">2026-08-24</span> — First gate board stood up.</li>
+  <li><span class="date">2026-08-24</span> — Acceptance testing passed EN + AR under 2 s and surfaced the <strong>silent startup window</strong> defect; recorded in ROADMAP.md. First gate board stood up.</li>
   <li><span class="date">2026-08-10</span> — Live dictation, custom vocabulary, and F9/F10 default shortcuts merged to main.</li>
-  <li><span class="date">2026-08-03</span> — Opt-in model downloader merged: per-download confirmation, compile-time pins, removable via <span class="mono">--no-default-features</span>.</li>
   <li><span class="date">2026-07-28</span> — v1.2.0 tagged and released; repository history squashed; ROADMAP added.</li>
 </ul>
 
@@ -204,7 +204,7 @@ zero-egress proof is outstanding.
 <ul class="docs">
   <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk.</li>
   <li><span class="mono">RELEASING.md</span> — the gate: the five-step per-release verification ladder, rules learned the hard way, and the per-release record — including v1.3.0's partial-gate verification record and artifact hashes.</li>
-  <li><span class="mono">ROADMAP.md</span> — known issues (now including the silent startup window), planned and considered work, deliberate non-goals, shipped features.</li>
+  <li><span class="mono">ROADMAP.md</span> — known issues, planned and considered work, deliberate non-goals, shipped features (now including startup ready-feedback).</li>
 </ul>
 <p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
 
