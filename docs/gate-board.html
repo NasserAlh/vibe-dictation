@@ -72,9 +72,9 @@
 
 <h1>🎙️🔒 Vibe Dictation Gate Board</h1>
 <div class="header-strip">
-  <span><b>phase</b> v1.4.1 pushed and tagged on GitHub — gate open at 2 of 6, no Release artifact attached</span>
+  <span><b>phase</b> v1.4.1 publicly released with installer attached — gate still open at 2 of 6</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> 2b82968, tag v1.4.1, in sync with <span class="mono">origin/main</span> (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
+  <span><b>commit</b> 18803c3, tag v1.4.1, in sync with <span class="mono">origin/main</span> over SSH (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
   <span><b>tests</b> 43/43 frontend (vitest), run this session at fb44c6c; 31/31 Rust (cargo test) last observed at 009ef8d — the commits since touched only docs and the version field, superseding nothing, and <span class="mono">cargo clean</span> has since removed the build tree</span>
   <span><b>updated</b> 2026-08-25</span>
   <span><b>tree</b> clean</span>
@@ -82,11 +82,11 @@
 
 <h2>Right now</h2>
 <p>
-<strong>v1.4.1 is pushed.</strong> Built, installed, running, tagged
-<span class="mono">v1.4.1</span>, and as of 2026-08-25 on GitHub — commits and
-tag both. <strong>No GitHub Release was cut and no installer was attached</strong>,
-so the Releases page still offers v1.4.0's artifact; v1.4.1 exists there as
-source and a tag only. The release fixes one defect:
+<strong>v1.4.1 is public and downloadable.</strong> Built, installed, running,
+tagged, pushed, and as of 2026-08-25 released on GitHub with the installer
+attached — verified by downloading the published asset back and hashing it
+(<span class="mono">a86b6bba…</span>, matching the archived copy exactly).
+Strangers can now install this build. The release fixes one defect:
 closing the main window hides it so the tray icon and hotkeys survive, but a
 subsequent launch from the Start-menu or taskbar shortcut then did nothing at
 all, leaving the tray icon as the only route back to the interface. Root cause
@@ -113,33 +113,35 @@ this machine without the owner: everything in criteria 4, 5 and 6 — one
 elevated shell and one dictating voice.
 </p>
 <p>
-Two things the documents assert that the repository state qualifies.
-<strong>ROADMAP.md lists the shortcut fix under Shipped</strong>, which is now
-true of <span class="mono">origin/main</span> and the <span class="mono">v1.4.1</span>
-tag — but of no downloadable build: anyone installing from the GitHub Releases
-page still gets v1.4.0, and still has the dead shortcut. And
-<strong>the v1.4.0 board's three
-owed checks can no longer be closed against v1.4.0</strong>: the installed
-build on this machine is now v1.4.1, so criteria 3, 4 and 6 did not merely
-carry forward, they became un-runnable against the release that owed them.
-That debt is now owed by v1.4.1 — the third consecutive release to rest its
-runtime zero-egress proof on the strings audit and compile-time deletions
-alone.
+One contradiction now stands, and publishing sharpened it.
+<strong>RELEASING.md opens by stating that every release re-runs the full
+verification and that the zero-egress claim is re-proven per artifact, never
+inherited.</strong> The artifact now on the Releases page ran two of the six
+criteria. That was defensible while the build sat on this machine; it is a
+different proposition now that the download is public, because the people the
+guarantee is written for can no longer tell the difference — the release notes
+make no verification claim either way, so nothing false is published, but
+nothing proves the runtime claim either. This is the third consecutive release
+to rest its runtime zero-egress proof on the strings audit and compile-time
+deletions alone. Resolved since the last refresh: ROADMAP.md's Shipped entry
+for the shortcut fix is now true of a downloadable build, not just of
+<span class="mono">main</span>.
 </p>
 
 <h2>Your next action</h2>
 <div class="next-action">
 <p style="margin:0">
 <strong>Close the four owed criteria against the installed v1.4.1.</strong>
-It shipped at 2 of 6 — that ruling is made and the push is done, so the open
-question is no longer whether but when the gate closes. Everything automatable
-has been run; the remainder is one elevated PowerShell (the two
-<span class="mono">New-NetFirewallRule</span> commands, for criterion 4) and
-roughly ten minutes of your dictating (criteria 3, 5 and 6, all of which can
-run in one session against the installed build). Doing it now would give the
-fork its first full 6-of-6 gate and retire debt carried since v1.2.0 — and it
-is the precondition for attaching an installer to a v1.4.1 GitHub Release,
-since that is the point at which strangers download the artifact.
+The installer is published, so this is no longer housekeeping you can schedule
+at leisure — the artifact is in strangers' hands with four of six criteria
+unrun. Everything automatable has been run; the remainder is one elevated
+PowerShell (the two <span class="mono">New-NetFirewallRule</span> commands, for
+criterion 4) and roughly ten minutes of your dictating (criteria 3, 5 and 6,
+all of which run in one session against the installed build, which is
+byte-identical to the published download). That would give the fork its first
+full 6-of-6 gate and retire debt carried since v1.2.0. If any of it fails, the
+release can be pulled or superseded — which is the reason to run it now rather
+than after someone reports something.
 </p>
 </div>
 
@@ -165,8 +167,8 @@ since that is the point at which strangers download the artifact.
       <td><span class="pill p-inert">CLOSED — 3 OF 6, DEBT MOVED</span></td>
       <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria are <strong>no longer runnable against v1.4.0</strong> — this machine's installed build is now v1.4.1 — so they transfer to the v1.4.1 row rather than staying open here. Closed inert, not green: it settled a partial gate, not a pass.</td></tr>
   <tr><td><strong>v1.4.1 release verification</strong></td><td class="date">2026-08-25</td>
-      <td><span class="pill p-open">OPEN — 2 OF 6</span></td>
-      <td>Shipped at 2 of 6 by owner ruling: pushed and tagged on GitHub 2026-08-25, no Release artifact attached. Criteria 1 and 2 passed against this artifact. Carries the debt from v1.3.0 and v1.4.0. Shortcut-relaunch fix (<span class="mono">009ef8d</span>).</td></tr>
+      <td><span class="pill p-amber">SHIPPED — 2 OF 6</span></td>
+      <td>Published by owner ruling 2026-08-25: tag, GitHub Release, and installer attached (SHA-256 <span class="mono">a86b6bba…</span>, re-verified by downloading the published asset). Criteria 1 and 2 passed against this artifact; 3 is NOT MEASURED, 4 BLOCKED, 5 and 6 NOT RUN — the weakest gate of any published release so far. Carries the debt from v1.3.0 and v1.4.0. Shortcut-relaunch fix (<span class="mono">009ef8d</span>).</td></tr>
 </table>
 
 <h2>What the open gate still needs</h2>
@@ -191,7 +193,7 @@ since that is the point at which strangers download the artifact.
 <table>
   <tr><th>Tag</th><th>Item</th></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
-      <td><strong>Cut a v1.4.1 GitHub Release, or leave it tag-only.</strong> The commits and tag are pushed, but no Release exists and no installer is attached, so the Releases page still serves v1.4.0 to anyone downloading. Attaching the archived installer (SHA-256 <span class="mono">a86b6bba…</span>) would put the fix in strangers' hands — which is the moment the four owed criteria stop being internal debt. Your call on the order.</td></tr>
+      <td><strong>Release-notes filename mismatch.</strong> GitHub substitutes dots for spaces in asset names on upload, so the published file is <span class="mono">Vibe.Dictation_1.4.1_x64-setup.exe</span> while the notes' hash-check command names the spaced original. Anyone pasting that command gets a file-not-found rather than a hash. One-line edit to the release notes; also affects the v1.4.0 and v1.3.0 notes if they were written the same way.</td></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate: a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
@@ -213,11 +215,13 @@ since that is the point at which strangers download the artifact.
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
       <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash); those releases exist only as RELEASING.md records plus the external installer archive. v1.2.0 onward are tagged.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>GitHub CLI installed but not authenticated.</strong> <span class="mono">gh</span> 2.98.0 was installed 2026-08-25 (absent since the machine rebuild) and is logged into no host, so cutting a Release is blocked on a one-time <span class="mono">gh auth login</span> or a <span class="mono">GH_TOKEN</span>. The SSH key cannot substitute: a Release is a REST API object, not a git object, and the API does not accept SSH keys.</td></tr>
+      <td><strong>Release tooling is machine-local.</strong> Publishing depends on <span class="mono">gh</span> 2.98.0 installed under this user's WinGet package path and authenticated to this machine only (2026-08-25), plus the installer archive at <span class="mono">..\releases\vibe-dictation\</span>, which is outside the repository and backed up nowhere. A rebuild loses both, as this one already did.</td></tr>
 </table>
 
 <h2>Recent activity</h2>
 <ul class="activity">
+  <li><span class="date">2026-08-25</span> — <strong>v1.4.1 released publicly with the installer attached.</strong> GitHub Release created for the tag with the archived installer uploaded, then <strong>verified by downloading the published asset back and hashing it</strong>: <span class="mono">a86b6bba…</span>, an exact match for the archived copy. Latest release, not a draft. Notes went out in short form — fix, install steps, both hashes, known issues — making no verification claim in either direction. The gate stands at 2 of 6 and the artifact is now public.</li>
+  <li><span class="date">2026-08-25</span> — <strong><span class="mono">gh</span> authenticated</strong> as NasserAlh over the browser device flow (the existing SSH key was already on the account, so nothing was uploaded), unblocking Release creation. Established first that an SSH key cannot substitute for it.</li>
   <li><span class="date">2026-08-25</span> — <strong><span class="mono">origin</span> switched to SSH; a board claim corrected.</strong> The 2026-08-24 note that no SSH key was registered with GitHub from this machine was <strong>wrong</strong> — <span class="mono">ssh -T git@github.com</span> answers "Hi NasserAlh!". <span class="mono">origin</span> moved from HTTPS to <span class="mono">git@github.com:NasserAlh/vibe-dictation.git</span> and confirmed with <span class="mono">git ls-remote</span>, retiring the HTTPS exception to the owner's SSH-only rule. Separately established that the key cannot cut a Release: GitHub delivered the <span class="mono">v1.4.1</span> tag over git but lists no v1.4.1 release, because a Release is a REST API object requiring a token.</li>
   <li><span class="date">2026-08-25</span> — <strong>v1.4.1 pushed to GitHub</strong> (<span class="mono">8cdf0b9..2b82968</span>, plus the <span class="mono">v1.4.1</span> tag), shipping at 2 of 6 by owner ruling. Diff scanned against the public-push sanitization contract first: no private-infra, host, or workplace references. No GitHub Release cut and no installer attached — the Releases page still serves v1.4.0.</li>
   <li><span class="date">2026-08-25</span> — <strong>Gate score corrected downward</strong> (<span class="mono">fb44c6c</span>): the v1.4.1 record had claimed 4 of 6 by counting the sidecar-pin check (a Build step, not one of the six verify criteria) and by counting the idle netstat sweep as a pass. Restated as 2 of 6 — worse than v1.3.0 and v1.4.0, because the owner's live EN + AR pass has not been run against this build.</li>
