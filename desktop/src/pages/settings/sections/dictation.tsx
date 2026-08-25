@@ -94,6 +94,13 @@ export function DictationSection() {
 												</span>
 												<Switch checked={hotkey.hotkeyLiveDictation} onCheckedChange={hotkey.setHotkeyLiveDictation} disabled={hotkey.hotkeyOutputMode !== 'type'} />
 											</div>
+											<div className="flex items-center justify-between gap-3">
+												<span className="flex items-center gap-1 text-sm font-medium">
+													<InfoTooltip text={m.modelWarmupSettingInfo()} />
+													{m.modelWarmupSetting()}
+												</span>
+												<Switch checked={hotkey.hotkeyModelWarmup} onCheckedChange={hotkey.setHotkeyModelWarmup} />
+											</div>
 											<div className="h-px bg-border/45" />
 											<Field label={m.hotkeyActivationMode()}>
 												<div className="flex gap-2">

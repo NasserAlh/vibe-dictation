@@ -50,6 +50,8 @@ interface HotkeyContextType {
 	setHotkeyLiveDictation: (enabled: boolean) => void
 	hotkeyVocabulary: string
 	setHotkeyVocabulary: (vocabulary: string) => void
+	hotkeyModelWarmup: boolean
+	setHotkeyModelWarmup: (enabled: boolean) => void
 	isHotkeyRecording: boolean
 }
 
@@ -102,6 +104,9 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const [hotkeyLlmPort, setHotkeyLlmPort] = useLocalStorage('prefs_hotkey_llm_port', defaultOllamaPort)
 	const [hotkeyLiveDictation, setHotkeyLiveDictation] = useLocalStorage('prefs_hotkey_live_dictation', false)
 	const [hotkeyVocabulary, setHotkeyVocabulary] = useLocalStorage('prefs_hotkey_vocabulary', '')
+	// Off by default: warmup holds the model (~3 GB VRAM for large-v3) from
+	// launch on an autostarted app.
+	const [hotkeyModelWarmup, setHotkeyModelWarmup] = useLocalStorage('prefs_hotkey_model_warmup', false)
 	const [isHotkeyRecording, setIsHotkeyRecording] = useState(false)
 
 	const isHotkeyRecordingRef = useRef(false)
@@ -133,6 +138,13 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const liveFrozenRef = useRef(false)
 	// True while the current dictation session is live-typing at the cursor.
 	const liveSessionRef = useRef(false)
+	// Startup ready-feedback: the indicator shows "Starting…" from launch
+	// (seeded on the Rust side); the first registration pass replaces it with
+	// a ready flash and hides it. One-shot — later re-registrations (settings
+	// edits) never touch the indicator.
+	const startupAnnouncedRef = useRef(false)
+	const startupTimerRef = useRef<number | null>(null)
+	const warmupStartedRef = useRef(false)
 
 	const showIndicator = useCallback((status: 'recording' | 'transcribing' | 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
@@ -405,7 +417,22 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	useEffect(() => () => {
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
 		if (liveDictationTimerRef.current) window.clearInterval(liveDictationTimerRef.current)
+		if (startupTimerRef.current) window.clearTimeout(startupTimerRef.current)
 	}, [])
+
+	// Opt-in model warmup: preload the model as soon as the app starts, so the
+	// first dictation skips the multi-second lazy load. Also fires when the
+	// setting is switched on mid-session. Fire-and-forget — a failure here
+	// surfaces through the normal load path on the next dictation.
+	useEffect(() => {
+		if (!hotkeyModelWarmup || warmupStartedRef.current) return
+		const modelPath = preferenceRef.current.modelPath
+		if (!modelPath) return
+		warmupStartedRef.current = true
+		invoke('load_model', { modelPath, gpuDevice: preferenceRef.current.gpuDevice }).catch((error) => {
+			console.error('Model warmup error:', error)
+		})
+	}, [hotkeyModelWarmup])
 
 	// Register/unregister the per-language shortcuts (one accelerator per
 	// dictation language — see verification report §11: no auto path).
@@ -469,7 +496,29 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			if (cancelled) await unregisterAll()
 		}
 
-		shortcutOperationRef.current = shortcutOperationRef.current.then(setupShortcuts, setupShortcuts)
+		// Runs after the first registration pass settles (skipped if this effect
+		// was cancelled first — the re-run announces instead). Session 0 is the
+		// startup session; a dictation started during the flash bumps the
+		// session, so the timed hide below no-ops instead of hiding it.
+		function announceStartup() {
+			if (cancelled || startupAnnouncedRef.current) return
+			startupAnnouncedRef.current = true
+			const registered = registeredShortcutsRef.current
+			if (registered.length > 0) {
+				showDictationIndicator({ sessionId: 0, status: 'ready', message: registered.join(' / ') })
+				startupTimerRef.current = window.setTimeout(() => hideDictationIndicator(0), 5000)
+			} else if (hotkeyEnabled) {
+				// Enabled but nothing registered (shortcut taken by another app,
+				// or both fields empty) — surface it instead of vanishing.
+				showDictationIndicator({ sessionId: 0, status: 'error', message: m.dictationIndicatorHotkeysFailed() })
+				startupTimerRef.current = window.setTimeout(() => hideDictationIndicator(0), 3500)
+			} else {
+				// Hotkeys disabled: just clear the seeded starting state.
+				hideDictationIndicator(0)
+			}
+		}
+
+		shortcutOperationRef.current = shortcutOperationRef.current.then(setupShortcuts, setupShortcuts).then(announceStartup)
 
 		return () => {
 			cancelled = true
@@ -502,6 +551,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		setHotkeyLiveDictation,
 		hotkeyVocabulary,
 		setHotkeyVocabulary,
+		hotkeyModelWarmup,
+		setHotkeyModelWarmup,
 		isHotkeyRecording,
 	}
 

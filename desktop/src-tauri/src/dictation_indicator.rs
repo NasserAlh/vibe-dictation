@@ -92,10 +92,23 @@ fn create_window(app: &tauri::AppHandle) -> Result<WebviewWindow, String> {
 pub fn initialize(app: &tauri::AppHandle) {
     tracing::info!("Initializing dictation indicator (enabled={})", is_enabled(app));
     if is_enabled(app) && app.get_webview_window(WINDOW_LABEL).is_none() {
+        // Seed a "starting…" state before the window loads so the indicator is
+        // visible from launch until the frontend has registered the dictation
+        // hotkeys (it then replaces this with a ready flash and hides session 0).
+        // Closes the silent startup window: a too-early keypress is visibly
+        // "not yet" instead of silently ignored.
+        if let Ok(mut current) = app.state::<DictationIndicatorRuntime>().current.lock() {
+            *current = Some(DictationIndicatorPayload {
+                session_id: 0,
+                status: "starting".to_string(),
+                output: None,
+                message: None,
+            });
+        }
         if let Err(error) = create_window(app) {
             tracing::error!("Could not initialize dictation indicator: {error}");
         } else {
-            tracing::info!("Dictation indicator window initialized hidden");
+            tracing::info!("Dictation indicator window initialized in starting state");
         }
     }
 }

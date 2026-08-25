@@ -10,15 +10,6 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Known issues
 
-- **Silent startup window** (found 2026-08-24, v1.3.0 acceptance testing). For a
-  few seconds after launch, the dictation hotkeys are not yet registered — the
-  frontend registers them only once the webview and React app finish loading —
-  so pressing F9/F10 does nothing, with zero feedback, and a dictation attempted
-  in that window is silently lost. Related but distinct: the model is loaded
-  lazily on the first dictation, so the first transcription after launch is slow
-  (not lossy — recording works; it just waits on the load). With autostart the
-  window is rarely hit in practice, but a launch-then-immediately-dictate flow
-  loses speech with no indication anything went wrong.
 - **Stale commit stamp.** The installed binary can self-report an older commit
   hash than it was built from. A frontend-only change does not re-run the
   `build.rs` stamp step. Cosmetic — it does not affect the app — but it makes
@@ -34,14 +25,6 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Planned
 
-- **Startup ready-feedback** (next cycle's headline). Close the silent startup
-  window: show the dictation indicator in a "starting…" state from launch until
-  the hotkeys are actually registered, then confirm readiness (indicator flash
-  or one-shot notification "Vibe ready — F9/F10"), so a too-early keypress is
-  visibly "not yet" instead of silently ignored. Companion, opt-in: a model
-  warmup setting that preloads the model at startup so the first dictation is
-  as fast as every later one — off by default, since it holds ~3 GB of VRAM
-  from launch on an autostarted app.
 - **Animated recording indicator.** The floating indicator is static while
   recording — "Listening…" with a fixed dot. Animate it with a smooth
   level meter driven by the live microphone signal (a small waveform or
@@ -84,6 +67,18 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Shipped
 
+- **Startup ready-feedback** (2026-08). Closes the silent startup window found
+  in v1.3.0 acceptance testing: for a few seconds after launch the dictation
+  hotkeys were not yet registered, so an early F9/F10 press was silently lost.
+  Now the floating indicator shows "Starting…" from launch (state seeded on the
+  Rust side before the webview loads) until the first hotkey-registration pass
+  settles, then flashes "Ready — dictate with F9 / F10" (the actual registered
+  shortcuts) and hides. If hotkeys are enabled but none registered — shortcut
+  taken by another app, or both fields empty — the indicator says so instead of
+  vanishing. Companion, opt-in (Settings → Dictation, off by default): model
+  warmup preloads the model at startup so the first dictation is as fast as
+  every later one; off by default because it holds ~3 GB of VRAM from launch on
+  an autostarted app.
 - **Custom vocabulary** (2026-08). Settings → Dictation: one shared list for
   both languages, one entry per line. A plain line ("Claude") biases Whisper
   toward the word by joining the engine's init prompt (appended glossary,

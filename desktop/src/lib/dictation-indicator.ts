@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 
-export type DictationIndicatorStatus = 'recording' | 'transcribing' | 'completed' | 'error'
+export type DictationIndicatorStatus = 'starting' | 'ready' | 'recording' | 'transcribing' | 'completed' | 'error'
 
 export interface DictationIndicatorState {
 	sessionId: number

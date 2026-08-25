@@ -7,7 +7,10 @@ import logoUrl from '../../../design/logo.svg?url'
 import { getDictationIndicatorState, type DictationIndicatorState } from '~/lib/dictation-indicator'
 
 export default function DictationIndicator() {
-	const [state, setState] = useState<DictationIndicatorState>({ sessionId: 0, status: 'recording' })
+	// Null until the backend state arrives — the window can be visible at app
+	// startup (seeded "starting" state) while this component is still mounting,
+	// and a hardcoded default would flash the wrong status.
+	const [state, setState] = useState<DictationIndicatorState | null>(null)
 
 	useEffect(() => {
 		invoke('dictation_indicator_ready').catch(console.error)
@@ -20,7 +23,11 @@ export default function DictationIndicator() {
 		}
 	}, [])
 
+	if (!state) return null
+
 	const content = {
+		starting: { icon: <LoaderCircle className="h-4 w-4 animate-spin text-zinc-400" />, label: m.dictationIndicatorStarting() },
+		ready: { icon: <Check className="h-4 w-4 text-emerald-400" />, label: m.dictationIndicatorReady({ shortcuts: state.message ?? '' }) },
 		recording: { icon: <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />, label: m.dictationIndicatorListening() },
 		transcribing: { icon: <LoaderCircle className="h-4 w-4 animate-spin text-blue-400" />, label: m.dictationIndicatorTranscribing() },
 		completed: { icon: <Check className="h-4 w-4 text-emerald-400" />, label: state.output === 'type' ? m.dictationIndicatorInserted() : m.dictationIndicatorCopied() },
