@@ -73,6 +73,38 @@ inherited from a previous release.
   cannot remove it — and verify the copy's hash.
 - Tag the release commit (`vX.Y.Z`) and push with tags.
 
+## Shipped in v1.4.0 (2026-08-25)
+
+**Verification record (partial gate — owner ruling, 2026-08-25):** shipped with
+3 of 6 criteria run, same split as v1.3.0. Run and passed: strings audit on
+both the built and installed exe (all forbidden patterns zero; positive
+control `sona` hit 31×; all four `updater` hits are the known h2/rustls/Win32
+substrings — `GetUpdateRect`, rustls `KeyUpdate*`, h2 `next_window_update`;
+both `huggingface.co` hits are the downloader manifest prefix and host
+string), NSIS `/S` install with the quoted HKCU Run entry pointing at the
+installed exe, and functional EN + AR dictation into MS Word within ~2 s
+(run with **large-v3-turbo**, the owner's active model — not large-v3).
+NOT RUN at ship time (carried debt, now against v1.4.0): netstat sampler,
+firewall-block test, live-dictation functional checks. Hashes: installer
+`42161e0927310d5a76d3e5e74c99fb996de7e7ea72eeebd86daeee085b539993`, installed
+`vibe.exe` `f05a9bd09f198e75148306d23af9a5249bbe0fec02eab2d732f37f5b5d62e318`
+(raw `target/release/vibe.exe` at
+`b6c92c3d59cf57ac97b9b90c0ec3ec1ee2b8dd52cd1906a6ac4922b3c0fa7170` — the
+usual 3-byte Tauri NSIS bundle-type stamp difference).
+
+- **Startup ready-feedback** (commit `4fb99a9`). Closes the v1.3.0
+  silent-startup defect: the dictation indicator shows "Starting…" from launch
+  (state seeded Rust-side before the webview loads) until the first
+  hotkey-registration pass settles, then flashes "Ready — F9 / F10" (the
+  actual registered accelerators) for 5 s and hides. If hotkeys are enabled
+  but nothing registered, the indicator says so instead of vanishing.
+  Verified live: Ready flash screenshot-confirmed in dev, Starting phase +
+  flash owner-observed on the installed build's cold start.
+- **Opt-in model warmup** (Settings → Dictation, off by default). Preloads the
+  selected model at startup — and immediately when toggled on — so the first
+  dictation skips the lazy load. Off by default: holds ~3 GB VRAM from launch
+  on an autostarted app. Failures fall through to the normal load path.
+
 ## Shipped in v1.3.0 (2026-08-24)
 
 **Verification record (partial gate — owner ruling, 2026-08-24):** shipped with
