@@ -42,6 +42,13 @@ issue** = a defect that exists today, **Shipped** = done, on main.
   warmup setting that preloads the model at startup so the first dictation is
   as fast as every later one — off by default, since it holds ~3 GB of VRAM
   from launch on an autostarted app.
+- **Animated recording indicator.** The floating indicator is static while
+  recording — "Listening…" with a fixed dot. Animate it with a smooth
+  level meter driven by the live microphone signal (a small waveform or
+  pulsing bars scaled to input level), so you can see the app is hearing you
+  before any text arrives. The backend already mirrors samples during capture;
+  the indicator needs a lightweight level event from it (local, status-only —
+  the indicator never shows transcript text, per the standing owner decision).
 - **Better first-run experience.** Right now a new user installs, then has to
   fetch a model (via the opt-in in-app download or by hand) and select it. A
   guided first launch would remove the remaining steps.
