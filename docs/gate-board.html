@@ -72,44 +72,46 @@
 
 <h1>🎙️🔒 Vibe Dictation Gate Board</h1>
 <div class="header-strip">
-  <span><b>phase</b> v1.3.0 released — post-release checks pending; next-cycle work landing on main</span>
+  <span><b>phase</b> v1.4.0 released — carried post-release checks pending</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> 4fb99a9 (plus the board's own refresh commit — docs-only, supersedes nothing)</span>
-  <span><b>tests</b> 43/43 frontend (vitest, run this refresh at 4fb99a9); 31/31 Rust (cargo test, run this session against the identical Rust sources)</span>
+  <span><b>commit</b> 3a3aed5, tag v1.4.0 (plus the board's own refresh commit — docs-only, supersedes nothing)</span>
+  <span><b>tests</b> 43/43 frontend (vitest) and 31/31 Rust (cargo test), run this session at 4fb99a9 — the two commits since touched only docs and the version field, superseding nothing</span>
   <span><b>updated</b> 2026-08-25</span>
   <span><b>tree</b> clean (untracked build-scratch files only: <span class="mono">build-release.bat</span>, <span class="mono">build-release.log</span>, <span class="mono">.reasonix/</span>)</span>
 </div>
 
 <h2>Right now</h2>
 <p>
-<strong>v1.3.0 remains the published release</strong> (tagged, on GitHub, partial
-gate by owner ruling — 3 of 6 criteria run), and <strong>main has moved past
-it</strong>: commit <span class="mono">4fb99a9</span> (2026-08-25) ships the
-next cycle's headline, <strong>startup ready-feedback</strong>. The floating
-indicator now shows "Starting…" from launch (state seeded on the Rust side
-before the webview loads) until the first hotkey-registration pass settles,
-then flashes "Ready — F9 / F10" for 5 s; if hotkeys are enabled but none
-register, it says so instead of vanishing. A companion opt-in "Preload model at
-startup" setting (off by default, ~3 GB VRAM) removes the slow first
-dictation. The ready flash was verified live this session in the dev build —
-screenshot captured off the actual screen and confirmed by the owner. A release
-installer rebuild from 4fb99a9 was started this session.
+<strong>v1.4.0 is published</strong> — tagged, pushed, released on GitHub
+(2026-08-25) with the installer attached and its SHA-256 in the notes
+(<span class="mono">42161e09…</span>). It shipped on a <strong>partial gate by
+owner ruling</strong>, the same 3-of-6 split as v1.3.0. Passed: strings audit
+on both the built and installed exe (all forbidden patterns zero; positive
+control <span class="mono">sona</span> hit 31×; all four
+<span class="mono">updater</span> hits are known h2/rustls/Win32 substrings;
+both <span class="mono">huggingface.co</span> hits are the downloader manifest
+prefix), NSIS <span class="mono">/S</span> install with the quoted HKCU Run
+entry pointing at the installed exe, and functional EN + AR dictation into MS
+Word within ~2 s — run on <strong>large-v3-turbo</strong>, the owner's active
+model. The headline feature, startup ready-feedback, was verified end to end:
+"Starting…" and the 5 s "Ready — F9 / F10" flash owner-observed on the
+installed build's cold start. Post-release housekeeping done: installer
+archived outside the repo with a verified hash, <span class="mono">cargo
+clean</span> run (2.6 GiB).
 </p>
 <p>
-What is not yet proven: the three owed v1.3.0 post-release checks — netstat
-loopback sampler, firewall-block test, live-dictation functional checks — are
-still <strong>NOT RUN</strong>, and the v1.2.0 outbound-block firewall rules
-are still missing (recreation needs an elevated shell). The published release's
-runtime zero-egress proof therefore remains outstanding. Also unproven: the
-"Starting…" phase of the new feature has never been seen on an installed build
-— dev boots in under a second, so only the Ready flash was observable; the
-multi-second Starting phase it was built for needs the rebuilt installer.
+What is not yet proven: the same three checks carried from v1.3.0 — netstat
+loopback sampler, firewall-block test, live-dictation functional checks —
+remain <strong>NOT RUN</strong>, now owed against the installed v1.4.0. The
+v1.2.0 outbound-block firewall rules are still missing (recreation needs an
+elevated shell). Two consecutive releases now rest their runtime zero-egress
+proof on the strings audit and compile-time deletions alone.
 </p>
 <p>
-No document-vs-repository contradiction stands, but note the version skew:
-ROADMAP.md now lists the silent startup window as fixed (Shipped), which is
-true of main and <em>not</em> of the published v1.3.0 installer — anyone
-running the release still has the defect until the next release ships.
+No document-vs-repository contradiction stands: RELEASING.md carries the dated
+v1.4.0 owner ruling with the exact run/not-run split, ROADMAP.md's Shipped
+entry for startup ready-feedback is now true of the published release, and the
+silent-startup known issue is closed by observation on the installed build.
 </p>
 
 <h2>Your next action</h2>
@@ -119,10 +121,10 @@ running the release still has the defect until the next release ships.
 <span class="mono">New-NetFirewallRule</span> commands in an <em>admin</em>
 PowerShell (the rules are currently missing), then say "start the sampler" and
 dictate for ~2 minutes so the netstat sample runs — followed by the under-block
-dictation + clean-download-failure check and the three live-dictation checks.
-This unblocks the most: it completes the published release's zero-egress proof,
-and the same installed-build session can double as the acceptance pass for the
-new startup ready-feedback once the rebuilt installer is in.
+dictation + clean-download-failure check and the three live-dictation checks,
+all against the installed v1.4.0. This is the whole of the carried debt: two
+public releases now await their runtime zero-egress proof, and everything
+except your dictating and the one elevated shell is already automated.
 </p>
 </div>
 
@@ -141,12 +143,15 @@ new startup ready-feedback once the rebuilt installer is in.
   <tr><td>v1.2.0 release verification</td><td class="date">2026-07-28</td>
       <td><span class="pill p-passed">PASSED</span></td>
       <td>Per-language dictation hotkeys (no auto-detect), English-only UI, display-locale/model-language decoupling.</td></tr>
-  <tr><td><strong>v1.3.0 release verification</strong></td><td class="date">2026-08-24</td>
+  <tr><td>v1.3.0 release verification</td><td class="date">2026-08-24</td>
       <td><span class="pill p-amber">SHIPPED — 3 OF 6</span></td>
-      <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed; criteria 3, 4, and 6 below still owed post-release. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
+      <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed; the three owed criteria were never run against v1.3.0 and carry forward to v1.4.0 below. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
+  <tr><td><strong>v1.4.0 release verification</strong></td><td class="date">2026-08-25</td>
+      <td><span class="pill p-amber">SHIPPED — 3 OF 6</span></td>
+      <td>Published by owner ruling, same split: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed; criteria 3, 4, and 6 below owed post-release. Startup ready-feedback + opt-in model warmup.</td></tr>
 </table>
 
-<h2>What v1.3.0 still owes (post-release checks)</h2>
+<h2>What v1.4.0 still owes (post-release checks, carried from v1.3.0)</h2>
 <p class="reminder">The release is public; these run against the installed build and update the verification record in RELEASING.md when done.</p>
 <table>
   <tr><th>#</th><th>Criterion</th><th>Status</th><th>What was observed / why it falls short</th></tr>
@@ -166,8 +171,6 @@ new startup ready-feedback once the rebuilt installer is in.
   <tr><th>Tag</th><th>Item</th></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — now user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate — a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
-  <tr><td><span class="pill p-amber">AWAITING RE-TEST</span></td>
-      <td><strong>Silent startup window</strong> (found 2026-08-24 in v1.3.0 acceptance): fixed on main by commit <span class="mono">4fb99a9</span> — indicator shows "Starting…" from launch, then a 5 s "Ready — F9 / F10" flash once hotkeys register. Ready flash verified live in the dev build (screenshot, owner-confirmed, 2026-08-25); the Starting phase itself has never been seen on an installed build, and the published v1.3.0 installer still has the defect. Acceptance runs against the rebuilt installer. (ROADMAP, Shipped)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>RTL text injection</strong> mangles Arabic character order in some target apps; workaround is clipboard output mode. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
@@ -184,12 +187,12 @@ new startup ready-feedback once the rebuilt installer is in.
       <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash); those releases exist only as RELEASING.md records plus the external installer archive. v1.2.0 and v1.3.0 are tagged.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
       <td><strong>GitHub remote uses HTTPS</strong> — no SSH key is registered with GitHub from this machine (checked 2026-08-24); pushes ride the credential manager. Owner's standing rule prefers SSH; set up a key or rule it settled.</td></tr>
-  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Commit <span class="mono">4fb99a9</span> not yet pushed</strong> — main is one commit (plus this board refresh) ahead of the GitHub remote as of this refresh.</td></tr>
 </table>
 
 <h2>Recent activity</h2>
 <ul class="activity">
+  <li><span class="date">2026-08-25</span> — <strong>v1.4.0 published</strong> to GitHub (tag + release + installer, SHA-256 <span class="mono">42161e09…</span>) on a partial gate by owner ruling, same 3-of-6 split as v1.3.0; verification record written to RELEASING.md; installer archived outside the repo with verified hash; <span class="mono">cargo clean</span> run (2.6 GiB, three orphaned dev <span class="mono">sona.exe</span> processes killed to release the lock).</li>
+  <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback verified on the installed build</strong>: "Starting…" phase and 5 s Ready flash owner-observed on cold start; EN + AR functional dictation into MS Word passed on large-v3-turbo. The v1.3.0 silent-startup defect is closed by observation.</li>
   <li><span class="date">2026-08-25</span> — <strong>Startup ready-feedback + model warmup committed</strong> (<span class="mono">4fb99a9</span>): "Starting…" seeded from launch, 5 s "Ready — F9 / F10" flash after hotkey registration, failure surfaced when registration yields nothing, opt-in model preload (off by default). Ready flash verified live in dev — screenshotted off the real screen, owner-confirmed. Two in-test fixes: ready label shortened after truncation ("Ready — dictate with F…"), flash lengthened 3 s → 5 s. ROADMAP updated (known issue → Shipped). All checks green: 43/43 vitest, 31/31 cargo test, clippy/fmt/tsc/eslint/i18n-parity clean.</li>
   <li><span class="date">2026-08-25</span> — Release installer rebuild from <span class="mono">4fb99a9</span> started (background; NSIS). On completion: install, then run the owed v1.3.0 checks plus the Starting-phase acceptance in one session.</li>
   <li><span class="date">2026-08-24</span> — <strong>v1.3.0 published</strong> to GitHub (tag + release + installer, SHA-256 <span class="mono">d4005b86…</span>) on a partial gate by owner ruling; verification record written to RELEASING.md; installer archived outside the repo with verified hash; <span class="mono">cargo clean</span> run.</li>
