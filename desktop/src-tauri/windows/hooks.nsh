@@ -1,7 +1,36 @@
+; Single NSIS hooks file for the installer — referenced by
+; bundle.windows.nsis.installerHooks in tauri.conf.json
+; (Tauri accepts one hooks file per build).
+
+; --- Kill orphaned Sona sidecar -------------------------------------------
+; The stock Tauri NSIS template only closes the main app executable before
+; installing. It knows nothing about the bundled sidecars, so an orphaned
+; sona.exe (left behind when the app crashes or is force-killed and its
+; teardown never runs) keeps a lock on the install dir and the upgrade fails
+; with "Error opening file for writing". Kill it before install/uninstall.
+; /T also takes down any child processes; Sleep lets Windows release handles.
+
+!macro NSIS_HOOK_PREINSTALL
+  nsExec::Exec 'taskkill /F /IM sona.exe /T'
+  Pop $0
+  Sleep 300
+!macroend
+
+!macro NSIS_HOOK_PREUNINSTALL
+  nsExec::Exec 'taskkill /F /IM sona.exe /T'
+  Pop $0
+  Sleep 300
+!macroend
+
+; --- VC++ redistributable (inherited from upstream Vibe) ------------------
+; NOTE: this section DOWNLOADS vc_redist.x64.exe from aka.ms during install
+; when the runtime is missing — the one network access in the installer.
+; The app's zero-egress guarantee covers the running app, not this step.
+
 Section
     ; Check if the VC++ Redistributable is already installed
     ReadRegStr $0 HKLM "SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
-    
+
     ${If} $0 != ""
         DetailPrint "vc_redist found! Skipping installation."
     ${Else}
