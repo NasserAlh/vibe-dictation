@@ -72,10 +72,10 @@
 
 <h1>🎙️🔒 Vibe Dictation Gate Board</h1>
 <div class="header-strip">
-  <span><b>phase</b> v1.4.1 publicly released — gate still open at 2 of 6; installer-hooks fix on <span class="mono">main</span>, unreleased</span>
+  <span><b>phase</b> v1.4.1 publicly released — gate still open at 2 of 6; installer-hooks fix on <span class="mono">main</span>, verified in a real install, unreleased</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> 6a980de, 7 commits past tag <span class="mono">v1.4.1</span> (six board/docs commits plus the installer-hooks rework — packaging only), in sync with <span class="mono">origin/main</span> over HTTPS (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
-  <span><b>tests</b> 43/43 frontend (vitest), run this session at 6a980de; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since, and the build tree has again been removed</span>
+  <span><b>commit</b> c69244d, 9 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus the installer-hooks rework — packaging only), in sync with <span class="mono">origin/main</span> over HTTPS (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
+  <span><b>tests</b> 43/43 frontend (vitest), run 2026-08-26 at 6a980de — only docs changed since; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree removed by <span class="mono">cargo clean</span> after today's hook test (3.5 GiB)</span>
   <span><b>updated</b> 2026-08-26</span>
   <span><b>tree</b> clean</span>
 </div>
@@ -97,16 +97,27 @@ was merged into that same file (Tauri accepts one hooks file per build), and
 <span class="mono">tauri.windows.conf.json</span> — a cross-platform leftover
 whose own <span class="mono">installerHooks</span> entry silently overrode the
 main config — was merged into <span class="mono">tauri.conf.json</span> and
-deleted. A local rebuild confirmed the generated installer script includes the
-hooks file and inserts the kill macro ahead of extraction; the build tree was
-removed afterwards, so <strong>no built artifact currently carries the fix</strong>.
+deleted. <strong>The fix is now proven in a real install</strong> (2026-08-26,
+recorded in RELEASING.md): a detached <span class="mono">sona.exe serve</span>
+was spawned from the install directory to hold the lock — the exact condition
+that produced the file-write error — and the hooks-bearing locally built
+installer ran silently to exit code 0, killed the orphan, and rewrote the
+install directory. The published artifact was then restored by re-downloading
+the GitHub asset (hash <span class="mono">a86b6bba…</span>, exact match) and
+reinstalling it; the installed <span class="mono">vibe.exe</span> re-hashed to
+<span class="mono">37186b76…</span>, byte-identical to the published record.
+The published v1.4.1 installer still lacks the hook — it first ships in the
+next release. A correction to the previous refresh: it claimed the build tree
+had been removed; that observation was wrong (it checked the wrong directory —
+the tree and the hooks installer were still present, which is what made
+today's test cheap). <span class="mono">cargo clean</span> has now actually
+been run.
 </p>
 <p>
 The gate is unchanged at 2 of 6, the weakest of any published release. What
 cannot be proven from this machine without the owner: criteria 3, 5 and 6 need
 a dictating voice, criterion 4 needs one elevated shell to create the firewall
-rules — and separately, the new sona-kill hook has never been observed working
-in a real install; it is first exercised by whatever installer is built next.
+rules.
 </p>
 <p>
 Three contradictions stand. <strong>First, the standing one:</strong>
@@ -139,9 +150,8 @@ elevated PowerShell (the two <span class="mono">New-NetFirewallRule</span>
 commands, criterion 4) and roughly ten minutes of dictating (criteria 3, 5
 and 6, one session against the installed build, byte-identical to the
 published download). That gives the fork its first full 6-of-6 gate and
-retires debt carried since v1.2.0. It does not retire the new installer-hook
-item — that waits for the next release's installer — and the SSH-key and
-vc_redist decisions below wait on you regardless.
+retires debt carried since v1.2.0. The SSH-key and vc_redist decisions below
+wait on you regardless.
 </p>
 </div>
 
@@ -192,8 +202,6 @@ vc_redist decisions below wait on you regardless.
 <h2>Open and unresolved</h2>
 <table>
   <tr><th>Tag</th><th>Item</th></tr>
-  <tr><td><span class="pill p-amber">AWAITING RE-TEST</span></td>
-      <td><strong>Sona-kill installer hooks unproven in a real install.</strong> Fixed in code (<span class="mono">6a980de</span>, 2026-08-26) and verified at compile level — the generated installer script includes <span class="mono">windows/hooks.nsh</span> and inserts the kill macro before extraction — but no surviving artifact contains it (the verification build tree was removed) and the hook has never been observed clearing an orphaned <span class="mono">sona.exe</span> during an actual upgrade. First exercised by the next release's installer.</td></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Installer downloads from aka.ms.</strong> The inherited vc_redist section fetches <span class="mono">vc_redist.x64.exe</span> from <span class="mono">aka.ms</span> during install when the VC++ runtime is missing — outside RELEASING.md's zero-egress audit scope, which covers the app, not the installer. Options: keep it (now documented in <span class="mono">windows/hooks.nsh</span> and worth adding to RELEASING.md's scope statement), bundle the redistributable offline, or drop the hook and document manual install (docs/deployment.md already names vc_redist as a fix). Decision recorded nowhere yet.</td></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
@@ -224,6 +232,7 @@ vc_redist decisions below wait on you regardless.
 
 <h2>Recent activity</h2>
 <ul class="activity">
+  <li><span class="date">2026-08-26</span> — <strong>Sona-kill hook proven in a real install; item closed.</strong> A detached <span class="mono">sona.exe serve</span> spawned from the install dir (PID 122536, path confirmed) reproduced the lock condition; the hooks-bearing installer ran <span class="mono">/S</span> to exit 0, the orphan was gone afterwards, and the install dir was rewritten. Published bytes then restored: GitHub asset re-downloaded and hash-verified (<span class="mono">a86b6bba…</span>), reinstalled, installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>. Evidence recorded in RELEASING.md (<span class="mono">c69244d</span>); <span class="mono">cargo clean</span> run (3.5 GiB). <strong>Correction:</strong> the previous refresh's claim that the build tree had been removed was wrong — the check ran in the wrong directory; the tree was present until today's clean.</li>
   <li><span class="date">2026-08-26</span> — <strong>Installer hooks reworked and pushed</strong> (<span class="mono">6a980de</span>). New <span class="mono">windows/hooks.nsh</span>: pre-install and pre-uninstall <span class="mono">taskkill /F /IM sona.exe /T</span>, plus the vc_redist logic moved in unchanged (Tauri accepts one hooks file). <span class="mono">tauri.windows.conf.json</span> merged into <span class="mono">tauri.conf.json</span> and deleted — the overlay's own <span class="mono">installerHooks</span> entry was silently overriding the main config, and the partial file tripped false schema diagnostics; the config's <span class="mono">$schema</span> now points at the CLI's real config schema instead of the capabilities schema. Verified by rebuilding: the generated <span class="mono">installer.nsi</span> includes the hooks file at line 28 and inserts the kill macro before file extraction. The vc_redist section's aka.ms download was discovered during the merge and documented in place.</li>
   <li><span class="date">2026-08-26</span> — <strong>v1.4.1 upgrade on this machine blocked by an orphaned sidecar.</strong> The published installer failed with <span class="mono">Error opening file for writing: …\sona.exe</span>; <span class="mono">tasklist</span> showed two <span class="mono">sona.exe</span> processes (PIDs 112400, 108472) with no main app running. Both killed, install completed. Root cause: the stock Tauri NSIS template closes only the main executable — motive for the hooks rework above.</li>
   <li><span class="date">2026-08-26</span> — <strong>Repository state observed:</strong> <span class="mono">origin</span> found on HTTPS in both directions despite the 2026-08-25 SSH switch; restoring SSH failed with <span class="mono">Permission denied (publickey)</span>, so the remote stays on HTTPS (see the open item). The build tree is gone again — no stray release exes, satisfying RELEASING.md's cargo-clean rule — and the stale sibling clone <span class="mono">~\Dev\vibe-dictation-public</span> no longer exists, retiring that housekeeping item.</li>
