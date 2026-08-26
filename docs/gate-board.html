@@ -74,7 +74,7 @@
 <div class="header-strip">
   <span><b>phase</b> v1.4.1 publicly released — gate still open at 2 of 6; installer-hooks fix on <span class="mono">main</span>, verified in a real install, unreleased</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> c69244d, 9 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus the installer-hooks rework — packaging only), in sync with <span class="mono">origin/main</span> over HTTPS (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
+  <span><b>commit</b> dd40fff, 10 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus the installer-hooks rework — packaging only), in sync with <span class="mono">origin/main</span> over SSH (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
   <span><b>tests</b> 43/43 frontend (vitest), run 2026-08-26 at 6a980de — only docs changed since; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree removed by <span class="mono">cargo clean</span> after today's hook test (3.5 GiB)</span>
   <span><b>updated</b> 2026-08-26</span>
   <span><b>tree</b> clean</span>
@@ -120,7 +120,7 @@ a dictating voice, criterion 4 needs one elevated shell to create the firewall
 rules.
 </p>
 <p>
-Three contradictions stand. <strong>First, the standing one:</strong>
+Two contradictions stand. <strong>First, the standing one:</strong>
 RELEASING.md opens by stating every release re-runs the full verification, yet
 the published v1.4.1 artifact ran two of six criteria. <strong>Second, found
 today while consolidating the hooks:</strong> the installer itself can reach
@@ -131,14 +131,9 @@ zero-egress audit covers the app binary and its runtime sockets, not the
 installer's own network behaviour, so this has shipped unexamined in every
 release to date. It is now documented in a warning comment in
 <span class="mono">windows/hooks.nsh</span>, but no controlled document rules on
-it. <strong>Third:</strong> the 2026-08-25 record that
-<span class="mono">origin</span> was switched to SSH is contradicted by
-observation — the remote was found on HTTPS in both directions today, and
-restoring SSH failed: <span class="mono">git@github.com</span> answers
-<span class="mono">Permission denied (publickey)</span>, where on 2026-08-25 it
-answered "Hi NasserAlh!". Something changed on the account or the key since.
-The remote is left on HTTPS, which authenticates and worked for today's pull
-and push.
+it. The third contradiction from the last refresh — <span class="mono">origin</span>
+on HTTPS despite the recorded SSH switch — is resolved: root cause found and
+fixed, SSH restored (see activity).
 </p>
 
 <h2>Your next action</h2>
@@ -205,8 +200,6 @@ wait on you regardless.
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Installer downloads from aka.ms.</strong> The inherited vc_redist section fetches <span class="mono">vc_redist.x64.exe</span> from <span class="mono">aka.ms</span> during install when the VC++ runtime is missing — outside RELEASING.md's zero-egress audit scope, which covers the app, not the installer. Options: keep it (now documented in <span class="mono">windows/hooks.nsh</span> and worth adding to RELEASING.md's scope statement), bundle the redistributable offline, or drop the hook and document manual install (docs/deployment.md already names vc_redist as a fix). Decision recorded nowhere yet.</td></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
-      <td><strong>GitHub SSH authentication is broken.</strong> <span class="mono">git@github.com</span> answered <span class="mono">Permission denied (publickey)</span> on 2026-08-26, where 2026-08-25 recorded a working "Hi NasserAlh!". The key was removed from the account, or the local key/agent changed. <span class="mono">origin</span> is left on HTTPS (authenticates via credential manager; today's pull and push worked) — contradicting the owner's SSH-only rule. Only the owner can re-add or verify the key on the GitHub account.</td></tr>
-  <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Release-notes filename mismatch.</strong> GitHub substitutes dots for spaces in asset names on upload, so the published file is <span class="mono">Vibe.Dictation_1.4.1_x64-setup.exe</span> while the notes' hash-check command names the spaced original. Anyone pasting that command gets a file-not-found rather than a hash. One-line edit to the release notes; also affects the v1.4.0 and v1.3.0 notes if they were written the same way.</td></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate: a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
@@ -232,6 +225,7 @@ wait on you regardless.
 
 <h2>Recent activity</h2>
 <ul class="activity">
+  <li><span class="date">2026-08-26</span> — <strong>GitHub SSH root-caused and restored; item closed.</strong> The key was never removed from the account: the machine's only key pair is <span class="mono">~/.ssh/id_ed25519_vps</span> — a non-default filename SSH offers to github.com only via config or a loaded agent, and <span class="mono">~/.ssh/config</span> had no <span class="mono">github.com</span> entry. The 2026-08-25 success rode a transient agent session; when it went, so did auth. Fixed durably: a <span class="mono">Host github.com</span> block (<span class="mono">IdentityFile ~/.ssh/id_ed25519_vps</span>, <span class="mono">IdentitiesOnly yes</span>) added to <span class="mono">~/.ssh/config</span>; <span class="mono">ssh -T git@github.com</span> answers "Hi NasserAlh!" with no agent; <span class="mono">origin</span> switched back to <span class="mono">git@github.com:NasserAlh/vibe-dictation.git</span> and <span class="mono">git ls-remote</span> confirmed over SSH. The owner's SSH-only rule holds again.</li>
   <li><span class="date">2026-08-26</span> — <strong>Sona-kill hook proven in a real install; item closed.</strong> A detached <span class="mono">sona.exe serve</span> spawned from the install dir (PID 122536, path confirmed) reproduced the lock condition; the hooks-bearing installer ran <span class="mono">/S</span> to exit 0, the orphan was gone afterwards, and the install dir was rewritten. Published bytes then restored: GitHub asset re-downloaded and hash-verified (<span class="mono">a86b6bba…</span>), reinstalled, installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>. Evidence recorded in RELEASING.md (<span class="mono">c69244d</span>); <span class="mono">cargo clean</span> run (3.5 GiB). <strong>Correction:</strong> the previous refresh's claim that the build tree had been removed was wrong — the check ran in the wrong directory; the tree was present until today's clean.</li>
   <li><span class="date">2026-08-26</span> — <strong>Installer hooks reworked and pushed</strong> (<span class="mono">6a980de</span>). New <span class="mono">windows/hooks.nsh</span>: pre-install and pre-uninstall <span class="mono">taskkill /F /IM sona.exe /T</span>, plus the vc_redist logic moved in unchanged (Tauri accepts one hooks file). <span class="mono">tauri.windows.conf.json</span> merged into <span class="mono">tauri.conf.json</span> and deleted — the overlay's own <span class="mono">installerHooks</span> entry was silently overriding the main config, and the partial file tripped false schema diagnostics; the config's <span class="mono">$schema</span> now points at the CLI's real config schema instead of the capabilities schema. Verified by rebuilding: the generated <span class="mono">installer.nsi</span> includes the hooks file at line 28 and inserts the kill macro before file extraction. The vc_redist section's aka.ms download was discovered during the merge and documented in place.</li>
   <li><span class="date">2026-08-26</span> — <strong>v1.4.1 upgrade on this machine blocked by an orphaned sidecar.</strong> The published installer failed with <span class="mono">Error opening file for writing: …\sona.exe</span>; <span class="mono">tasklist</span> showed two <span class="mono">sona.exe</span> processes (PIDs 112400, 108472) with no main app running. Both killed, install completed. Root cause: the stock Tauri NSIS template closes only the main executable — motive for the hooks rework above.</li>
