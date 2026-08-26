@@ -138,6 +138,27 @@ Hashes: installer
   independently, since `SW_SHOW` leaves a minimized window minimized.
   Verified on the installed 1.4.1 build: close-to-tray → shortcut relaunch →
   window visible; minimize → shortcut relaunch → restored and foreground.
+- **Installer cannot upgrade over an orphaned Sona sidecar** (found 2026-08-26,
+  fixed on main in `6a980de` — the published v1.4.1 installer does NOT contain
+  the fix; it first ships in the next release's installer). Upgrading on the
+  owner's machine failed with `Error opening file for writing: …\sona.exe`:
+  two orphaned `sona.exe` processes (leftover from a run whose teardown never
+  executed) held locks on the install dir, and the stock Tauri NSIS template
+  closes only the main executable. Fix: `windows/hooks.nsh` adds
+  `NSIS_HOOK_PREINSTALL`/`NSIS_HOOK_PREUNINSTALL` macros running
+  `taskkill /F /IM sona.exe /T` before any file is touched; the vc_redist
+  logic moved into the same file (Tauri accepts one hooks file), and
+  `tauri.windows.conf.json` — whose own `installerHooks` entry silently
+  overrode the main config — was merged into `tauri.conf.json` and deleted.
+  **Verified in a real install (2026-08-26):** a detached `sona.exe serve`
+  was spawned from the install dir (PID 122536, path confirmed), the
+  hooks-bearing locally built installer ran `/S` → exit code 0, the orphan
+  was gone afterwards, and the install dir was rewritten (new `vibe.exe`
+  build stamp + fresh `uninstall.exe`) — the exact condition that produced
+  the file-write error the day before. The published artifact was then
+  restored: the GitHub asset was re-downloaded and hash-verified
+  (`a86b6bba…`, exact match), reinstalled `/S`, and the installed `vibe.exe`
+  re-hashed to `37186b76…` — byte-identical to the published record.
 
 ## Shipped in v1.4.0 (2026-08-25)
 
