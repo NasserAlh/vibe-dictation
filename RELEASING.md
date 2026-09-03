@@ -4,6 +4,18 @@ Private release procedure for this fork. Every release re-runs the full
 verification below — the zero-egress claim is re-proven per artifact, never
 inherited from a previous release.
 
+**Scope of the claim (owner ruling, 2026-09-03): the zero-egress guarantee
+covers the installer as well as the running app.** The installer contacts
+nothing: WebView2 is taken from Windows 11 in-box
+(`bundle.windows.webviewInstallMode` = `skip`, so Tauri's bootstrapper
+download is not compiled in), and the Microsoft VC++ runtime DLLs that
+`sona.exe` needs are bundled app-local and content-pinned (see *Bundled
+Microsoft VC++ runtime* under Build) instead of downloaded. The only
+network access anywhere in the product remains the opt-in, per-download
+model fetch inside the running app. Releases before this ruling (v1.2.0 to
+v1.4.1) shipped installers that could reach `aka.ms` and `go.microsoft.com`;
+see the 2026-09-03 audit record in the v1.4.1 section.
+
 ## Build
 
 1. Open a shell with the MSVC environment loaded (`Enter-VsDevShell`/`VsDevCmd
@@ -82,6 +94,18 @@ from the Visual Studio Installer's licence view.
    (`src/model_download.rs`, cargo feature `model-download`, in defaults);
    confirm the hits are the manifest URL prefix and nothing else. A
    `--no-default-features` build must have zero `huggingface.co` hits.
+   **Expected hits from the bundled VC++ runtime:** `msvcp140`,
+   `msvcp140_1`, `vcruntime140`, `vcruntime140_1` and `vcomp140` are the
+   five app-local DLLs beside `sona.exe`; their names hit in `sona.exe`'s
+   import table and in the installer's file list and are not egress
+   indicators — confirm each hit is one of those and nothing else.
+   **Installer audit (same step):** the generated
+   `target/release/nsis/x64/installer.nsi` must carry
+   `!define INSTALLWEBVIEW2MODE ""` and include `windows/hooks.nsh`, and
+   `hooks.nsh` must contain no `NSISdl`, no `inetc`, no `ExecShell "open"`
+   and no URL. A `makensis /V4` recompile of that script to a scratch path
+   lists the packed files (the five DLLs, `sona`, `ffmpeg`) and must show no
+   plugin command from `NSISdl`.
 2. **Install** (NSIS `/S`), launch, confirm the HKCU Run entry points at the
    installed exe (autostart preference-sync).
 3. **Netstat sampler** (~2 min, during live dictation): all sockets owned by
@@ -234,6 +258,58 @@ Hashes: installer
   restored: the GitHub asset was re-downloaded and hash-verified
   (`a86b6bba…`, exact match), reinstalled `/S`, and the installed `vibe.exe`
   re-hashed to `37186b76…` — byte-identical to the published record.
+- **Installer egress audit and ruling (2026-09-03; fixed on main in
+  `1f64e26` — the published v1.4.1 installer still has both paths; the fix
+  first ships in the next release).** Read-only audit of the NSIS installer
+  (Tauri CLI 2.10.0 template plus `windows/hooks.nsh`) found four network
+  paths: (1) the inherited vc_redist section's `NSISdl::download` of
+  `https://aka.ms/vs/17/release/vc_redist.x64.exe` (25,635,768 bytes, 301 to
+  `download.visualstudio.microsoft.com`) when the
+  `HKLM\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64`
+  key is absent, followed by `ExecWait … /install /passive` (needs
+  elevation); (2) on failure, `ExecShell "open"` of the same URL in the
+  browser; (3) the template's WebView2 section — `webviewInstallMode` was
+  unset, and the CLI's default is `downloadBootstrapper`, so a missing
+  WebView2 `pv` key triggered `NSISdl::download` of
+  `https://go.microsoft.com/fwlink/p/?LinkId=2124703` (1,783,000-byte
+  bootstrapper, which then fetches the runtime itself) — dormant on Windows
+  11, which ships WebView2 in-box, but silent and undocumented; (4) the
+  template's Chromium-updater `ExecWait`, only when `minimumWebview2Version`
+  is set (it is not). The hooks file is included at line 29 of the template,
+  so its unnamed section ran first, before Tauri's own checks. Import-table
+  analysis of the installed binaries: `sona.exe` hard-imports `MSVCP140`,
+  `MSVCP140_1`, `VCRUNTIME140`, `VCRUNTIME140_1`, `VCOMP140` (and
+  delay-loads `vulkan-1`); `vibe.exe` and `ffmpeg.exe` import only Universal
+  CRT api-sets, so the runtime is needed by Sona alone. **NSISdl HTTPS
+  finding:** the NSIS wiki states NSISdl cannot download over HTTPS and both
+  URLs redirect from plain HTTP to HTTPS, which would have meant the
+  download path never worked; a probe installer compiled with Tauri's cached
+  makensis and run on 2026-09-03 returned `success` for both URLs, so the
+  path was functional — it had simply never been exercised by a release
+  test. Options costed: keep the download and widen the scope statement;
+  bundle `vc_redist.x64.exe` (+25.6 MB, +58 %); bundle the five DLLs
+  app-local (+961,168 bytes raw, no elevation, no system change); or drop
+  the hook and stop with a message. **Ruling: app-local DLLs plus
+  `webviewInstallMode` = `skip`** (implemented in `1f64e26`; pins and
+  licence citation under Build). Verification build from that commit:
+  installer `Vibe Dictation_1.4.1_x64-setup.exe` 44,405,731 bytes
+  (`5f75dd9a…`; +263,503 bytes over the published v1.4.1), raw
+  `target/release/vibe.exe` `01f3814d…`. Installed `/S` → exit 0; the five
+  DLLs landed beside `sona.exe` with hashes matching the pins; the
+  generated `installer.nsi` compiled with `INSTALLWEBVIEW2MODE ""` and a
+  `/V4` recompile packed the five DLLs and both sidecars with no `NSISdl`
+  command; the installed `sona.exe`, spawned exactly as the app spawns it,
+  loaded all five DLLs from the install directory (not `System32`), loaded
+  `ggml-large-v3-turbo.bin` in 1.1 s and transcribed a Windows-TTS clip
+  correctly ("Testing the bundled runtime 1, 2, 3", 0.4 s); the installed
+  app itself then spawned Sona on loopback only (`127.0.0.1` LISTEN plus
+  the established pair) with the same app-local DLLs. Not run: the owner's
+  hotkey dictation (criteria 5 and 6 stand as before). Published bytes then
+  restored: the archived v1.4.1 installer (`a86b6bba…`) reinstalled `/S`,
+  installed `vibe.exe` `37186b76…`, `sona.exe` `96c7ba10…`, `ffmpeg.exe`
+  `1326dde4…`; the hook-less v1.4.1 installer left the five DLLs in place,
+  so they were removed by hand to match the published layout. `cargo clean`
+  run afterwards. A verification build, not a release: nothing archived.
 
 ## Shipped in v1.4.0 (2026-08-25)
 

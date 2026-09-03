@@ -181,7 +181,11 @@ pnpm exec tauri build
   (`%APPDATA%\net.nasserhub.dictation\log_YYYY-MM-DD.txt`) does **not** print a GPU
   line — its "device" entries are audio devices only — so don't hunt for one there.
 - **Stalls at Vulkan init or first model load:** see [debug.md](debug.md) —
-  VulkanRT and `vc_redist` are the usual fixes.
+  VulkanRT is the usual fix. The Microsoft VC++ runtime is **no longer needed
+  system-wide**: since the 2026-09-03 ruling the five DLLs `sona.exe` needs
+  ship app-local beside it (content-pinned, see RELEASING.md), so a missing
+  `vc_redist` cannot be the cause on a build from `1f64e26` or later — it can
+  only matter for the v1.4.1 installer and earlier.
 
 ---
 

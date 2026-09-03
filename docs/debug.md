@@ -38,7 +38,10 @@ around the crash time.
 
 ### `vulkan-1.dll` or `vcomp140.dll` is missing
 
-- `vcomp140.dll` — install [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+- `vcomp140.dll` — on builds from `1f64e26` onward it ships beside `sona.exe`
+  (app-local, content-pinned; see RELEASING.md), so a missing copy means a
+  damaged install — reinstall. Only the v1.4.1 installer and earlier relied on
+  a system-wide [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 - `vulkan-1.dll` — install the Vulkan runtime
   ([VulkanRT installer](https://sdk.lunarg.com/sdk/download/1.3.290.0/windows/VulkanRT-1.3.290.0-Installer.exe))
 
