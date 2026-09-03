@@ -203,6 +203,18 @@ parity across locales.
 - **Releases** are unsigned NSIS installers for private use — **there is no CI**. Every
   release re-runs the full zero-egress verification by hand: [RELEASING.md](RELEASING.md).
 
+## Scripted file edits
+
+When an edit needs a script, **write the script to a `.py` file with the Write
+tool and run that file** (`python3.12 path\to\script.py`). Never pass Python
+inline through a Bash heredoc, even a quoted one: doubled backslashes collapse
+in transit, so a Windows path such as `..\releases\vibe-dictation\v1.4.0\`
+arrives as carriage-return and vertical-tab bytes and gets written into the
+file (this happened to RELEASING.md in `4e30bd3`, repaired in `2efe2d5`). When
+matching text that may already contain stray control characters, open the
+file with `newline=""` so a lone `\r` is not silently normalised on read. For
+small literal replacements prefer the Edit tool.
+
 ## More docs
 
 - [docs/architecture.md](docs/architecture.md) — component/build-flow detail
