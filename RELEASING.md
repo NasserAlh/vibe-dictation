@@ -139,9 +139,10 @@ Hashes: installer
   the notes' `Get-FileHash` command gets file-not-found instead of a hash.
   Checked against every published release: the v1.4.1 notes had it (three
   occurrences — the Install line, the hash table row and the command;
-  corrected in the 2026-09-03 amendment) and the **v1.2.0 notes still have
-  it** (same three occurrences, unfixed — plus `RELEASE-NOTES-v1.2.0.md` in
-  this repo at lines 6, 45 and 49, which is where the spaced name came from).
+  corrected in the 2026-09-03 amendment) and the v1.2.0 notes had it too
+  (same three occurrences, corrected on the live release 2026-09-03 together
+  with `RELEASE-NOTES-v1.2.0.md` in this repo at lines 6, 45 and 49, which is
+  where the spaced name came from).
   v1.3.0 and v1.4.0 are unaffected: v1.3.0's notes carry a `sha256sum`-style
   line and v1.4.0's name no file. Rule for the publish step: write asset
   names in release notes with the dot, as GitHub will serve them.

@@ -3,7 +3,7 @@ Arabic, and the text is typed at your cursor. Nothing leaves the machine.
 
 ## Install
 
-Download `Vibe Dictation_1.2.0_x64-setup.exe` and run it. It installs per-user to
+Download `Vibe.Dictation_1.2.0_x64-setup.exe` and run it. It installs per-user to
 `%LOCALAPPDATA%\Vibe Dictation\`.
 
 **The installer is unsigned.** Windows SmartScreen will warn you — choose "More
@@ -42,11 +42,11 @@ Roughly 3 GB. Smaller models work but were less accurate on bilingual speech.
 
 | Item | SHA-256 |
 |---|---|
-| `Vibe Dictation_1.2.0_x64-setup.exe` (44,172,357 bytes) | `4450B3E3E10324B0EC08A363D8DB4FBE54E9239E5B8371BC61A5BB47B96E9A2C` |
+| `Vibe.Dictation_1.2.0_x64-setup.exe` (44,172,357 bytes) | `4450B3E3E10324B0EC08A363D8DB4FBE54E9239E5B8371BC61A5BB47B96E9A2C` |
 | installed `vibe.exe` | `4F09209914B3E0F50DB1D1FD7044E4A6C2CF47757F2E5CEDB729BACEA6B0D9EA` |
 
 ```powershell
-(Get-FileHash '.\Vibe Dictation_1.2.0_x64-setup.exe' -Algorithm SHA256).Hash
+(Get-FileHash '.\Vibe.Dictation_1.2.0_x64-setup.exe' -Algorithm SHA256).Hash
 ```
 
 This binary was built from source commit `9707a1c` and verified by hand before
