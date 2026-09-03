@@ -20,6 +20,56 @@ inherited from a previous release.
 3. `cd desktop && pnpm install && pnpm exec tauri build` — produces
    `target/release/bundle/nsis/Vibe Dictation_<version>_x64-setup.exe`.
 
+### Bundled Microsoft VC++ runtime (app-local, content-pinned)
+
+`sona.exe` hard-imports five Microsoft Visual C++ runtime DLLs (`MSVCP140`,
+`MSVCP140_1`, `VCRUNTIME140`, `VCRUNTIME140_1` and the OpenMP runtime
+`VCOMP140`); `vibe.exe` and `ffmpeg.exe` import only the Universal CRT
+api-sets that ship with Windows. Since the ruling of 2026-09-03 (option b2)
+the five DLLs are bundled **app-local**: tracked in
+`desktop/src-tauri/windows/vcredist/`, placed in the install root beside
+`sona.exe` by `bundle.resources` in `tauri.conf.json`, and content-pinned in
+`docs/sona-sidecar-sha256.txt` like the sidecars. Nothing is installed
+system-wide and the installer never downloads a runtime. They are exact,
+unmodified copies from the Build Tools redistributable folder
+`VC\Redist\MSVC\14.44.35112\x64\` (`Microsoft.VC143.CRT\` and
+`Microsoft.VC143.OpenMP\`):
+
+| File | File version | Bytes | SHA-256 |
+|---|---|---|---|
+| `msvcp140.dll` | 14.44.35211.0 | 557,728 | `0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9` |
+| `msvcp140_1.dll` | 14.44.35211.0 | 35,952 | `bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d` |
+| `vcruntime140.dll` | 14.44.35211.0 | 124,544 | `d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066` |
+| `vcruntime140_1.dll` | 14.44.35211.0 | 49,792 | `1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f` |
+| `vcomp140.dll` | 14.44.35211.0 | 193,152 | `55aba23cdcd6484fbb06f4155b8ca75adfce7a881f10afd0c49457165e677164` |
+
+Re-pin whenever the DLLs are refreshed from a newer Build Tools; the strings
+audit expects these five names to hit (see Verify step 1). Servicing
+trade-off, accepted by the ruling: Windows Update does not patch app-local
+copies, so runtime security fixes reach users only through a new release.
+
+Redistribution licence (checked 2026-09-03): the Build Tools install's own
+`Licenses\1033\Redist.txt` points at `https://aka.ms/vs/17/redist.txt`, which
+resolves to Microsoft's *Visual Studio 2022 Redistribution* page — the
+"Distributable List"/"REDIST.txt" that the **Distributable Code** section of
+the Visual Studio 2022 licence terms references. Its *Visual C++ Runtime
+Files* section reads: "Subject to the License Terms for the software, you may
+copy and distribute with your program any of the files within the following
+folder and its subfolders except as noted below. You may not modify these
+files. — `[VisualStudioFolder]\VC\redist`", and adds that distribution of the
+runtime package, merge modules and individual binaries "is limited to
+licensed Visual Studio users and is subject to its license terms". The
+excluded folders are the `debug_nonredist` ones only; these five files are
+retail. Microsoft's *Redistribute Visual C++ files* page names the
+application-local folder as a supported deployment location ("It's also
+possible to directly install the Redistributable DLLs in the application
+local folder"), recommending central deployment only for servicing reasons.
+The Build Tools 2022 licence page itself
+(`https://visualstudio.microsoft.com/license-terms/vs2022-ga-diagnosticbuildtools/`)
+is rendered by script and could not be retrieved as text from a shell; its
+Distributable Code section was not quoted verbatim here — confirm it once
+from the Visual Studio Installer's licence view.
+
 ## Verify (the zero-egress audit — full pass on every release, no inheritance)
 
 1. **Strings audit** on `target/release/vibe.exe` AND the post-install exe —

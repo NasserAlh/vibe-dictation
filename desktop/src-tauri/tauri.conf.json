@@ -41,7 +41,13 @@
 			"binaries/sona",
 			"binaries/ffmpeg"
 		],
+		"resources": {
+			"windows/vcredist/": ""
+		},
 		"windows": {
+			"webviewInstallMode": {
+				"type": "skip"
+			},
 			"nsis": {
 				"installerHooks": "./windows/hooks.nsh"
 			}
