@@ -81,10 +81,10 @@
 <div class="header-strip">
   <span><b>phase</b> v1.4.1 publicly released — gate still open at 2 of 6; on <span class="mono">main</span>, unreleased and both verified in a real install: the installer-hooks fix and the installer made offline (VC++ runtime app-local, WebView2 from Windows)</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> ae18541, 19 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus two packaging changes — the installer-hooks rework and the app-local VC++ runtime; no <span class="mono">.rs</span> file changed), in sync with <span class="mono">origin/main</span> over SSH (plus this docs commit — housekeeping closures in RELEASING.md and ROADMAP.md, and this board; supersedes nothing)</span>
-  <span><b>tests</b> 43/43 frontend (vitest), run 2026-09-03 on <span class="m">[A]</span> at 9671726 through <span class="mono">corepack pnpm</span> 10.4.1 (bare <span class="mono">pnpm</span> is not on A's PATH); previously 43/43 on <span class="m">[B]</span> 2026-08-26 at 6a980de; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree: <span class="m">[B]</span> reported it removed by <span class="mono">cargo clean</span> after the 2026-08-26 hook test (3.5 GiB), <span class="m">[A]</span> removed its own on 2026-08-25 (7.2 GiB), rebuilt it for the 2026-09-03 verification build of 1f64e26 and removed it again by <span class="mono">cargo clean</span> afterwards</span>
+  <span><b>commit</b> 5ea8c81, 20 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus two packaging changes — the installer-hooks rework and the app-local VC++ runtime; no <span class="mono">.rs</span> file changed), in sync with <span class="mono">origin/main</span> over SSH (plus this board's own refresh commit — docs-only, supersedes nothing); fetched before building: origin/main is at the same commit, nothing from the other machine outstanding</span>
+  <span><b>tests</b> 43/43 frontend (vitest), run 2026-09-03 on <span class="m">[A]</span> at 5ea8c81 through <span class="mono">corepack pnpm</span> 10.4.1 (bare <span class="mono">pnpm</span> is not on A's PATH); previously 43/43 on <span class="m">[B]</span> 2026-08-26 at 6a980de; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree: <span class="m">[B]</span> reported it removed by <span class="mono">cargo clean</span> after the 2026-08-26 hook test (3.5 GiB), <span class="m">[A]</span> removed its own on 2026-08-25 (7.2 GiB), rebuilt it for the 2026-09-03 verification build of 1f64e26 and removed it again by <span class="mono">cargo clean</span> afterwards</span>
   <span><b>updated</b> 2026-09-03</span>
-  <span><b>tree</b> clean at ae18541; this commit's edits are committed together</span>
+  <span><b>tree</b> clean at 5ea8c81</span>
   <span><b>machines</b> two clones refresh this board: <span class="m">[A]</span> = this workstation (commits authored as Nasser Al-Husayan, including this refresh); <span class="m">[B]</span> = the machine that committed on 2026-08-26 (commits authored as nasser, 6a980de..9671726). Every observation of an installed build, build tree, archive folder, key inventory or sibling clone below is tagged with the machine that reported it</span>
 </div>
 
@@ -168,6 +168,12 @@ is audited in full, ruled, and fixed on <span class="mono">main</span> — RELEA
 statement now covers the installer, and its v1.4.1 section records the four
 paths (the dormant WebView2 one included) and the finding that the NSIS wiki's
 "NSISdl cannot do HTTPS" claim is wrong in practice: a probe fetched both URLs.
+One absence to report: ROADMAP.md defines <em>Shipped</em> as "done, on
+<span class="mono">main</span>", yet its Shipped list does not mention the installer-hooks fix
+(<span class="mono">6a980de</span>) or the offline installer (<span class="mono">1f64e26</span>), both on
+<span class="mono">main</span> and both verified in real installs. RELEASING.md records both;
+ROADMAP.md does not — not recorded there, so the board says so rather than
+filling the gap.
 </p>
 
 <h2>Your next action</h2>
@@ -235,6 +241,8 @@ New-NetFirewallRule -DisplayName "Vibe Dictation Sona - block outbound" -Directi
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>Unsigned installer</strong> — needs a code-signing certificate; purchase decision pending (owner ruling 2026-09-03, recorded in ROADMAP.md). SmartScreen warns on download and some antivirus flags the keystroke injection — user-facing, since the repo and its releases are public on GitHub. Not gating any release.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>ROADMAP.md's Shipped list lags <span class="mono">main</span> by two entries.</strong> By ROADMAP.md's own status key, Shipped means "done, on <span class="mono">main</span>"; the installer-hooks fix (<span class="mono">6a980de</span>, 2026-08-26) and the offline installer with app-local VC++ runtime (<span class="mono">1f64e26</span>, 2026-09-03) are on <span class="mono">main</span> and recorded in RELEASING.md, but ROADMAP.md lists neither. A two-bullet addition when convenient; nothing gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
       <td><strong>The published v1.4.1 installer still carries both network paths and the sona-lock defect until v1.4.2 ships.</strong> The vc_redist download from <span class="mono">aka.ms</span>, the WebView2 bootstrapper download when WebView2 is absent, and the upgrade failure over an orphaned <span class="mono">sona.exe</span> are all fixed on <span class="mono">main</span> (<span class="mono">6a980de</span>, <span class="mono">1f64e26</span>) and verified in real installs, but the asset on the Releases page predates all three. Recorded in RELEASING.md's v1.4.1 section. Closes when v1.4.2 is published.</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>RTL text injection</strong> mangles Arabic character order in some target apps; workaround is clipboard output mode. (ROADMAP, known issue)</td></tr>
@@ -266,7 +274,7 @@ New-NetFirewallRule -DisplayName "Vibe Dictation Sona - block outbound" -Directi
 <ul class="docs">
   <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk.</li>
   <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder, rules learned the hard way, and the per-release record — including v1.4.1's 2-of-6 partial-gate record, its publication and ruling, its artifact hashes, the installer sona-lock defect and its fix, the release-notes filename defect, and — new — the scope statement extending zero egress to the installer, the 2026-09-03 installer audit record and ruling, the pin table for the five app-local VC++ runtime DLLs, the per-machine release-tooling section, the v1.4.1 tag ruling, and the pre-squash artifacts recorded as unrecoverable.</li>
-  <li><span class="mono">ROADMAP.md</span> — known issues (the unsigned installer now carries its deferral: purchase decision pending), planned and considered work, deliberate non-goals, shipped features.</li>
+  <li><span class="mono">ROADMAP.md</span> — known issues (the unsigned installer now carries its deferral: purchase decision pending), planned and considered work, deliberate non-goals, shipped features — its Shipped list currently lags <span class="mono">main</span> by the two installer changes.</li>
   <li><span class="mono">docs/deployment.md</span> — putting a release on a new machine, including the two <span class="mono">New-NetFirewallRule</span> outbound-block commands that criterion 4 depends on; now says the VC++ runtime is no longer needed system-wide (as does <span class="mono">docs/debug.md</span>).</li>
 </ul>
 <p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
