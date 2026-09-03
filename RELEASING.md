@@ -142,7 +142,9 @@ Hashes: installer
   corrected in the 2026-09-03 amendment) and the v1.2.0 notes had it too
   (same three occurrences, corrected on the live release 2026-09-03 together
   with `RELEASE-NOTES-v1.2.0.md` in this repo at lines 6, 45 and 49, which is
-  where the spaced name came from).
+  where the spaced name came from; that file was removed on 2026-09-03 once
+  its hashes were copied into the v1.2.0 record below — no other release keeps
+  an in-repo notes copy).
   v1.3.0 and v1.4.0 are unaffected: v1.3.0's notes carry a `sha256sum`-style
   line and v1.4.0's name no file. Rule for the publish step: write asset
   names in release notes with the dot, as GitHub will serve them.
@@ -303,6 +305,14 @@ against the installed build. Hashes: installer
   verified over a real reboot.
 
 ## Shipped in v1.2.0
+
+Hashes (copied 2026-09-03 from the published v1.2.0 release notes, which were
+the only in-repo record until then): installer
+`Vibe.Dictation_1.2.0_x64-setup.exe` (44,172,357 bytes)
+`4450b3e3e10324b0ec08a363d8db4fbe54e9239e5b8371bc61a5bb47b96e9a2c`, installed
+`vibe.exe` `4f09209914b3e0f50db1d1fd7044e4a6c2cf47757f2e5cedb729bacea6b0d9ea`.
+Verified by hand before release on 2026-07-28: strings audit, loopback-only
+netstat sample during live dictation, dictate-under-firewall-block test.
 
 - **English-only interface.** The Settings → General display-language picker and
   the whole `displayLanguage` preference are removed (owner request: the Arabic
