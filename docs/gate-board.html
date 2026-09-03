@@ -49,9 +49,16 @@
   .p-red    { background: var(--blocked); }
   .p-inert  { background: var(--inert); }
   .p-open   { background: var(--accent); }
+  .m { font-family: Consolas, monospace; font-size: .8em; font-weight: 700; color: var(--accent); }
   .next-action {
     background: #fdf6e3; border: 1px solid var(--provisional); border-radius: 6px;
     padding: 1rem 1.2rem;
+  }
+  .next-action p { margin: 0; }
+  pre.cmd {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: .8rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: .5rem .7rem; margin: .5rem 0 0; white-space: pre-wrap; word-break: break-all;
   }
   table { border-collapse: collapse; width: 100%; background: var(--card);
           border: 1px solid var(--border); border-radius: 6px; }
@@ -74,16 +81,18 @@
 <div class="header-strip">
   <span><b>phase</b> v1.4.1 publicly released — gate still open at 2 of 6; installer-hooks fix on <span class="mono">main</span>, verified in a real install, unreleased</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> dd40fff, 10 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus the installer-hooks rework — packaging only), in sync with <span class="mono">origin/main</span> over SSH (plus this board's own refresh commit — docs-only, supersedes nothing)</span>
-  <span><b>tests</b> 43/43 frontend (vitest), run 2026-08-26 at 6a980de — only docs changed since; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree removed by <span class="mono">cargo clean</span> after today's hook test (3.5 GiB)</span>
-  <span><b>updated</b> 2026-08-26</span>
-  <span><b>tree</b> clean</span>
+  <span><b>commit</b> 9671726, 11 commits past tag <span class="mono">v1.4.1</span> (board/docs commits plus the installer-hooks rework — packaging only), in sync with <span class="mono">origin/main</span> over SSH (plus this refresh commit, rebased onto it — docs only: RELEASING.md and this board, supersedes nothing)</span>
+  <span><b>tests</b> 43/43 frontend (vitest), run 2026-09-03 on <span class="m">[A]</span> at 9671726 through <span class="mono">corepack pnpm</span> 10.4.1 (bare <span class="mono">pnpm</span> is not on A's PATH); previously 43/43 on <span class="m">[B]</span> 2026-08-26 at 6a980de; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree: <span class="m">[B]</span> reported it removed by <span class="mono">cargo clean</span> after the 2026-08-26 hook test (3.5 GiB), <span class="m">[A]</span> removed its own on 2026-08-25 (7.2 GiB)</span>
+  <span><b>updated</b> 2026-09-03</span>
+  <span><b>tree</b> clean at 9671726; this refresh's edits are committed together</span>
+  <span><b>machines</b> two clones refresh this board: <span class="m">[A]</span> = this workstation (commits authored as Nasser Al-Husayan, including this refresh); <span class="m">[B]</span> = the machine that committed on 2026-08-26 (commits authored as nasser, 6a980de..9671726). Every observation of an installed build, build tree, archive folder, key inventory or sibling clone below is tagged with the machine that reported it</span>
 </div>
 
 <h2>Right now</h2>
 <p>
-<strong>v1.4.1 is public, and today it produced the fork's first in-the-wild
-installer defect.</strong> Upgrading on this machine failed with
+<strong>v1.4.1 is public, its record now says so, and on 2026-08-26 it
+produced the fork's first in-the-wild installer defect.</strong> Upgrading on
+<span class="m">[B]</span> failed with
 <span class="mono">Error opening file for writing: …\sona.exe</span> — two
 orphaned <span class="mono">sona.exe</span> processes from an earlier run still
 held locks on the install directory. The stock Tauri NSIS template closes only
@@ -97,56 +106,72 @@ was merged into that same file (Tauri accepts one hooks file per build), and
 <span class="mono">tauri.windows.conf.json</span> — a cross-platform leftover
 whose own <span class="mono">installerHooks</span> entry silently overrode the
 main config — was merged into <span class="mono">tauri.conf.json</span> and
-deleted. <strong>The fix is now proven in a real install</strong> (2026-08-26,
-recorded in RELEASING.md): a detached <span class="mono">sona.exe serve</span>
-was spawned from the install directory to hold the lock — the exact condition
-that produced the file-write error — and the hooks-bearing locally built
-installer ran silently to exit code 0, killed the orphan, and rewrote the
-install directory. The published artifact was then restored by re-downloading
-the GitHub asset (hash <span class="mono">a86b6bba…</span>, exact match) and
+deleted. <strong>The fix is proven in a real install on
+<span class="m">[B]</span></strong> (2026-08-26, recorded in RELEASING.md): a
+detached <span class="mono">sona.exe serve</span> was spawned from the install
+directory to hold the lock — the exact condition that produced the file-write
+error — and the hooks-bearing locally built installer ran silently to exit
+code 0, killed the orphan, and rewrote the install directory. The published
+artifact was then restored on <span class="m">[B]</span> by re-downloading the
+GitHub asset (hash <span class="mono">a86b6bba…</span>, exact match) and
 reinstalling it; the installed <span class="mono">vibe.exe</span> re-hashed to
 <span class="mono">37186b76…</span>, byte-identical to the published record.
 The published v1.4.1 installer still lacks the hook — it first ships in the
-next release. A correction to the previous refresh: it claimed the build tree
-had been removed; that observation was wrong (it checked the wrong directory —
-the tree and the hooks installer were still present, which is what made
-today's test cheap). <span class="mono">cargo clean</span> has now actually
-been run.
+next release. Separately, as of 2026-09-03 the v1.4.1 release notes carry the
+same partial-gate disclosure that the v1.3.0 and v1.4.0 notes carry, and name
+the installer by the dotted filename GitHub actually serves; RELEASING.md's
+v1.4.1 record, which had still said "Not published", now states the
+2026-08-25 publication and the owner's 2-of-6 ruling.
 </p>
 <p>
-The gate is unchanged at 2 of 6, the weakest of any published release. What
-cannot be proven from this machine without the owner: criteria 3, 5 and 6 need
-a dictating voice, criterion 4 needs one elevated shell to create the firewall
-rules.
+The gate is unchanged at 2 of 6, the weakest of any published release.
+Criteria 1 (strings audit on both exes) and 2 (NSIS <span class="mono">/S</span>
+install with the quoted HKCU Run entry) passed on <span class="m">[A]</span>
+2026-08-25. What cannot be proven from either machine without the owner:
+<strong>criteria 3, 4, 5 and 6 — all four.</strong> Criteria 3, 5 and 6 need a
+dictating voice; criterion 4 needs one elevated shell to create the firewall
+rules. Both machines hold the same installed v1.4.1 bytes
+(<span class="mono">37186b76…</span>, hashed on each), so the four can be closed
+from either.
 </p>
 <p>
-Two contradictions stand. <strong>First, the standing one:</strong>
+Three contradictions stand. <strong>First, the standing one:</strong>
 RELEASING.md opens by stating every release re-runs the full verification, yet
-the published v1.4.1 artifact ran two of six criteria. <strong>Second, found
-today while consolidating the hooks:</strong> the installer itself can reach
-the network — the inherited vc_redist section downloads
+the published v1.4.1 artifact ran two of six criteria — the third consecutive
+release to rest its runtime zero-egress proof on the strings audit and
+compile-time deletions alone. Since 2026-09-03 the public notes say so, though
+the disclosure sits under a first paragraph that still reads "Nothing leaves
+the machine.", the very claim criteria 3 to 6 exist to prove. <strong>Second,
+found 2026-08-26 while consolidating the hooks:</strong> the installer itself
+can reach the network — the inherited vc_redist section downloads
 <span class="mono">vc_redist.x64.exe</span> from <span class="mono">aka.ms</span>
 during installation whenever the VC++ runtime is missing. RELEASING.md's
 zero-egress audit covers the app binary and its runtime sockets, not the
 installer's own network behaviour, so this has shipped unexamined in every
 release to date. It is now documented in a warning comment in
 <span class="mono">windows/hooks.nsh</span>, but no controlled document rules on
-it. The third contradiction from the last refresh — <span class="mono">origin</span>
-on HTTPS despite the recorded SSH switch — is resolved: root cause found and
-fixed, SSH restored (see activity).
+it. <strong>Third, new with this refresh:</strong> the two machines disagree
+about the world. The 2026-08-26 refresh from <span class="m">[B]</span> retired
+the stale-sibling-clone item because the clone "no longer exists", and stated
+the machine's only key pair is <span class="mono">~/.ssh/id_ed25519_vps</span>;
+on <span class="m">[A]</span> the sibling clone is still present and A holds two
+key pairs, neither by that name. Both statements were true where they were
+made — the board was written as if there were one machine. Resolved since the
+last refresh: RELEASING.md's v1.4.1 record no longer contradicts the Releases
+page.
 </p>
 
 <h2>Your next action</h2>
 <div class="next-action">
-<p style="margin:0">
+<p>
 <strong>Close the four owed criteria against the installed v1.4.1.</strong>
 Unchanged since the last refresh, and still what unblocks the most: one
 elevated PowerShell (the two <span class="mono">New-NetFirewallRule</span>
-commands, criterion 4) and roughly ten minutes of dictating (criteria 3, 5
-and 6, one session against the installed build, byte-identical to the
-published download). That gives the fork its first full 6-of-6 gate and
-retires debt carried since v1.2.0. The SSH-key and vc_redist decisions below
-wait on you regardless.
+commands printed in the criterion-4 row below) and roughly ten minutes of
+dictating (criteria 3, 5 and 6, one session against the installed build,
+byte-identical to the published download on both machines). That gives the
+fork its first full 6-of-6 gate and retires debt carried since v1.2.0. The
+vc_redist decision below waits on you regardless.
 </p>
 </div>
 
@@ -170,28 +195,30 @@ wait on you regardless.
       <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
   <tr><td>v1.4.0 release verification</td><td class="date">2026-08-25</td>
       <td><span class="pill p-inert">CLOSED — 3 OF 6, DEBT MOVED</span></td>
-      <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria are <strong>no longer runnable against v1.4.0</strong> — this machine's installed build moved on — so they transferred to the v1.4.1 row. Closed inert, not green: it settled a partial gate, not a pass.</td></tr>
+      <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria are <strong>no longer runnable against v1.4.0</strong> — both machines' installed build moved on — so they transferred to the v1.4.1 row. Closed inert, not green: it settled a partial gate, not a pass.</td></tr>
   <tr><td><strong>v1.4.1 release verification</strong></td><td class="date">2026-08-25</td>
-      <td><span class="pill p-amber">SHIPPED — 2 OF 6</span></td>
-      <td>Published by owner ruling 2026-08-25: tag, GitHub Release, and installer attached (SHA-256 <span class="mono">a86b6bba…</span>, re-verified by downloading the published asset). Criteria 1 and 2 passed against this artifact; 3 is NOT MEASURED, 4 BLOCKED, 5 and 6 NOT RUN — the weakest gate of any published release so far. Carries the debt from v1.3.0 and v1.4.0. Shortcut-relaunch fix (<span class="mono">009ef8d</span>).</td></tr>
+      <td><span class="pill p-open">OPEN — 2 OF 6</span></td>
+      <td>Published by owner ruling 2026-08-25: tag, GitHub Release, and installer attached (SHA-256 <span class="mono">a86b6bba…</span>, re-verified by downloading the published asset on <span class="m">[A]</span> 2026-08-25 and again on <span class="m">[B]</span> 2026-08-26). Criteria 1 and 2 passed against this artifact; 3 is NOT MEASURED, 4 BLOCKED, 5 and 6 NOT RUN — the weakest gate of any published release so far, and the only gate still open, which is why this row alone is blue. Carries the debt from v1.3.0 and v1.4.0. Shortcut-relaunch fix (<span class="mono">009ef8d</span>). Record in RELEASING.md corrected 2026-09-03 to state the publication and the ruling.</td></tr>
 </table>
 
 <h2>What the open gate still needs</h2>
-<p class="reminder">Four of six. All four run against the installed v1.4.1 build; three of them need the owner present. Closing them updates the verification record in RELEASING.md.</p>
+<p class="reminder">Four of six: criteria 3, 4, 5 and 6. All four run against the installed v1.4.1 build (identical bytes on <span class="m">[A]</span> and <span class="m">[B]</span>), and all four need the owner present — an elevated shell for 4, a dictating voice for 3, 5 and 6. Closing them updates the verification record in RELEASING.md.</p>
 <table>
   <tr><th>#</th><th>Criterion</th><th>Status</th><th>What was observed / why it falls short</th></tr>
   <tr><td>3</td><td>Netstat loopback sampler (~2 min during live dictation)</td>
       <td><span class="pill p-red">NOT MEASURED</span></td>
-      <td>A sweep ran 2026-08-25 and was clean — 75 samples at ~1 s intervals, three distinct sockets owned by <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span>, all loopback: sona LISTENING on <span class="mono">127.0.0.1:58946</span> (never <span class="mono">0.0.0.0</span>) plus the established loopback pair, zero non-loopback rows. <strong>But the app was idle.</strong> The criterion requires the sample to run during live dictation, so the measurement taken is not the one required. Re-run at ~1 s intervals including TIME_WAIT rows if Ollama formatting is on (v1.1.0 finding), with no model download in progress.</td></tr>
+      <td>A sweep ran on <span class="m">[A]</span> 2026-08-25 and was clean — 75 samples at ~1 s intervals, three distinct sockets owned by <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span>, all loopback: sona LISTENING on <span class="mono">127.0.0.1:58946</span> (never <span class="mono">0.0.0.0</span>) plus the established loopback pair, zero non-loopback rows. <strong>But the app was idle.</strong> The criterion requires the sample to run during live dictation, so the measurement taken is not the one required — and dictating needs the owner. Re-run at ~1 s intervals including TIME_WAIT rows if Ollama formatting is on (v1.1.0 finding), with no model download in progress.</td></tr>
   <tr><td>4</td><td>Firewall outbound block: dictation works, download fails cleanly</td>
       <td><span class="pill p-red">BLOCKED</span></td>
-      <td>Blocker is rule creation. The v1.2.0 outbound-block rules for <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span> still did not exist when last checked (2026-08-25: <span class="mono">Get-NetFirewallApplicationFilter</span> matching either program returned zero), and creating them needs an elevated shell. Missing and unrecreated across three releases now.</td></tr>
+      <td>Blocker is rule creation. The v1.2.0 outbound-block rules for <span class="mono">vibe.exe</span>/<span class="mono">sona.exe</span> still did not exist when last checked on <span class="m">[A]</span> (2026-08-25: <span class="mono">Get-NetFirewallApplicationFilter</span> matching either program returned zero; <span class="m">[B]</span> has not reported a check), and creating them needs an elevated shell. Missing and unrecreated across three releases now. The two commands, from <span class="mono">docs/deployment.md</span> (run elevated, on whichever machine the criterion is closed on):
+<pre class="cmd">New-NetFirewallRule -DisplayName "Vibe Dictation - block outbound" -Direction Outbound -Program "$env:LOCALAPPDATA\Vibe Dictation\vibe.exe" -Action Block -Profile Any
+New-NetFirewallRule -DisplayName "Vibe Dictation Sona - block outbound" -Direction Outbound -Program "$env:LOCALAPPDATA\Vibe Dictation\sona.exe" -Action Block -Profile Any</pre></td></tr>
   <tr><td>5</td><td>Functional EN + AR dictation into MS Word, latency ~2 s after warmup</td>
       <td><span class="pill p-red">NOT RUN</span></td>
-      <td>Needs the owner speaking. v1.4.0 passed this on large-v3-turbo, but RELEASING.md's standing rule is that verification is re-proven per artifact and never inherited, so that pass does not carry to v1.4.1.</td></tr>
+      <td>Needs the owner speaking. v1.4.0 passed this on large-v3-turbo on 2026-08-25, but RELEASING.md's standing rule is that verification is re-proven per artifact and never inherited, so that pass does not carry to v1.4.1.</td></tr>
   <tr><td>6</td><td>Live-dictation functional check</td>
       <td><span class="pill p-red">NOT RUN</span></td>
-      <td>Words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing.</td></tr>
+      <td>Needs the owner speaking. Words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing.</td></tr>
 </table>
 
 <h2>Open and unresolved</h2>
@@ -199,8 +226,8 @@ wait on you regardless.
   <tr><th>Tag</th><th>Item</th></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Installer downloads from aka.ms.</strong> The inherited vc_redist section fetches <span class="mono">vc_redist.x64.exe</span> from <span class="mono">aka.ms</span> during install when the VC++ runtime is missing — outside RELEASING.md's zero-egress audit scope, which covers the app, not the installer. Options: keep it (now documented in <span class="mono">windows/hooks.nsh</span> and worth adding to RELEASING.md's scope statement), bundle the redistributable offline, or drop the hook and document manual install (docs/deployment.md already names vc_redist as a fix). Decision recorded nowhere yet.</td></tr>
-  <tr><td><span class="pill p-amber">YOUR CALL</span></td>
-      <td><strong>Release-notes filename mismatch.</strong> GitHub substitutes dots for spaces in asset names on upload, so the published file is <span class="mono">Vibe.Dictation_1.4.1_x64-setup.exe</span> while the notes' hash-check command names the spaced original. Anyone pasting that command gets a file-not-found rather than a hash. One-line edit to the release notes; also affects the v1.4.0 and v1.3.0 notes if they were written the same way.</td></tr>
+  <tr><td><span class="pill p-red">DEFECT</span></td>
+      <td><strong>v1.2.0 release-notes filename mismatch.</strong> GitHub replaces the space in an uploaded asset name with a dot, so the published file is <span class="mono">Vibe.Dictation_1.2.0_x64-setup.exe</span> while the v1.2.0 notes name the spaced original in three places — the Install line, the hash table row, and the <span class="mono">Get-FileHash</span> command, which therefore returns file-not-found instead of a hash. The same defect in the v1.4.1 notes was corrected on 2026-09-03; v1.3.0 and v1.4.0 were checked and are unaffected. Fix is the same three-occurrence edit to the v1.2.0 notes plus the in-repo copy <span class="mono">RELEASE-NOTES-v1.2.0.md</span> (lines 6, 45, 49). Recorded in RELEASING.md, v1.4.1 section.</td></tr>
   <tr><td><span class="pill p-amber">YOUR CALL</span></td>
       <td><strong>Unsigned installer.</strong> SmartScreen warns on download and some antivirus flags the keystroke injection — user-facing, since the repo and its releases are public on GitHub. Needs a code-signing certificate: a purchase decision, not implementation work. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
@@ -214,34 +241,35 @@ wait on you regardless.
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong><span class="mono">cli.rs</span> review</strong> — audit which CLI arguments still make sense for a dictation-only tool. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>The <span class="mono">v1.4.1</span> tag predates its own corrected record.</strong> The tag points at <span class="mono">4f5ab3d</span>; the gate-score correction from 4 of 6 to 2 of 6 landed after it in <span class="mono">fb44c6c</span>. The tagged tree is the one the artifact was built from, which is what matters for the hashes — but a reader checking out <span class="mono">v1.4.1</span> from GitHub gets the overstated 4-of-6 record, while <span class="mono">main</span> carries the corrected one. Retag or leave it; either way it is now public.</td></tr>
+      <td><strong>The <span class="mono">v1.4.1</span> tag predates its own corrected record.</strong> The tag points at <span class="mono">4f5ab3d</span>; the gate-score correction from 4 of 6 to 2 of 6 landed after it in <span class="mono">fb44c6c</span>, and the publication record after that. The tagged tree is the one the artifact was built from, which is what matters for the hashes — but a reader checking out <span class="mono">v1.4.1</span> from GitHub gets the overstated 4-of-6 record, while <span class="mono">main</span> carries the corrected one. Retag or leave it; either way it is now public.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Stale sibling clone — present on <span class="m">[A]</span>, absent on <span class="m">[B]</span>.</strong> On A, <span class="mono">~\Dev\vibe-dictation-public</span> still exists (2026-09-03): same GitHub origin, 4 commits, last commit <span class="mono">4dc197b</span> dated 2026-07-28, directory untouched since the 2026-08-12 restore. B's 2026-08-26 refresh retired this item because no such directory exists there. The item stays open for A. Two clones of the same remote is how work gets done in the wrong directory; worth deleting.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
       <td><strong>Locale trim re-verification</strong> — confirm paraglide output stays consistent after any locale-related dependency update; carried to the next release. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash); those releases exist only as RELEASING.md records plus the external installer archive. v1.2.0 onward are tagged.</td></tr>
+      <td><strong>Pre-squash release tags absent</strong> — v1.0.1, v1.1.0, v1.1.1 have no git tags (2026-07-28 history squash) and no GitHub Release; they exist only as RELEASING.md records, which carry no hashes for them, and their installers are not in <span class="m">[A]</span>'s archive folder (see the next row). v1.2.0 onward are tagged and published.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Release tooling is machine-local.</strong> Publishing depends on <span class="mono">gh</span> 2.98.0 installed under this user's WinGet package path and authenticated to this machine only (2026-08-25), plus the installer archive at <span class="mono">..\releases\vibe-dictation\</span>, which is outside the repository and backed up nowhere. A rebuild loses both, as one already did.</td></tr>
+      <td><strong>Release tooling is machine-local, and <span class="m">[A]</span>'s installer archive holds one release.</strong> Publishing depends on <span class="mono">gh</span> 2.98.0 installed under this user's WinGet package path on A and authenticated there only (2026-08-25); B's tooling is not recorded. On A the frontend tests run only through <span class="mono">corepack pnpm</span>, because <span class="mono">pnpm</span> itself is not on PATH (observed 2026-09-03). A's installer archive at <span class="mono">..\releases\vibe-dictation\</span> contains only <span class="mono">v1.4.1</span> (listed 2026-09-03); B's archive contents are not recorded. Recoverable elsewhere: the v1.2.0 to v1.4.1 installers are GitHub Release assets with recorded hashes (RELEASING.md for v1.3.0 onward; the release notes and <span class="mono">RELEASE-NOTES-v1.2.0.md</span> for v1.2.0). Not recoverable from A: v1.0.1, v1.1.0, v1.1.1.</td></tr>
 </table>
 
 <h2>Recent activity</h2>
 <ul class="activity">
-  <li><span class="date">2026-08-26</span> — <strong>GitHub SSH root-caused and restored; item closed.</strong> The key was never removed from the account: the machine's only key pair is <span class="mono">~/.ssh/id_ed25519_vps</span> — a non-default filename SSH offers to github.com only via config or a loaded agent, and <span class="mono">~/.ssh/config</span> had no <span class="mono">github.com</span> entry. The 2026-08-25 success rode a transient agent session; when it went, so did auth. Fixed durably: a <span class="mono">Host github.com</span> block (<span class="mono">IdentityFile ~/.ssh/id_ed25519_vps</span>, <span class="mono">IdentitiesOnly yes</span>) added to <span class="mono">~/.ssh/config</span>; <span class="mono">ssh -T git@github.com</span> answers "Hi NasserAlh!" with no agent; <span class="mono">origin</span> switched back to <span class="mono">git@github.com:NasserAlh/vibe-dictation.git</span> and <span class="mono">git ls-remote</span> confirmed over SSH. The owner's SSH-only rule holds again.</li>
-  <li><span class="date">2026-08-26</span> — <strong>Sona-kill hook proven in a real install; item closed.</strong> A detached <span class="mono">sona.exe serve</span> spawned from the install dir (PID 122536, path confirmed) reproduced the lock condition; the hooks-bearing installer ran <span class="mono">/S</span> to exit 0, the orphan was gone afterwards, and the install dir was rewritten. Published bytes then restored: GitHub asset re-downloaded and hash-verified (<span class="mono">a86b6bba…</span>), reinstalled, installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>. Evidence recorded in RELEASING.md (<span class="mono">c69244d</span>); <span class="mono">cargo clean</span> run (3.5 GiB). <strong>Correction:</strong> the previous refresh's claim that the build tree had been removed was wrong — the check ran in the wrong directory; the tree was present until today's clean.</li>
-  <li><span class="date">2026-08-26</span> — <strong>Installer hooks reworked and pushed</strong> (<span class="mono">6a980de</span>). New <span class="mono">windows/hooks.nsh</span>: pre-install and pre-uninstall <span class="mono">taskkill /F /IM sona.exe /T</span>, plus the vc_redist logic moved in unchanged (Tauri accepts one hooks file). <span class="mono">tauri.windows.conf.json</span> merged into <span class="mono">tauri.conf.json</span> and deleted — the overlay's own <span class="mono">installerHooks</span> entry was silently overriding the main config, and the partial file tripped false schema diagnostics; the config's <span class="mono">$schema</span> now points at the CLI's real config schema instead of the capabilities schema. Verified by rebuilding: the generated <span class="mono">installer.nsi</span> includes the hooks file at line 28 and inserts the kill macro before file extraction. The vc_redist section's aka.ms download was discovered during the merge and documented in place.</li>
-  <li><span class="date">2026-08-26</span> — <strong>v1.4.1 upgrade on this machine blocked by an orphaned sidecar.</strong> The published installer failed with <span class="mono">Error opening file for writing: …\sona.exe</span>; <span class="mono">tasklist</span> showed two <span class="mono">sona.exe</span> processes (PIDs 112400, 108472) with no main app running. Both killed, install completed. Root cause: the stock Tauri NSIS template closes only the main executable — motive for the hooks rework above.</li>
-  <li><span class="date">2026-08-26</span> — <strong>Repository state observed:</strong> <span class="mono">origin</span> found on HTTPS in both directions despite the 2026-08-25 SSH switch; restoring SSH failed with <span class="mono">Permission denied (publickey)</span>, so the remote stays on HTTPS (see the open item). The build tree is gone again — no stray release exes, satisfying RELEASING.md's cargo-clean rule — and the stale sibling clone <span class="mono">~\Dev\vibe-dictation-public</span> no longer exists, retiring that housekeeping item.</li>
-  <li><span class="date">2026-08-25</span> — <strong>v1.4.1 released publicly with the installer attached.</strong> GitHub Release created for the tag with the archived installer uploaded, then verified by downloading the published asset back and hashing it: <span class="mono">a86b6bba…</span>, an exact match for the archived copy. Notes went out in short form, making no verification claim in either direction. The gate stood at 2 of 6 as the artifact went public.</li>
-  <li><span class="date">2026-08-25</span> — <strong><span class="mono">origin</span> switched to SSH; a board claim corrected.</strong> <span class="mono">ssh -T git@github.com</span> answered "Hi NasserAlh!" and the remote moved to <span class="mono">git@github.com:NasserAlh/vibe-dictation.git</span>. (Contradicted by observation the next day — see the 2026-08-26 entry and the open item.)</li>
-  <li><span class="date">2026-08-25</span> — <strong>Gate score corrected downward</strong> (<span class="mono">fb44c6c</span>): the v1.4.1 record had claimed 4 of 6 by counting the sidecar-pin check (a Build step, not a verify criterion) and the idle netstat sweep as a pass. Restated as 2 of 6.</li>
-  <li><span class="date">2026-08-25</span> — <strong>v1.4.1 built, installed and tagged</strong> (<span class="mono">4f5ab3d</span>). Criteria 1 and 2 passed against the artifact: strings audit identical on the built and installed exe (forbidden patterns zero; positive control <span class="mono">sona</span> hit 91×; five <span class="mono">updater</span> hits all known h2/rustls/Win32 substrings; two <span class="mono">huggingface.co</span> hits both downloader manifest), NSIS <span class="mono">/S</span> install with the quoted HKCU Run entry. Installer archived to <span class="mono">..\releases\vibe-dictation\v1.4.1\</span> with the copy's hash re-verified.</li>
-  <li><span class="date">2026-08-24</span> — <strong>v1.3.0 published</strong> to GitHub on a partial gate by owner ruling (SHA-256 <span class="mono">d4005b86…</span>); v1.2.0 firewall outbound-block rules found missing — admin step owed ever since. First gate board stood up.</li>
+  <li><span class="date">2026-09-03</span> <span class="m">[A]</span> — <strong>Record and notes brought into line with the published release; board rebased onto B's five commits.</strong> This refresh commit, following a code review of <span class="mono">a9729f8</span>. RELEASING.md's v1.4.1 record no longer says "not published": it now states the 2026-08-25 publication, the owner's 2-of-6 ruling, and the four unrun criteria (3, 4, 5, 6). The v1.4.1 GitHub Release notes were amended with the partial-gate disclosure the v1.3.0 and v1.4.0 notes already carry, and their three spaced-filename references corrected to the dotted asset name. The filename defect was scoped against every published release (v1.2.0 affected, v1.3.0 and v1.4.0 not) and recorded in RELEASING.md. A's clone had not fetched since 2026-08-25, so the first push was rejected; the commit was rebased onto B's <span class="mono">6a980de..9671726</span> with B's board as the base. Board re-derived on top: one criteria list everywhere, the open gate's blue pill restored, vitest re-run at 9671726, firewall commands printed, counts and dates re-checked, activity trimmed to eight, and every machine-relative observation tagged <span class="m">[A]</span> or <span class="m">[B]</span>.</li>
+  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>GitHub SSH root-caused and restored; item closed</strong> (<span class="mono">9671726</span>). The key was never removed from the account: B's only key pair is <span class="mono">~/.ssh/id_ed25519_vps</span> — a non-default filename SSH offers to github.com only via config or a loaded agent, and <span class="mono">~/.ssh/config</span> had no <span class="mono">github.com</span> entry. The 2026-08-25 success rode a transient agent session; when it went, so did auth. Fixed durably on B: a <span class="mono">Host github.com</span> block (<span class="mono">IdentityFile ~/.ssh/id_ed25519_vps</span>, <span class="mono">IdentitiesOnly yes</span>) added to <span class="mono">~/.ssh/config</span>; <span class="mono">ssh -T git@github.com</span> answers "Hi NasserAlh!" with no agent; <span class="mono">origin</span> switched back to <span class="mono">git@github.com:NasserAlh/vibe-dictation.git</span> and <span class="mono">git ls-remote</span> confirmed over SSH. The owner's SSH-only rule holds again. (A's origin was already on SSH with a different key pair; A never had the HTTPS regression.)</li>
+  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>Sona-kill hook proven in a real install; item closed.</strong> A detached <span class="mono">sona.exe serve</span> spawned from the install dir (PID 122536, path confirmed) reproduced the lock condition; the hooks-bearing installer ran <span class="mono">/S</span> to exit 0, the orphan was gone afterwards, and the install dir was rewritten. Published bytes then restored: GitHub asset re-downloaded and hash-verified (<span class="mono">a86b6bba…</span>), reinstalled, installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>. Evidence recorded in RELEASING.md (<span class="mono">c69244d</span>); <span class="mono">cargo clean</span> run (3.5 GiB). <strong>Correction:</strong> the previous refresh's claim that the build tree had been removed was wrong — the check ran in the wrong directory; the tree was present until today's clean.</li>
+  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>Installer hooks reworked and pushed</strong> (<span class="mono">6a980de</span>). New <span class="mono">windows/hooks.nsh</span>: pre-install and pre-uninstall <span class="mono">taskkill /F /IM sona.exe /T</span>, plus the vc_redist logic moved in unchanged (Tauri accepts one hooks file). <span class="mono">tauri.windows.conf.json</span> merged into <span class="mono">tauri.conf.json</span> and deleted — the overlay's own <span class="mono">installerHooks</span> entry was silently overriding the main config, and the partial file tripped false schema diagnostics; the config's <span class="mono">$schema</span> now points at the CLI's real config schema instead of the capabilities schema. Verified by rebuilding: the generated <span class="mono">installer.nsi</span> includes the hooks file at line 28 and inserts the kill macro before file extraction. The vc_redist section's aka.ms download was discovered during the merge and documented in place.</li>
+  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>v1.4.1 upgrade on B blocked by an orphaned sidecar.</strong> The published installer failed with <span class="mono">Error opening file for writing: …\sona.exe</span>; <span class="mono">tasklist</span> showed two <span class="mono">sona.exe</span> processes (PIDs 112400, 108472) with no main app running. Both killed, install completed. Root cause: the stock Tauri NSIS template closes only the main executable — motive for the hooks rework above.</li>
+  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>Repository state observed on B:</strong> <span class="mono">origin</span> found on HTTPS in both directions despite the 2026-08-25 SSH switch; restoring SSH failed with <span class="mono">Permission denied (publickey)</span>, so the remote stayed on HTTPS until the fix above. The build tree was gone again — no stray release exes, satisfying RELEASING.md's cargo-clean rule — and no <span class="mono">~\Dev\vibe-dictation-public</span> directory exists on B. (That last point does not hold on A — see the housekeeping row.)</li>
+  <li><span class="date">2026-08-25</span> <span class="m">[A]</span> — <strong>v1.4.1 released publicly with the installer attached</strong> (<a href="https://github.com/NasserAlh/vibe-dictation/releases/tag/v1.4.1">Release v1.4.1</a>; board refresh <span class="mono">a9729f8</span>). GitHub Release created for the tag with the archived installer uploaded, then verified by downloading the published asset back and hashing it: <span class="mono">a86b6bba…</span>, an exact match for the archived copy. Notes went out in short form with no verification statement, an omission corrected on 2026-09-03. Earlier the same day A's <span class="mono">origin</span> was switched to SSH (<span class="mono">18803c3</span>) and <span class="mono">gh</span> authenticated.</li>
+  <li><span class="date">2026-08-25</span> <span class="m">[A]</span> — <strong>v1.4.1 built, installed and tagged</strong> (<span class="mono">4f5ab3d</span>), then its gate score <strong>corrected downward</strong> (<span class="mono">fb44c6c</span>): the record had claimed 4 of 6 by counting the sidecar-pin check (a Build step, not a verify criterion) and the idle netstat sweep as a pass; restated as 2 of 6. Criteria 1 and 2 passed against the artifact: strings audit identical on the built and installed exe (forbidden patterns zero; positive control <span class="mono">sona</span> hit 91×; five <span class="mono">updater</span> hits all known h2/rustls/Win32 substrings; two <span class="mono">huggingface.co</span> hits both downloader manifest), NSIS <span class="mono">/S</span> install with the quoted HKCU Run entry. Installer archived to <span class="mono">..\releases\vibe-dictation\v1.4.1\</span> on A with the copy's hash re-verified; <span class="mono">cargo clean</span> run (7.2 GiB). Earlier entries — the shortcut-relaunch fix (<span class="mono">009ef8d</span>), v1.4.0 (<span class="mono">3a3aed5</span>), v1.3.0, v1.2.0 — are in RELEASING.md and the git log.</li>
 </ul>
 
 <h2>Where things are written down</h2>
 <ul class="docs">
   <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk.</li>
-  <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder, rules learned the hard way, and the per-release record — including v1.4.1's 2-of-6 partial-gate record and artifact hashes.</li>
+  <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder, rules learned the hard way, and the per-release record — including v1.4.1's 2-of-6 partial-gate record, its publication and ruling, its artifact hashes, the installer sona-lock defect and its fix, and the release-notes filename defect.</li>
   <li><span class="mono">ROADMAP.md</span> — known issues, planned and considered work, deliberate non-goals, shipped features.</li>
+  <li><span class="mono">docs/deployment.md</span> — putting a release on a new machine, including the two <span class="mono">New-NetFirewallRule</span> outbound-block commands that criterion 4 depends on.</li>
 </ul>
 <p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
 

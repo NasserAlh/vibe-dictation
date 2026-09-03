@@ -75,10 +75,18 @@ inherited from a previous release.
 
 ## Shipped in v1.4.1 (2026-08-25)
 
-**Verification record (partial gate — 2 of 6 criteria run, WORSE than the
-v1.3.0/v1.4.0 3-of-6 split, because the owner's live EN + AR functional pass
-has not been run against this build).** Not published: built, installed and
-tagged locally only.
+**Verification record (partial gate — owner ruling, 2026-08-25): shipped
+with 2 of 6 criteria run, WORSE than the v1.3.0/v1.4.0 3-of-6 split, because
+the owner's live EN + AR functional pass has not been run against this build.**
+Published 2026-08-25: tag `v1.4.1` pushed, GitHub Release cut, installer
+attached (asset `Vibe.Dictation_1.4.1_x64-setup.exe`, hash re-verified by
+downloading the published asset back). Four criteria remain unrun against this
+build: **3** netstat sampler during live dictation, **4** firewall-block test,
+**5** functional EN + AR dictation into MS Word, **6** live-dictation
+functional check — all four need the owner (an elevated shell for 4, a
+dictating voice for 3, 5 and 6). The release notes went out without a
+verification statement; amended 2026-09-03 to carry the same partial-gate
+disclosure as the v1.3.0 and v1.4.0 notes.
 
 Build-step check (not one of the six criteria): sidecar content pins —
 `desktop/src-tauri/binaries/` was already populated, so the sidecar binaries
@@ -123,6 +131,20 @@ Hashes: installer
 3-byte Tauri NSIS bundle-type stamp difference, located this release at offset
 `0x737C94`, `UNK` → `NSS`). Installer archived to
 `..\releases\vibe-dictation\v1.4.1\` and the copy's hash re-verified.
+
+- **Release-notes filename mismatch (defect, found 2026-08-25, scoped
+  2026-09-03).** GitHub replaces the space in an uploaded asset name with a
+  dot, so the published file is `Vibe.Dictation_<version>_x64-setup.exe` while
+  notes written from the local build name the spaced original: anyone pasting
+  the notes' `Get-FileHash` command gets file-not-found instead of a hash.
+  Checked against every published release: the v1.4.1 notes had it (three
+  occurrences — the Install line, the hash table row and the command;
+  corrected in the 2026-09-03 amendment) and the **v1.2.0 notes still have
+  it** (same three occurrences, unfixed — plus `RELEASE-NOTES-v1.2.0.md` in
+  this repo at lines 6, 45 and 49, which is where the spaced name came from).
+  v1.3.0 and v1.4.0 are unaffected: v1.3.0's notes carry a `sha256sum`-style
+  line and v1.4.0's name no file. Rule for the publish step: write asset
+  names in release notes with the dot, as GitHub will serve them.
 
 - **Reopening from the shortcut** (commit `009ef8d`). Closing the main window
   hides it so the tray icon and global hotkeys survive — but a subsequent
