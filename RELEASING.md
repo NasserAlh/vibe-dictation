@@ -201,7 +201,7 @@ firewall-block test, live-dictation functional checks. Hashes: installer
 (raw `target/release/vibe.exe` at
 `b6c92c3d59cf57ac97b9b90c0ec3ec1ee2b8dd52cd1906a6ac4922b3c0fa7170` — the
 usual 3-byte Tauri NSIS bundle-type stamp difference). Installer re-archived
-2026-09-03 to `..eleasesibe-dictation1.4.0\` from the GitHub Release
+2026-09-03 to `..\releases\vibe-dictation\v1.4.0\` from the GitHub Release
 asset — the copy recorded as archived on 2026-08-25 was not in the archive
 folder — and the copy's hash re-verified: `42161e09…`, exact match.
 
