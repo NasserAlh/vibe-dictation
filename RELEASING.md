@@ -147,6 +147,33 @@ from the Visual Studio Installer's licence view.
   cannot remove it — and verify the copy's hash.
 - Tag the release commit (`vX.Y.Z`) and push with tags.
 
+## Release tooling (per machine)
+
+Two clones refresh this repository. Publishing and verification depend on
+tooling that lives outside the repo, so it is recorded here per machine.
+
+**Machine A — the workstation that cut v1.4.1 (commits authored as
+Nasser Al-Husayan; recorded 2026-09-03):**
+
+| Tool | Version / location |
+|---|---|
+| Windows | 11, build 10.0.26200 |
+| Git | 2.55.0.windows.3 |
+| `gh` | 2.98.0 (2026-08-20), WinGet package path, logged in to github.com as NasserAlh (keyring); the only machine authenticated to cut Releases |
+| Node | v24.19.0 |
+| pnpm | 10.4.1 **via `corepack pnpm` only** — bare `pnpm` is not on PATH; `tauri build`'s `beforeBuildCommand` needs a `pnpm` shim on PATH |
+| Tauri CLI | 2.10.0 (`@tauri-apps/cli`; NSIS 3.11 cached under `%LOCALAPPDATA%\tauri\NSIS`) |
+| Rust | cargo 1.97.1 / rustc 1.97.1 |
+| MSVC | Build Tools 2022 17.14 (package 17.14.37516.0), toolset 14.44.35207, `VsDevCmd.bat -arch=x64` under `Common7\Tools`; redist 14.44.35112 (source of the five app-local DLLs) |
+| Python / uv | Python 3.12.14 via uv 0.12.5 (`python3.12`; bare `python` is the Store stub) |
+| Installer archive | `..\releases\vibe-dictation\<tag>\` — holds v1.4.0 and v1.4.1 |
+| Model store | `%LOCALAPPDATA%\net.nasserhub.dictation\` (large-v3, large-v3-turbo) |
+
+**Machine B — the machine that committed on 2026-08-26 (commits authored
+as nasser):** tooling not yet recorded; its only SSH key pair is
+`~/.ssh/id_ed25519_vps`, and it holds no installer archive that has been
+listed. Fill this in from B.
+
 ## Shipped in v1.4.1 (2026-08-25)
 
 **Verification record (partial gate — owner ruling, 2026-08-25): shipped
@@ -310,6 +337,17 @@ Hashes: installer
   `1326dde4…`; the hook-less v1.4.1 installer left the five DLLs in place,
   so they were removed by hand to match the published layout. `cargo clean`
   run afterwards. A verification build, not a release: nothing archived.
+- **The `v1.4.1` tag stays where it is (owner ruling, 2026-09-03).** The tag
+  points at `4f5ab3d`, whose copy of this file claims a 4-of-6 gate; the
+  correction to 2 of 6 landed one commit later in `fb44c6c`, and the
+  publication record and everything since live on `main`. The tagged tree is
+  the one the published artifact was built from, which is what the hashes
+  need. Anyone reading the record at the tag is reading an overstated gate;
+  `main` carries the correction. Not retagged.
+- **Still in the published v1.4.1 installer until v1.4.2 ships:** both
+  installer network paths (vc_redist download from `aka.ms`, WebView2
+  bootstrapper download when WebView2 is absent) and the sona-lock upgrade
+  defect. All three are fixed on `main` (`6a980de`, `1f64e26`).
 
 ## Shipped in v1.4.0 (2026-08-25)
 
@@ -421,6 +459,11 @@ against the installed build. Hashes: installer
 
 ## Resolved in v1.0.1
 
+*Artifact unrecoverable (recorded 2026-09-03): no git tag (the 2026-07-28
+history squash predates tagging), no GitHub Release asset, no hash ever
+recorded, no archive copy on machine A. The entries below are the only
+trace. Same for v1.1.0 and v1.1.1.*
+
 - **Version string** — adopted a `1.0.x` fork versioning scheme; `tauri.conf.json`
   bumped from the upstream-inherited `3.0.22` to `1.0.1` (installer artifacts are
   now `Vibe Dictation_1.0.1_x64-setup.exe`).
@@ -462,6 +505,8 @@ netstat sample during live dictation, dictate-under-firewall-block test.
 
 ## Shipped in v1.1.1
 
+*Artifact unrecoverable — no tag, no asset, no hash (see the v1.0.1 note).*
+
 - **Dictation prompt-injection guard** (`src/ollama.rs`). In-the-wild v1.1.0
   incident: a command-shaped dictation ("check the codebase and provide a
   summary…") was *answered* by the formatting model with a hallucinated
@@ -475,6 +520,8 @@ netstat sample during live dictation, dictate-under-firewall-block test.
   Ollama. The incident pair is a permanent regression test.
 
 ## Shipped in v1.1.0
+
+*Artifact unrecoverable — no tag, no asset, no hash (see the v1.0.1 note).*
 
 - **Opt-in LLM formatting via local Ollama** (`src/ollama.rs`, `cmd/ollama_cmd.rs`,
   Settings → Dictation). Loopback-only (host is a compile-time `127.0.0.1`
@@ -509,9 +556,15 @@ netstat sample during live dictation, dictate-under-firewall-block test.
   behavior.
 - **`cli.rs` review** — CLI surface untouched by the lockdown pass; audit which
   arguments still make sense for a dictation-only tool.
-- **Locale trim re-verification** — Phase B trimmed bundled locales to en + ar;
-  next release must confirm the language picker and paraglide output stay
-  consistent after any locale-related dependency updates.
+- **Locale trim re-verification — CLOSED 2026-09-03.** Phase B trimmed bundled
+  locales to en + ar; the open question was whether paraglide output stays
+  consistent after locale-related dependency updates. Checked against the
+  current lockfile (`@inlang/paraglide-js` 2.21.0) on machine A at `ae18541`:
+  `uv run scripts/check_i18n.py` → "i18n audit passed"; `pnpm i18n:generate`
+  compiled the inlang project cleanly; `tsc --noEmit` clean; 43/43 vitest.
+  The language picker no longer exists (removed in v1.2.0), so that half of
+  the check is moot. Re-run the three commands whenever `paraglide-js` or
+  the `i18n/` sources change; nothing is carried to the next release.
 - **Stale commit stamp** — the embedded commit hash lags the actual build
   commit (build.rs needs a `cargo:rerun-if-changed=.git/HEAD`-style directive);
   the v1.0.0 binary reported `c64da41` though built at `f9d3906`.

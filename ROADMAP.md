@@ -21,7 +21,8 @@ issue** = a defect that exists today, **Shipped** = done, on main.
   RTL and switching output mode automatically.
 - **No signed installer.** Releases are unsigned, so Windows SmartScreen warns on
   download and some antivirus flags the keystroke-injection behaviour. Signing
-  needs a code-signing certificate.
+  needs a code-signing certificate. Deferred (owner ruling, 2026-09-03): purchase
+  decision pending; not gating any release.
 
 ## Planned
 
