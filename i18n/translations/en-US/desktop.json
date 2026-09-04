@@ -111,6 +111,7 @@
 	"dictationIndicatorCopiedWords": "Copied · {words} words",
 	"dictationIndicatorHintRelease": "release to finish",
 	"dictationIndicatorHintToggle": "{shortcut} to stop",
+	"dictationIndicatorFocusLost": "Focus changed — copied to clipboard",
 	"modelWarmupSetting": "Preload model at startup",
 	"modelWarmupSettingInfo": "Loads the selected model as soon as the app starts, so the first dictation is as fast as every later one. Keeps the model in GPU memory (about 3 GB for large-v3) the whole time the app is running.",
 	"normalizeHotkeyOutput": "Normalize output",

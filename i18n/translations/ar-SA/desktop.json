@@ -111,6 +111,7 @@
 	"dictationIndicatorCopiedWords": "تم النسخ · {words} كلمة",
 	"dictationIndicatorHintRelease": "أفلت المفتاح للإنهاء",
 	"dictationIndicatorHintToggle": "{shortcut} للإيقاف",
+	"dictationIndicatorFocusLost": "تغيّر التركيز — نُسخ إلى الحافظة",
 	"modelWarmupSetting": "تحميل النموذج مسبقاً عند بدء التشغيل",
 	"modelWarmupSettingInfo": "يحمّل النموذج المحدد فور بدء التطبيق، فيكون أول إملاء بسرعة كل إملاء لاحق. يُبقي النموذج في ذاكرة كرت الشاشة (نحو 3 جيجابايت لنموذج large-v3) طوال تشغيل التطبيق.",
 	"normalizeHotkeyOutput": "تسوية المخرجات",

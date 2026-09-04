@@ -510,8 +510,9 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				}
 				if (focusLost) {
 					// Amber warning, not a green "Copied": the text went somewhere
-					// other than where the user was typing (plan §4).
-					finishIndicator('error', { message: m.liveDictationFocusLost(), severity: 'warning' })
+					// other than where the user was typing (plan §4). Short label
+					// for the pill; the notification above keeps the full sentence.
+					finishIndicator('error', { message: m.dictationIndicatorFocusLost(), severity: 'warning' })
 				} else {
 					finishIndicator('completed', { output: effectiveOutput, words })
 				}
