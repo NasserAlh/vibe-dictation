@@ -15,6 +15,7 @@ import * as config from '~/lib/config'
 import { defaultLlmFormatPrompt, defaultOllamaPort, formatWithOllama } from '~/lib/ollama'
 import { forcedLangOptions, type DictationLang } from '~/lib/dictation-lang'
 import { acceleratorsCollide } from '~/lib/accelerator'
+import { classifyStartRecordError, startFailureMessage, type StartFailureKind } from '~/lib/indicator-messages'
 
 // Single keys, not chords — this is a dictation tool held down while
 // speaking; a three-key combination is hostile to that. Stored prefs
@@ -133,6 +134,12 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const registeredShortcutsRef = useRef<string[]>([])
 	const indicatorSessionRef = useRef(0)
 	const indicatorTimerRef = useRef<number | null>(null)
+	// Restores "Transcribing…" after the 1 s "Still transcribing — wait" hint.
+	const stillTranscribingTimerRef = useRef<number | null>(null)
+	// get_audio_devices result, reused for 10 s so back-to-back dictations do
+	// not pay for enumeration twice. Cleared on any start_record error so a
+	// stale device list is never retried.
+	const audioDevicesCacheRef = useRef<{ devices: AudioDevice[]; at: number } | null>(null)
 	const hotkeyLiveDictationRef = useRef(hotkeyLiveDictation)
 	const hotkeyVocabularyRef = useRef(hotkeyVocabulary)
 	// Parsed once per dictation session (handleHotkeyDown), used by both the
@@ -277,27 +284,62 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		liveDictationTimerRef.current = window.setInterval(tick, 1500)
 	}, [stopLiveDictationLoop])
 
+	// A pre-recording failure is never silent (plan §2.1): the pill shows the
+	// message for 5 s and the same text goes out as a notification.
+	const failStart = useCallback(async (kind: StartFailureKind) => {
+		const message = startFailureMessage(kind, {
+			noMicrophone: m.dictationIndicatorNoMicrophone(),
+			microphoneBusy: m.dictationIndicatorMicrophoneBusy(),
+			startFailed: m.dictationIndicatorStartFailed(),
+		})
+		finishIndicator('error', { message })
+		await notify('Vibe', message)
+	}, [finishIndicator])
+
 	const handleHotkeyDown = useCallback(async (lang: DictationLang) => {
 		if (isHotkeyRecordingRef.current || isStartingRef.current || isStoppingRef.current) {
-			// §2.1 third path: the press is dropped and nothing is shown.
-			indicatorLog('hotkey down DROPPED by busy guard', { lang, recording: isHotkeyRecordingRef.current, starting: isStartingRef.current, stopping: isStoppingRef.current })
+			indicatorLog('hotkey down dropped by busy guard', { lang, recording: isHotkeyRecordingRef.current, starting: isStartingRef.current, stopping: isStoppingRef.current })
+			if (isStoppingRef.current && !isStartingRef.current) {
+				// Previous dictation is still transcribing: say so on the pill
+				// for a second instead of ignoring the press, then put the plain
+				// "Transcribing…" back. Never start a second recording. The
+				// restore is skipped if that session finished (or a new one
+				// started) in the meantime — finishIndicator owns the pill then.
+				const session = indicatorSessionRef.current
+				showIndicator('transcribing', { message: m.dictationIndicatorStillTranscribing() })
+				if (stillTranscribingTimerRef.current) window.clearTimeout(stillTranscribingTimerRef.current)
+				stillTranscribingTimerRef.current = window.setTimeout(() => {
+					stillTranscribingTimerRef.current = null
+					if (isStoppingRef.current && indicatorSessionRef.current === session) showIndicator('transcribing')
+				}, 1000)
+			}
 			return
 		}
 		const downAt = performance.now()
-		indicatorLog('hotkey down accepted', { lang, session: indicatorSessionRef.current })
+		indicatorLog('hotkey down accepted', { lang, session: indicatorSessionRef.current + 1 })
 		isStartingRef.current = true
 		activeLangRef.current = lang
+		// New session and pill on screen at key-down (plan §2.2): the user sees
+		// "Listening…" while devices are enumerated and the stream starts, and
+		// any failure below replaces it with an error in the same session.
+		indicatorSessionRef.current += 1
+		showIndicator('recording')
 		try {
 			vocabRef.current = parseVocabulary(hotkeyVocabularyRef.current)
-			const devices = await invoke<AudioDevice[]>('get_audio_devices')
+			const cached = audioDevicesCacheRef.current
+			const cacheFresh = cached !== null && performance.now() - cached.at < 10_000
+			const devices = cacheFresh ? cached.devices : await invoke<AudioDevice[]>('get_audio_devices')
 			const defaultInput = devices.find((d) => d.isDefault && d.isInput)
-			indicatorLog('get_audio_devices resolved', { sinceDownMs: +(performance.now() - downAt).toFixed(1), devices: devices.length, defaultInput: defaultInput?.name ?? null })
+			indicatorLog(cacheFresh ? 'get_audio_devices served from cache' : 'get_audio_devices resolved', { sinceDownMs: +(performance.now() - downAt).toFixed(1), devices: devices.length, defaultInput: defaultInput?.name ?? null })
 			if (!defaultInput) {
-				// §2.1 first path: silent failure — no indicator, no notification.
-				indicatorLog('start FAILED silently: no default input device', { lang, devices: devices.map((d) => ({ name: d.name, isDefault: d.isDefault, isInput: d.isInput })) })
+				// Not cached: a mic plugged in a moment later must be found.
+				audioDevicesCacheRef.current = null
+				indicatorLog('start failed: no default input device', { lang, devices: devices.map((d) => ({ name: d.name, isDefault: d.isDefault, isInput: d.isInput })) })
 				console.error('No default input device found')
+				await failStart('no-microphone')
 				return
 			}
+			if (!cacheFresh) audioDevicesCacheRef.current = { devices, at: performance.now() }
 
 			isHotkeyRecordingRef.current = true
 			setIsHotkeyRecording(true)
@@ -311,13 +353,11 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				recordingName: null,
 				captureLive: liveDictation,
 			})
-			// §2.2: this is how long the user waited with no pill on screen.
+			// §2.2: how long the pill said "Listening…" before audio actually flowed.
 			indicatorLog('start_record resolved', { sinceDownMs: +(performance.now() - downAt).toFixed(1), liveDictation })
-			indicatorSessionRef.current += 1
 			liveInjectedRef.current = ''
 			liveFrozenRef.current = false
 			liveSessionRef.current = false
-			showIndicator('recording')
 			if (liveDictation) {
 				// Remember the window holding the cursor: injections are refused
 				// the moment focus moves elsewhere.
@@ -326,16 +366,17 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				startLiveDictationLoop(lang)
 			}
 		} catch (error) {
-			// §2.1 second path: silent failure — no indicator, no notification.
-			indicatorLog('start FAILED silently: start_record threw', { lang, sinceDownMs: +(performance.now() - downAt).toFixed(1), error: getErrorMessage(error) })
+			audioDevicesCacheRef.current = null
+			indicatorLog('start failed: start_record threw', { lang, sinceDownMs: +(performance.now() - downAt).toFixed(1), error: getErrorMessage(error) })
 			console.error('Hotkey start_record error:', error)
 			stopLiveDictationLoop()
 			isHotkeyRecordingRef.current = false
 			setIsHotkeyRecording(false)
+			await failStart(classifyStartRecordError(error))
 		} finally {
 			isStartingRef.current = false
 		}
-	}, [showIndicator, startLiveDictationLoop, stopLiveDictationLoop])
+	}, [failStart, showIndicator, startLiveDictationLoop, stopLiveDictationLoop])
 
 	const handleHotkeyUp = useCallback(async (lang: DictationLang) => {
 		indicatorLog('hotkey up', { lang, recording: isHotkeyRecordingRef.current, stopping: isStoppingRef.current, activeLang: activeLangRef.current })
@@ -456,6 +497,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => () => {
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
+		if (stillTranscribingTimerRef.current) window.clearTimeout(stillTranscribingTimerRef.current)
 		if (liveDictationTimerRef.current) window.clearInterval(liveDictationTimerRef.current)
 		if (startupTimerRef.current) window.clearTimeout(startupTimerRef.current)
 	}, [])

@@ -50,7 +50,9 @@ export default function DictationIndicator() {
 		starting: { icon: <LoaderCircle className="h-4 w-4 animate-spin text-zinc-400" />, label: m.dictationIndicatorStarting() },
 		ready: { icon: <Check className="h-4 w-4 text-emerald-400" />, label: m.dictationIndicatorReady({ shortcuts: state.message ?? '' }) },
 		recording: { icon: <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />, label: m.dictationIndicatorListening() },
-		transcribing: { icon: <LoaderCircle className="h-4 w-4 animate-spin text-blue-400" />, label: m.dictationIndicatorTranscribing() },
+		// `message` carries the transient "Still transcribing — wait" hint when
+		// the hotkey is pressed again mid-transcription (plan Prompt 2 step 3).
+		transcribing: { icon: <LoaderCircle className="h-4 w-4 animate-spin text-blue-400" />, label: state.message || m.dictationIndicatorTranscribing() },
 		completed: { icon: <Check className="h-4 w-4 text-emerald-400" />, label: state.output === 'type' ? m.dictationIndicatorInserted() : m.dictationIndicatorCopied() },
 		error: { icon: <AlertTriangle className="h-4 w-4 text-red-400" />, label: state.message || m.dictationIndicatorError() },
 	}[state.status]
