@@ -181,13 +181,14 @@ with 2 of 6 criteria run, WORSE than the v1.3.0/v1.4.0 3-of-6 split, because
 the owner's live EN + AR functional pass has not been run against this build.**
 Published 2026-08-25: tag `v1.4.1` pushed, GitHub Release cut, installer
 attached (asset `Vibe.Dictation_1.4.1_x64-setup.exe`, hash re-verified by
-downloading the published asset back). Four criteria remain unrun against this
-build: **3** netstat sampler during live dictation, **4** firewall-block test,
-**5** functional EN + AR dictation into MS Word, **6** live-dictation
-functional check — all four need the owner (an elevated shell for 4, a
-dictating voice for 3, 5 and 6). The release notes went out without a
-verification statement; amended 2026-09-03 to carry the same partial-gate
-disclosure as the v1.3.0 and v1.4.0 notes.
+downloading the published asset back). Criterion **3** (netstat sampler during
+live dictation) was run and passed post-release on 2026-09-04 (see below),
+bringing the build to 3 of 6. Three criteria remain unrun against this build:
+**4** firewall-block test, **5** functional EN + AR dictation into MS Word,
+**6** live-dictation functional check — all three need the owner (a dictating
+voice for 5 and 6; 4 no longer needs an elevated shell, see item 4). The
+release notes went out without a verification statement; amended 2026-09-03 to
+carry the same partial-gate disclosure as the v1.3.0 and v1.4.0 notes.
 
 Build-step check (not one of the six criteria): sidecar content pins —
 `desktop/src-tauri/binaries/` was already populated, so the sidecar binaries
@@ -205,20 +206,54 @@ Run and passed:
    prefix `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/` and the
    "failed to reach huggingface.co" error string.
 2. **Install** — NSIS `/S`, quoted HKCU Run entry pointing at the installed exe.
+3. **Netstat sampler during live dictation — PASSED 2026-09-04** (Machine A,
+   installed `vibe.exe` hash re-checked before the run and equal to the
+   `37186b76…` recorded below). Sampled 16:30:17–16:33:17 UTC: 175 `netstat -ano`
+   samples at ~1 s, all TCP/UDP states including TIME_WAIT, rows kept for the
+   `vibe.exe`/`sona.exe`/`ollama.exe` PIDs plus PID-0 TIME_WAIT rows on their
+   ports. The app log shows six hotkey dictation sessions (24–29) completed
+   inside the window — each recorded, transcribed by sona and passed through
+   the Ollama formatting pass (`qwen3.5:9b`, LLM formatting on) — plus session
+   30 recording from 16:32:54 (its transcription at 16:33:24 fell just after
+   the window closed), so the sample covers the in-dictation socket surface,
+   not an idle app. Result: 28 distinct
+   rows, **zero non-loopback**. `sona.exe` LISTENING on `127.0.0.1:59645` in
+   all 175 samples (never `0.0.0.0`); the `vibe.exe`↔`sona.exe` loopback pair
+   (`62913`↔`59645`) ESTABLISHED in 172 of 175 samples (absent only in the
+   first three, before session 24's transcription began); `vibe.exe`→`127.0.0.1:11434`
+   ESTABLISHED for one to three consecutive samples per session and its
+   TIME_WAIT trace (PID 0, as documented in the criterion) visible for ~2 min
+   afterwards — the v1.1.0 finding reproduced. The remaining rows are Ollama's
+   own loopback connection to its runner subprocess (`127.0.0.1:50956`), not
+   the app's. No model download was in progress. Two things the sample cannot
+   show: the app log carries no per-session language, so the EN/AR split of the
+   seven sessions is not recorded; and no live-dictation snapshot ran (live
+   dictation was off). One incidental observation: session 29's Ollama output
+   diverged from the transcript (131 chars in, 1246 out) and the divergence
+   check fell back to the raw transcript as designed.
+   **Corroboration:** a second, independent sampler of the same design ran in
+   parallel on the same machine in two windows, 16:26:03–16:31:03 UTC (292
+   samples, 15 distinct rows, sessions 24–26 completed inside) and
+   16:31:27–16:34:27 UTC (175 samples, 27 distinct rows, sessions 28–30
+   completed inside), both **zero non-loopback**, same sona listener and
+   `62913`↔`59645` pair, same `vibe.exe`→`11434` ESTABLISHED/TIME_WAIT pattern.
+   Across all three windows: 642 samples, ~2.6 min of dictation-active
+   sampling, zero non-loopback rows. Raw sample logs and summaries were kept
+   only in session scratch space, as for every earlier release record.
 
 Not passed (carried debt, now against v1.4.1):
 
-3. **Netstat sampler — NOT MEASURED.** A sweep ran (75 samples at ~1 s
-   intervals, ~75 s) and was clean: only three distinct sockets owned by
-   `vibe.exe`/`sona.exe`, all loopback — sona LISTENING on `127.0.0.1:58946`
-   (never `0.0.0.0`) plus the established loopback pair to the shell, zero
-   non-loopback rows. **But it sampled an idle app, and the criterion requires
-   ~2 min during live dictation.** It proves the steady-state socket surface,
-   not the in-dictation one, so it does not satisfy the criterion.
-4. **Firewall-block test — BLOCKED.** Still no outbound-block rules for the
-   installed `vibe.exe`/`sona.exe` — `Get-NetFirewallApplicationFilter`
-   matching either program returns zero. Missing since v1.2.0 and unrecreated
-   through v1.3.0 and v1.4.0. Creating them needs an elevated shell.
+4. **Firewall-block test — NOT RUN (no longer BLOCKED as of 2026-09-04).** The
+   2026-08-25 finding was that no outbound-block rules existed for the
+   installed `vibe.exe`/`sona.exe`. On 2026-09-04 two enabled outbound Block
+   rules were observed, profile Any, named `Vibe Dictation - block outbound`
+   (program `%LOCALAPPDATA%\Vibe Dictation\vibe.exe`) and
+   `Vibe Dictation Sona - block outbound` (program `…\sona.exe`) — when and
+   by whom they were created is not recorded. The seven dictation sessions of the criterion-3
+   sample above ran with those rules enabled, which is the "dictation still
+   works under the block" half of the criterion; the other half — a model
+   download attempted under the block fails cleanly (error dialog, `.part`
+   removed, dictation unaffected) — has not been attempted.
 5. **Functional EN + AR dictation into MS Word — NOT RUN.** Needs the owner
    speaking. v1.4.0's pass is not inherited: this document's standing rule is
    that verification is re-proven per artifact.
