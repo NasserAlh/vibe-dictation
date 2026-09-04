@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { HINT_VISIBLE_MS, badgeText, formatElapsed, pillContent } from './indicator-content'
+import { HINT_VISIBLE_MS, METER_MAX_PX, METER_REST_PX, METER_REST_THRESHOLD, badgeText, formatElapsed, isMeterResting, meterBarHeights, pillContent } from './indicator-content'
+
+describe('meterBarHeights', () => {
+	it('rests every bar at the resting height below the threshold', () => {
+		expect(meterBarHeights(0)).toEqual([3, 3, 3, 3, 3])
+		expect(meterBarHeights(METER_REST_THRESHOLD - 0.001)).toEqual([3, 3, 3, 3, 3])
+		expect(isMeterResting(0.019)).toBe(true)
+		expect(isMeterResting(0.02)).toBe(false)
+	})
+
+	it('scales the bars by the per-bar multipliers (0.6, 0.85, 1, 0.85, 0.6)', () => {
+		const full = meterBarHeights(1)
+		expect(full[2]).toBe(METER_MAX_PX)
+		expect(full[0]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.6)
+		expect(full[1]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.85)
+		expect(full[3]).toBe(full[1])
+		expect(full[4]).toBe(full[0])
+		const half = meterBarHeights(0.5)
+		expect(half[2]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.5)
+		expect(half[0]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.5 * 0.6)
+		// Monotonic in level.
+		expect(meterBarHeights(0.8)[2]).toBeGreaterThan(half[2])
+	})
+
+	it('clamps out-of-range and non-finite levels', () => {
+		expect(meterBarHeights(1.7)).toEqual(meterBarHeights(1))
+		expect(meterBarHeights(-0.5)).toEqual([3, 3, 3, 3, 3])
+		expect(meterBarHeights(Number.NaN)).toEqual([3, 3, 3, 3, 3])
+		expect(isMeterResting(Number.NaN)).toBe(true)
+	})
+})
 
 // Messages compile with the baseLocale strategy, so these assert English.
 
@@ -34,11 +64,11 @@ describe('pillContent', () => {
 		expect(pillContent({ sessionId: 0, status: 'ready' }, 0).right).toBeNull()
 	})
 
-	it('recording: red dot, badge, elapsed, destination, and the push-to-talk hint for 2 s', () => {
+	it('recording: red ring, level meter, badge, elapsed, destination, and the push-to-talk hint for 2 s', () => {
 		const state = { sessionId: 3, status: 'recording' as const, lang: 'en' as const, output: 'type' as const, hint: 'release' as const, shortcut: 'F9', since: 1000 }
 		expect(pillContent(state, 1000)).toEqual({
 			ring: 'red',
-			left: 'dot',
+			left: 'meter',
 			label: 'Listening',
 			right: { badge: 'en', elapsed: '0:00', destination: 'type' },
 			sub: 'release to finish',

@@ -6,8 +6,33 @@ import { m } from '~/paraglide/messages.js'
 import type { DictationIndicatorLang, DictationIndicatorState } from '~/lib/dictation-indicator'
 
 export type PillRing = 'grey' | 'green' | 'red' | 'blue' | 'amber'
-/** `dot` is the pulsing recording dot; Prompt 4 adds the live level meter. */
-export type PillLeft = 'spinner' | 'check' | 'warning' | 'dot'
+/**
+ * `meter` is the five-bar live level meter shown while recording; the
+ * component substitutes the pulsing `dot` under prefers-reduced-motion.
+ */
+export type PillLeft = 'spinner' | 'check' | 'warning' | 'dot' | 'meter'
+
+// --- Level meter (plan §4, ROADMAP "Animated recording indicator") -----------
+// Rust emits "dictation-indicator-level" { level: 0..1 } at ~15 Hz while
+// recording. Five bars scale with the level through per-bar multipliers;
+// below METER_REST_THRESHOLD every bar sits at its resting height.
+export const METER_BAR_MULTIPLIERS = [0.6, 0.85, 1, 0.85, 0.6] as const
+export const METER_REST_THRESHOLD = 0.02
+/** Bar height (px) at rest. */
+export const METER_REST_PX = 3
+/** Bar height (px) for the centre bar at full level. */
+export const METER_MAX_PX = 16
+
+/** Height in px of each of the five bars for a level in 0..1. */
+export function meterBarHeights(level: number): number[] {
+	const clamped = Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 0
+	if (clamped < METER_REST_THRESHOLD) return METER_BAR_MULTIPLIERS.map(() => METER_REST_PX)
+	return METER_BAR_MULTIPLIERS.map((multiplier) => METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * clamped * multiplier)
+}
+
+export function isMeterResting(level: number): boolean {
+	return !Number.isFinite(level) || level < METER_REST_THRESHOLD
+}
 
 export interface PillRight {
 	/** Language badge: "EN" or "ع". Never mirrors in RTL. */
@@ -66,7 +91,7 @@ export function pillContent(state: PillInput, now: number): PillContent {
 				if (state.hint === 'release') sub = m.dictationIndicatorHintRelease()
 				else if (state.hint === 'toggle' && state.shortcut) sub = m.dictationIndicatorHintToggle({ shortcut: state.shortcut })
 			}
-			return { ring: 'red', left: 'dot', label: m.dictationIndicatorListening(), right, sub }
+			return { ring: 'red', left: 'meter', label: m.dictationIndicatorListening(), right, sub }
 		}
 		case 'transcribing': {
 			// `message` is the transient "Still transcribing — wait" hint (a

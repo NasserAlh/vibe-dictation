@@ -4,7 +4,7 @@ import { AlertTriangle, Check, Clipboard, Keyboard, LoaderCircle } from 'lucide-
 import { useEffect, useRef, useState } from 'react'
 import logoUrl from '../../../design/logo.svg?url'
 import { getDictationIndicatorState, type DictationIndicatorState } from '~/lib/dictation-indicator'
-import { badgeText, pillContent, type PillContent, type PillLeft, type PillRing } from '~/lib/indicator-content'
+import { badgeText, isMeterResting, meterBarHeights, pillContent, type PillContent, type PillLeft, type PillRing } from '~/lib/indicator-content'
 
 // The floating status pill (docs/dictation-indicator-plan.md §4). This
 // component only renders what `pillContent` returns — all wording and slot
@@ -52,7 +52,24 @@ const RING_CLASS: Record<PillRing, string> = {
 	amber: 'ring-amber-400/80 shadow-[0_12px_35px_rgba(0,0,0,0.32),0_0_0_4px_rgba(251,191,36,0.12)]',
 }
 
-function LeftSlot({ kind, ring, reducedMotion }: { kind: PillLeft; ring: PillRing; reducedMotion: boolean }) {
+/**
+ * Five bars driven by the Rust level event (~15 Hz). Heights come from
+ * `meterBarHeights`; a 100 ms transition smooths the steps. At rest (below
+ * the threshold) the bars sit short and still.
+ */
+function Meter({ level }: { level: number }) {
+	const heights = meterBarHeights(level)
+	const resting = isMeterResting(level)
+	return (
+		<span className="flex h-4 items-center gap-[1.5px]" aria-hidden="true" data-level={level.toFixed(2)} data-resting={resting}>
+			{heights.map((height, index) => (
+				<span key={index} className="w-0.5 rounded-full bg-red-500 transition-[height] duration-100 ease-out" style={{ height: `${height}px` }} />
+			))}
+		</span>
+	)
+}
+
+function LeftSlot({ kind, ring, reducedMotion, level }: { kind: PillLeft; ring: PillRing; reducedMotion: boolean; level: number }) {
 	const tone = { grey: 'text-zinc-400', green: 'text-emerald-400', red: 'text-red-400', blue: 'text-blue-400', amber: 'text-amber-400' }[ring]
 	switch (kind) {
 		case 'spinner':
@@ -61,13 +78,16 @@ function LeftSlot({ kind, ring, reducedMotion }: { kind: PillLeft; ring: PillRin
 			return <Check className={`h-4 w-4 ${tone}`} strokeWidth={2.5} />
 		case 'warning':
 			return <AlertTriangle className={`h-4 w-4 ${tone}`} />
+		case 'meter':
+			// Reduced motion: no meter, the pulsing dot instead (§4).
+			if (!reducedMotion) return <Meter level={level} />
+			return <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
 		case 'dot':
-			// The pulsing dot is also the reduced-motion fallback for the meter (§4).
 			return <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
 	}
 }
 
-function Layer({ content, reducedMotion, fadingSub }: { content: PillContent; reducedMotion: boolean; fadingSub: string | null }) {
+function Layer({ content, reducedMotion, fadingSub, level }: { content: PillContent; reducedMotion: boolean; fadingSub: string | null; level: number }) {
 	const right = content.right
 	// The hint is shown after a short label ("Listening"); when space is
 	// tight the hint truncates, never the label. Long labels (error text)
@@ -76,7 +96,7 @@ function Layer({ content, reducedMotion, fadingSub }: { content: PillContent; re
 	return (
 		<>
 			<span className="flex w-5 shrink-0 items-center justify-center">
-				<LeftSlot kind={content.left} ring={content.ring} reducedMotion={reducedMotion} />
+				<LeftSlot kind={content.left} ring={content.ring} reducedMotion={reducedMotion} level={level} />
 			</span>
 			<span className="flex min-w-0 items-baseline gap-2 overflow-hidden">
 				<span dir="auto" className={sub ? 'shrink-0' : 'truncate'}>
@@ -112,6 +132,8 @@ export default function DictationIndicator() {
 	const [view, setView] = useState<View | null>(null)
 	const [now, setNow] = useState(() => performance.now())
 	const [hiding, setHiding] = useState(false)
+	// Microphone level 0..1 from Rust (~15 Hz while recording).
+	const [level, setLevel] = useState(0)
 	// Previous content kept on screen for FADE_MS during a cross-fade.
 	const [leaving, setLeaving] = useState<{ key: string; content: PillContent } | null>(null)
 	const lastKeyRef = useRef<string | null>(null)
@@ -142,6 +164,10 @@ export default function DictationIndicator() {
 			log('hide event received')
 			setHiding(true)
 		})
+		// Level meter feed from cmd/audio.rs, sent to this window only.
+		const unlistenLevel = listen<{ level: number }>('dictation-indicator-level', ({ payload }) => {
+			setLevel(typeof payload?.level === 'number' ? payload.level : 0)
+		})
 		unlistenState
 			.then(() => {
 				log('listen registered; fetching initial state')
@@ -155,12 +181,22 @@ export default function DictationIndicator() {
 		return () => {
 			unlistenState.then((stop) => stop())
 			unlistenHide.then((stop) => stop())
+			unlistenLevel.then((stop) => stop())
 		}
 	}, [])
 
 	// Clock for elapsed time and "Transcribing N s…": requestAnimationFrame
 	// throttled to TICK_HZ, only while a timed state is on screen.
 	const status = view?.state.status
+
+	// The meter starts from rest for every recording and never carries a
+	// stale level into the next session: reset on every status or session
+	// change (the pill keeps its last state while hidden, so a new recording
+	// can arrive as recording -> recording with only the session changing).
+	const sessionId = view?.state.sessionId
+	useEffect(() => {
+		setLevel(0)
+	}, [status, sessionId])
 	useEffect(() => {
 		if (status !== 'recording' && status !== 'transcribing') return
 		let frame = 0
@@ -222,11 +258,11 @@ export default function DictationIndicator() {
 				<img src={logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-full" />
 				<span className="h-5 w-px shrink-0 bg-white/12" />
 				<div key={key ?? 'none'} className={`pill-layer flex min-w-0 flex-1 items-center gap-2.5 ${leaving ? 'pill-layer-enter' : ''}`}>
-					<Layer content={content} reducedMotion={reducedMotion} fadingSub={fadingSub} />
+					<Layer content={content} reducedMotion={reducedMotion} fadingSub={fadingSub} level={level} />
 				</div>
 				{leaving ? (
 					<div key={leaving.key} className="pill-layer pill-layer-leave pointer-events-none absolute inset-y-0 left-15 right-3.5 flex items-center gap-2.5" aria-hidden="true">
-						<Layer content={leaving.content} reducedMotion={reducedMotion} fadingSub={null} />
+						<Layer content={leaving.content} reducedMotion={reducedMotion} fadingSub={null} level={0} />
 					</div>
 				) : null}
 			</div>

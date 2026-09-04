@@ -8,7 +8,9 @@ use serde_json::json;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
 use crate::error::LogError;
@@ -50,6 +52,40 @@ struct LiveCapture {
 type LiveCaptureHandle = Arc<Mutex<Option<LiveCapture>>>;
 
 static LIVE_CAPTURE: Lazy<LiveCaptureHandle> = Lazy::new(|| Arc::new(Mutex::new(None)));
+
+/// Loudest absolute sample (as `f32::to_bits`) seen by the audio callback since
+/// the level meter last read it. Written lock-free from the callback for every
+/// recording (not only live capture), drained every `LEVEL_TICK_MS` by the
+/// meter task in `start_record`. Feeds the indicator's five bars — status
+/// only, in-process only (ROADMAP "Animated recording indicator").
+static INPUT_PEAK: AtomicU32 = AtomicU32::new(0);
+/// Meter refresh period (~15 Hz, plan §4).
+const LEVEL_TICK_MS: u64 = 66;
+/// Per-tick decay when the new peak is lower than the current level.
+const LEVEL_DECAY: f32 = 0.8;
+/// Emitted to the indicator window only.
+const LEVEL_EVENT: &str = "dictation-indicator-level";
+
+/// Next meter level: jump up to a louder peak at once, fall back at
+/// `LEVEL_DECAY` per tick otherwise. Always within 0..=1.
+pub(crate) fn decay_level(level: f32, peak: f32) -> f32 {
+    peak.max(level * LEVEL_DECAY).clamp(0.0, 1.0)
+}
+
+/// Records the loudest sample of one callback buffer. Allocation-free and
+/// never blocks (same rule as `write_input_data`). Non-negative f32 bit
+/// patterns order like their values, so `fetch_max` keeps the loudest buffer
+/// since the meter's last `swap(0)`.
+fn note_input_peak<T>(input: &[T])
+where
+    T: Sample + Copy,
+    f32: FromSample<T>,
+{
+    let peak = input
+        .iter()
+        .fold(0.0f32, |acc, &sample| acc.max(f32::from_sample(sample).abs()));
+    INPUT_PEAK.fetch_max(peak.to_bits(), Ordering::Relaxed);
+}
 
 fn clear_live_capture() {
     if let Ok(mut guard) = LIVE_CAPTURE.lock() {
@@ -127,6 +163,7 @@ pub async fn start_record(
 
     let live_enabled = capture_live.unwrap_or(false);
     clear_live_capture();
+    INPUT_PEAK.store(0, Ordering::Relaxed);
 
     for (device_index, device) in devices.into_iter().enumerate() {
         tracing::debug!("Recording from device: {}", device.name);
@@ -179,8 +216,39 @@ pub async fn start_record(
         tracing::debug!("Stream handle created");
     }
 
+    // Level meter: every LEVEL_TICK_MS drain the callback's peak, decay, and
+    // send the level to the indicator window only. Nothing is sent when the
+    // indicator is disabled or its window does not exist. Stops on stop_record.
+    let meter_stop = Arc::new(AtomicBool::new(false));
+    {
+        let stop = meter_stop.clone();
+        let app = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let mut level = 0.0f32;
+            while !stop.load(Ordering::Relaxed) {
+                tokio::time::sleep(Duration::from_millis(LEVEL_TICK_MS)).await;
+                if stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                let peak = f32::from_bits(INPUT_PEAK.swap(0, Ordering::Relaxed));
+                level = decay_level(level, peak);
+                if !crate::dictation_indicator::is_enabled(&app)
+                    || app.get_webview_window(crate::dictation_indicator::WINDOW_LABEL).is_none()
+                {
+                    continue;
+                }
+                let _ = app.emit_to(
+                    crate::dictation_indicator::WINDOW_LABEL,
+                    LEVEL_EVENT,
+                    json!({ "level": level }),
+                );
+            }
+        });
+    }
+
     let app_handle_clone = app_handle.clone();
     app_handle.once("stop_record", move |_event| {
+        meter_stop.store(true, Ordering::Relaxed);
         clear_live_capture();
         for (i, stream_handle) in stream_handles.iter().enumerate() {
             let stream_handle = stream_handle.lock().map_err(|e| eyre!("{:?}", e)).log_error();
@@ -319,6 +387,7 @@ where
         config.into(),
         move |data: &[T], _: &_| {
             write_input_data::<T, T>(data, &writer);
+            note_input_peak(data);
             if let Some(ref live) = live {
                 append_live_samples(data, live);
             }
@@ -511,5 +580,45 @@ mod tests {
         let read: Vec<f32> = reader.samples::<f32>().map(|sample| sample.unwrap()).collect();
         assert_eq!(read, samples);
         let _ = std::fs::remove_file(&path);
+    }
+}
+
+#[cfg(test)]
+mod level_meter_tests {
+    use super::{decay_level, LEVEL_DECAY};
+
+    #[test]
+    fn louder_peak_jumps_up_immediately() {
+        assert_eq!(decay_level(0.1, 0.9), 0.9);
+        assert_eq!(decay_level(0.0, 0.5), 0.5);
+    }
+
+    #[test]
+    fn quieter_peak_decays_by_the_factor() {
+        assert!((decay_level(1.0, 0.0) - LEVEL_DECAY).abs() < 1e-6);
+        assert!((decay_level(0.5, 0.1) - 0.4).abs() < 1e-6);
+        // Decay wins only while it is above the new peak.
+        assert!((decay_level(0.5, 0.45) - 0.45).abs() < 1e-6);
+    }
+
+    #[test]
+    fn silence_decays_to_rest_within_a_second() {
+        // 15 ticks of silence (~1 s at 66 ms) from full scale end below the
+        // meter's 0.02 resting threshold.
+        let mut level = 1.0f32;
+        for _ in 0..15 {
+            level = decay_level(level, 0.0);
+        }
+        assert!(level < 0.04, "level after 1 s of silence: {level}");
+        for _ in 0..5 {
+            level = decay_level(level, 0.0);
+        }
+        assert!(level < 0.02, "level after ~1.3 s of silence: {level}");
+    }
+
+    #[test]
+    fn level_is_clamped_to_unit_range() {
+        assert_eq!(decay_level(0.0, 1.7), 1.0);
+        assert_eq!(decay_level(-1.0, -0.5), 0.0);
     }
 }

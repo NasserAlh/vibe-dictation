@@ -6,7 +6,8 @@ use tauri::webview::PageLoadEvent;
 use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
 
-const WINDOW_LABEL: &str = "dictation-indicator";
+/// Label of the pill window; `cmd::audio` targets it with the level event.
+pub(crate) const WINDOW_LABEL: &str = "dictation-indicator";
 const ENABLED_KEY: &str = "dictation_indicator_enabled";
 // Logical px. The pill inside is content-sized and centred, so the window is
 // only a transparent, click-through bound; 400 fits "Listening · release to
