@@ -164,7 +164,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 
 	const finishIndicator = useCallback((status: 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
 		const sessionId = indicatorSessionRef.current
-		const delay = status === 'error' ? 3500 : 1500
+		// Errors stay 5 s (plan §4); completed 1.5 s.
+		const delay = status === 'error' ? 5000 : 1500
 		indicatorLog('finishIndicator', { session: sessionId, status, ...details, hideInMs: delay })
 		showIndicator(status, details)
 		const scheduledAt = performance.now()
@@ -555,12 +556,12 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			} else if (hotkeyEnabled) {
 				// Enabled but nothing registered (shortcut taken by another app,
 				// or both fields empty) — surface it instead of vanishing.
-				indicatorLog('announceStartup: showIndicator error (no shortcuts registered)', { hideInMs: 3500 })
+				indicatorLog('announceStartup: showIndicator error (no shortcuts registered)', { hideInMs: 5000 })
 				showDictationIndicator({ sessionId: 0, status: 'error', message: m.dictationIndicatorHotkeysFailed() })
 				startupTimerRef.current = window.setTimeout(() => {
-					indicatorLog('startup hide timer fired', { expectedMs: 3500, actualMs: +(performance.now() - scheduledAt).toFixed(1) })
+					indicatorLog('startup hide timer fired', { expectedMs: 5000, actualMs: +(performance.now() - scheduledAt).toFixed(1) })
 					hideDictationIndicator(0)
-				}, 3500)
+				}, 5000)
 			} else {
 				// Hotkeys disabled: just clear the seeded starting state.
 				indicatorLog('announceStartup: hotkeys disabled, hiding seeded starting state')

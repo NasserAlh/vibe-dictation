@@ -1,9 +1,9 @@
 use crate::config::STORE_FILENAME;
 use serde::{Deserialize, Serialize};
 use std::sync::{LazyLock, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tauri::webview::PageLoadEvent;
-use tauri::{Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
 
 const WINDOW_LABEL: &str = "dictation-indicator";
@@ -142,6 +142,94 @@ pub fn is_enabled(app: &tauri::AppHandle) -> bool {
         .unwrap_or(true)
 }
 
+/// Physical rectangle `(x, y, width, height)` of the pill, bottom-centre on a
+/// monitor at `monitor_pos`/`monitor_size` (physical px) with DPI `scale`.
+/// Pure so it can be unit-tested; `position_window` applies it.
+fn pill_rect(monitor_pos: (i32, i32), monitor_size: (u32, u32), scale: f64) -> (i32, i32, u32, u32) {
+    let width = (WIDTH * scale).round() as u32;
+    let height = (HEIGHT * scale).round() as u32;
+    let margin = (BOTTOM_MARGIN * scale).round() as i32;
+    let x = monitor_pos.0 + (monitor_size.0 as i32 - width as i32) / 2;
+    let y = monitor_pos.1 + monitor_size.1 as i32 - height as i32 - margin;
+    (x, y, width, height)
+}
+
+/// Monitor the pill should appear on, plus the name of the strategy that won:
+/// the monitor holding the foreground window (where the user is typing), else
+/// the monitor under the cursor, else the primary (plan §2.4).
+fn target_monitor(window: &WebviewWindow) -> (Option<tauri::Monitor>, &'static str) {
+    #[cfg(windows)]
+    if let Some(monitor) = foreground_window_monitor(window) {
+        return (Some(monitor), "foreground-window");
+    }
+    if let Ok(cursor) = window.cursor_position() {
+        if let Ok(Some(monitor)) = window.monitor_from_point(cursor.x, cursor.y) {
+            return (Some(monitor), "cursor");
+        }
+    }
+    (window.primary_monitor().ok().flatten(), "primary")
+}
+
+/// Monitor under the centre of the foreground window, if there is one and it
+/// is on-screen (a minimized window sits at -32000,-32000 and yields `None`).
+#[cfg(windows)]
+fn foreground_window_monitor(window: &WebviewWindow) -> Option<tauri::Monitor> {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
+
+    let foreground = crate::cmd::app::foreground_window();
+    if foreground == 0 {
+        return None;
+    }
+    let mut rect = RECT::default();
+    // SAFETY: `foreground` is a window handle returned by the OS a moment ago
+    // and `rect` is a valid out-pointer that GetWindowRect only writes to.
+    unsafe { GetWindowRect(HWND(foreground as *mut _), &mut rect) }.ok()?;
+    let centre_x = f64::from(rect.left) + f64::from(rect.right - rect.left) / 2.0;
+    let centre_y = f64::from(rect.top) + f64::from(rect.bottom - rect.top) / 2.0;
+    window.monitor_from_point(centre_x, centre_y).ok().flatten()
+}
+
+/// Re-raises the pill to the top of the topmost band (plan §2.3). tao's
+/// `set_visible(true)` only calls `ShowWindow` and its style refresh passes
+/// `SWP_NOZORDER`, so z-order is never touched; and `set_always_on_top(true)`
+/// is a no-op when the flag is already set (tao diffs the flag and returns
+/// early). Among topmost windows the last one *raised* wins, so anything
+/// topmost raised after the pill's last raise (Task Manager "Always on top",
+/// Teams call controls, PiP video, overlays) would otherwise cover it.
+#[cfg(windows)]
+fn raise_topmost(window: &WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    };
+
+    let Ok(hwnd) = window.hwnd() else {
+        tracing::warn!("[indicator] raise_topmost: could not get pill HWND");
+        return;
+    };
+    // tauri's HWND comes from its own `windows` crate version; rewrap the raw pointer.
+    // SAFETY: `hwnd` is a live window handle owned by this process; the call
+    // passes no pointers and SWP_NOMOVE | SWP_NOSIZE ignore the zero geometry.
+    let result = unsafe {
+        SetWindowPos(
+            HWND(hwnd.0),
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+    };
+    if let Err(error) = result {
+        tracing::warn!("[indicator] raise_topmost: SetWindowPos failed: {error}");
+    }
+}
+
+#[cfg(not(windows))]
+fn raise_topmost(_window: &WebviewWindow) {}
+
 fn create_window(app: &tauri::AppHandle) -> Result<WebviewWindow, String> {
     let window = WebviewWindowBuilder::new(
         app,
@@ -176,9 +264,8 @@ fn create_window(app: &tauri::AppHandle) -> Result<WebviewWindow, String> {
     .build()
     .map_err(|error| error.to_string())?;
 
-    window
-        .set_size(LogicalSize::new(WIDTH, HEIGHT))
-        .map_err(|error| error.to_string())?;
+    // No LogicalSize here: position_window below moves the window and then
+    // sizes it physically for the target monitor's DPI (plan §2.4).
     window.set_ignore_cursor_events(true).map_err(|error| error.to_string())?;
 
     #[cfg(target_os = "macos")]
@@ -224,39 +311,41 @@ pub fn initialize(app: &tauri::AppHandle) {
     }
 }
 
+/// Places the pill bottom-centre on the target monitor, then sizes it for that
+/// monitor's DPI. Order matters (plan §2.4): move first, then set a *physical*
+/// size computed from the target monitor's scale. A `LogicalSize` set before
+/// the move is converted with the window's *current* monitor scale and comes
+/// out wrong (clipped label) when the two monitors differ.
 fn position_window(app: &tauri::AppHandle, window: &WebviewWindow) -> Result<(), String> {
-    let cursor = window.cursor_position().map_err(|error| error.to_string())?;
-    let monitor = window
-        .monitor_from_point(cursor.x, cursor.y)
-        .map_err(|error| error.to_string())?
-        .or_else(|| window.primary_monitor().ok().flatten());
+    let (monitor, strategy) = target_monitor(window);
+    tracing::debug!("[indicator] position_window: monitor strategy={strategy}");
 
     if let Some(monitor) = monitor {
         let scale = monitor.scale_factor();
         let monitor_position = monitor.position();
         let monitor_size = monitor.size();
-        let width = WIDTH * scale;
-        let height = HEIGHT * scale;
-        let x = monitor_position.x as f64 + (monitor_size.width as f64 - width) / 2.0;
-        let y = monitor_position.y as f64 + monitor_size.height as f64 - height - BOTTOM_MARGIN * scale;
-        // Prompt 0 instrumentation (§2.4): which monitor the cursor picked.
+        let (x, y, width, height) = pill_rect(
+            (monitor_position.x, monitor_position.y),
+            (monitor_size.width, monitor_size.height),
+            scale,
+        );
+        // Prompt 0 instrumentation (§2.4): which monitor was picked and why.
         tracing::info!(
-            "[indicator] t={}ms position_window: cursor=({:.0},{:.0}) monitor(name={:?}, position={:?}, size={:?}, scale={scale}) -> target=({},{}) expected_physical_size=({width:.0}x{height:.0})",
+            "[indicator] t={}ms position_window: strategy={strategy} monitor(name={:?}, position={:?}, size={:?}, scale={scale}) -> rect=({x},{y},{width}x{height})",
             uptime_ms(),
-            cursor.x,
-            cursor.y,
             monitor.name(),
             monitor_position,
             monitor_size,
-            x.round() as i32,
-            y.round() as i32,
         );
         window
-            .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
+            .set_position(PhysicalPosition::new(x, y))
+            .map_err(|error| error.to_string())?;
+        window
+            .set_size(PhysicalSize::new(width, height))
             .map_err(|error| error.to_string())?;
     } else if let Some(main) = app.get_webview_window("main") {
         tracing::info!(
-            "[indicator] t={}ms position_window: no monitor under cursor and no primary; falling back to main window position",
+            "[indicator] t={}ms position_window: no monitor found by any strategy; falling back to main window position",
             uptime_ms()
         );
         window
@@ -271,8 +360,15 @@ pub fn get_dictation_indicator_enabled(app: tauri::AppHandle) -> bool {
     is_enabled(&app)
 }
 
+// The three commands below are `async fn` on purpose (plan §2.7): an async
+// command runs off the main thread, and `create_window` →
+// `WebviewWindowBuilder::build()` deadlocks on Windows when called from a
+// synchronous command (tauri 2.10.3 webview_window.rs, "Known issues").
+// Re-enabling the indicator in Settings froze the whole app before this.
+// Rule for these bodies: never hold the `DictationIndicatorRuntime` mutex
+// guard across an `.await`.
 #[tauri::command]
-pub fn set_dictation_indicator_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+pub async fn set_dictation_indicator_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     let store = app.store(STORE_FILENAME).map_err(|error| error.to_string())?;
     store.set(ENABLED_KEY, serde_json::Value::Bool(enabled));
     store.save().map_err(|error| error.to_string())?;
@@ -291,7 +387,7 @@ pub fn set_dictation_indicator_enabled(app: tauri::AppHandle, enabled: bool) -> 
 }
 
 #[tauri::command]
-pub fn show_dictation_indicator(app: tauri::AppHandle, state: DictationIndicatorPayload) -> Result<(), String> {
+pub async fn show_dictation_indicator(app: tauri::AppHandle, state: DictationIndicatorPayload) -> Result<(), String> {
     tracing::info!(
         "[indicator] t={}ms show requested: status={}, session={}",
         uptime_ms(),
@@ -316,22 +412,14 @@ pub fn show_dictation_indicator(app: tauri::AppHandle, state: DictationIndicator
             create_window(&app)?
         }
     };
-    log_window_snapshot("show/before set_size", &window, state.session_id, &state.status);
-    window
-        .set_size(LogicalSize::new(WIDTH, HEIGHT))
-        .map_err(|error| error.to_string())?;
-    log_window_snapshot(
-        "show/after set_size, before position",
-        &window,
-        state.session_id,
-        &state.status,
-    );
+    log_window_snapshot("show/before position", &window, state.session_id, &state.status);
     if let Err(error) = position_window(&app, &window) {
         tracing::error!("Could not position dictation indicator: {error}");
     }
     log_window_snapshot("show/after position, before show()", &window, state.session_id, &state.status);
     window.show().map_err(|error| error.to_string())?;
-    log_window_snapshot("show/after show()", &window, state.session_id, &state.status);
+    raise_topmost(&window);
+    log_window_snapshot("show/after show()+raise", &window, state.session_id, &state.status);
     log_window_above(&window);
     #[cfg(target_os = "macos")]
     unsafe {
@@ -374,31 +462,102 @@ pub fn dictation_indicator_ready(window: tauri::WebviewWindow) {
 }
 
 #[tauri::command]
-pub fn hide_dictation_indicator(app: tauri::AppHandle, session_id: u64) -> Result<(), String> {
+pub async fn hide_dictation_indicator(app: tauri::AppHandle, session_id: u64) -> Result<(), String> {
     let runtime = app.state::<DictationIndicatorRuntime>();
-    let mut current = runtime.current.lock().map_err(|error| error.to_string())?;
-    let (current_session, current_status) = current
-        .as_ref()
-        .map(|state| (Some(state.session_id), state.status.clone()))
-        .unwrap_or((None, "none".to_string()));
+    // Scoped so the guard is dropped before the fade `.await` below.
+    let (matches, current_session, current_status) = {
+        let current = runtime.current.lock().map_err(|error| error.to_string())?;
+        let (current_session, current_status) = current
+            .as_ref()
+            .map(|state| (Some(state.session_id), state.status.clone()))
+            .unwrap_or((None, "none".to_string()));
+        (current_session == Some(session_id), current_session, current_status)
+    };
     tracing::info!(
         "[indicator] t={}ms hide requested: session={session_id} (current session={current_session:?} status={current_status})",
         uptime_ms()
     );
-    if current.as_ref().is_some_and(|state| state.session_id == session_id) {
-        *current = None;
-        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-            log_window_snapshot("hide/before hide()", &window, session_id, &current_status);
-            window.hide().map_err(|error| error.to_string())?;
-            log_window_snapshot("hide/after hide()", &window, session_id, &current_status);
-        } else {
-            tracing::info!("[indicator] t={}ms hide: no window to hide", uptime_ms());
-        }
-    } else {
+    if !matches {
         tracing::info!(
             "[indicator] t={}ms hide ignored: stale session {session_id} (current={current_session:?})",
             uptime_ms()
         );
+        return Ok(());
     }
+    let Some(window) = app.get_webview_window(WINDOW_LABEL) else {
+        tracing::info!("[indicator] t={}ms hide: no window to hide", uptime_ms());
+        if let Ok(mut current) = runtime.current.lock() {
+            *current = None;
+        }
+        return Ok(());
+    };
+
+    // Fade before hide: tell the pill to fade out, give it 150 ms, then hide
+    // the window — unless a newer session was shown in the meantime, in which
+    // case the newer show owns the window and this hide stands down.
+    if let Err(error) = app.emit_to(WINDOW_LABEL, "dictation-indicator-hide", session_id) {
+        tracing::warn!("[indicator] could not emit fade event: {error}");
+    }
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    {
+        let mut current = runtime.current.lock().map_err(|error| error.to_string())?;
+        if !current.as_ref().is_some_and(|state| state.session_id == session_id) {
+            tracing::info!(
+                "[indicator] t={}ms hide superseded during fade: session {session_id} (current={:?})",
+                uptime_ms(),
+                current.as_ref().map(|state| state.session_id)
+            );
+            return Ok(());
+        }
+        *current = None;
+    }
+    log_window_snapshot("hide/before hide()", &window, session_id, &current_status);
+    window.hide().map_err(|error| error.to_string())?;
+    log_window_snapshot("hide/after hide()", &window, session_id, &current_status);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pill_rect;
+
+    #[test]
+    fn pill_rect_scale_1_0() {
+        // 1920×1080 at 100 %: 280×64, centred, 48 px above the bottom.
+        assert_eq!(pill_rect((0, 0), (1920, 1080), 1.0), (820, 968, 280, 64));
+    }
+
+    #[test]
+    fn pill_rect_scale_1_25() {
+        // 2560×1440 at 125 %: 350×80, margin 60.
+        assert_eq!(pill_rect((0, 0), (2560, 1440), 1.25), (1105, 1300, 350, 80));
+    }
+
+    #[test]
+    fn pill_rect_scale_1_5() {
+        // 3440×1440 at 150 % — the Prompt 0 machine; matches the observed
+        // `outer_position=(1510,1272) outer_size=420×96` log lines.
+        assert_eq!(pill_rect((0, 0), (3440, 1440), 1.5), (1510, 1272, 420, 96));
+    }
+
+    #[test]
+    fn pill_rect_scale_2_0() {
+        // 3840×2160 at 200 %: 560×128, margin 96.
+        assert_eq!(pill_rect((0, 0), (3840, 2160), 2.0), (1640, 1936, 560, 128));
+    }
+
+    #[test]
+    fn pill_rect_second_monitor_at_negative_x() {
+        // A 1920×1080 monitor to the left of the primary: x stays negative.
+        assert_eq!(pill_rect((-1920, 0), (1920, 1080), 1.0), (-1100, 968, 280, 64));
+    }
+
+    #[test]
+    fn pill_rect_second_monitor_offset_and_scaled() {
+        // Monitor to the right of a 3440-wide primary, at 125 %.
+        assert_eq!(
+            pill_rect((3440, 200), (1920, 1080), 1.25),
+            (3440 + 785, 200 + 1080 - 80 - 60, 350, 80)
+        );
+    }
 }

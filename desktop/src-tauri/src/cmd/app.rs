@@ -96,8 +96,10 @@ static LIVE_TYPING_FROZEN: std::sync::atomic::AtomicBool = std::sync::atomic::At
 #[cfg(windows)]
 static LIVE_TARGET_WINDOW: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
+/// HWND of the foreground window as an integer (0 when there is none). Shared
+/// with `dictation_indicator`, which places the pill on this window's monitor.
 #[cfg(windows)]
-fn foreground_window() -> isize {
+pub(crate) fn foreground_window() -> isize {
     unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow().0 as isize }
 }
 

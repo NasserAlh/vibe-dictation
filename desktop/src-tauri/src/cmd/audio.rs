@@ -29,9 +29,10 @@ const LIVE_MIN_PEAK: f32 = 0.03;
 const LIVE_MAX_SECONDS: usize = 600;
 
 /// In-memory copy of the samples of the recording in progress, filled by the
-/// audio callback when the live transcription preview is on. Feeds
-/// `snapshot_live_recording`, which the frontend re-transcribes every couple
-/// of seconds for the dictation indicator.
+/// audio callback when live dictation is on. Feeds `snapshot_live_recording`,
+/// which the frontend re-transcribes every couple of seconds to type the
+/// stable prefix at the cursor (live typing). The dictation indicator shows
+/// status only and never reads this buffer.
 struct LiveCapture {
     samples: Vec<f32>,
     sample_rate: u32,
