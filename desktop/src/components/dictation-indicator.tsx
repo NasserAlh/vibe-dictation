@@ -141,9 +141,6 @@ export default function DictationIndicator() {
 	const reducedMotion = usePrefersReducedMotion()
 
 	useEffect(() => {
-		const log = (event: string, details: Record<string, unknown> = {}) =>
-			console.info(`[indicator-window] t=${performance.now().toFixed(1)}ms vis=${document.visibilityState} ${event}`, details)
-		log('mounted; registering listen before the initial fetch')
 		invoke('dictation_indicator_ready').catch(console.error)
 		const apply = (state: DictationIndicatorState) => {
 			setHiding(false)
@@ -156,12 +153,10 @@ export default function DictationIndicator() {
 		let eventArrived = false
 		const unlistenState = listen<DictationIndicatorState>('dictation-indicator-state', ({ payload }) => {
 			eventArrived = true
-			log('state event received', { state: payload })
 			apply(payload)
 		})
 		// Rust emits this 150 ms before hiding the window (Prompt 1 step 5).
 		const unlistenHide = listen<number>('dictation-indicator-hide', () => {
-			log('hide event received')
 			setHiding(true)
 		})
 		// Level meter feed from cmd/audio.rs, sent to this window only.
@@ -170,11 +165,9 @@ export default function DictationIndicator() {
 		})
 		unlistenState
 			.then(() => {
-				log('listen registered; fetching initial state')
 				return getDictationIndicatorState()
 			})
 			.then((initialState) => {
-				log('initial state fetch resolved', { state: initialState, appliedFetched: !!initialState && !eventArrived })
 				if (initialState && !eventArrived) apply(initialState)
 			})
 			.catch(console.error)

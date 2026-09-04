@@ -30,7 +30,9 @@ typed at the cursor (or copied to the clipboard). Everything runs on-device.
 - **GPU-accelerated** via Vulkan (NVIDIA and AMD; tested on RTX 4090 and
   RX 7900 XTX).
 - **Background utility:** system tray, close-to-tray, autostart at login
-  (preference-synced), hotkey armed by default, on-screen dictation indicator.
+  (preference-synced), hotkey armed by default, and an on-screen dictation
+  indicator that shows language, elapsed time, destination, a live level meter
+  and transcription progress — status only, never the text.
 - **Windows-only.** Push-to-talk or toggle activation; type-at-cursor or clipboard
   output (clipboard is the RTL-safe fallback — MS Word is the reference injection
   target; the Windows 11 tabbed Notepad mangles synthetic keystrokes).

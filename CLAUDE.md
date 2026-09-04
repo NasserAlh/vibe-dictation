@@ -99,9 +99,31 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
    for Arabic; enigo mangles RTL ordering in some targets. MS Word is the reference
    injection target — the Windows 11 tabbed Notepad mangles synthetic keystrokes.
 7. The floating [dictation_indicator](desktop/src-tauri/src/dictation_indicator.rs) window
-   (a second Tauri window) shows recording/transcribing/completed/error status —
-   status only, never transcript text (owner decision: live text belongs at the
-   cursor, not in the indicator).
+   (a second Tauri window, the "pill") shows status only, never transcript text
+   (owner decision: live text belongs at the cursor, not in the indicator).
+   States: `starting` → `ready` flash (with the registered shortcuts) at launch;
+   per dictation `recording` (language badge EN/ع, elapsed time, type/clipboard
+   destination glyph, a 2 s "release to finish" / "F9 to stop" hint, and a
+   five-bar **level meter**) → `transcribing` (phases loading-model →
+   transcribing N s → formatting) → `completed` (word count) or `error`
+   (amber = no mic / focus lost, red = failure). Every pre-recording failure is
+   an error pill plus a notification; a press while transcribing shows "Still
+   transcribing — wait". What to show is decided by the pure
+   [lib/indicator-content.ts](desktop/src/lib/indicator-content.ts)
+   (`pillContent`, unit-tested); the component only renders it. The meter is
+   fed by `cmd/audio.rs`: the capture callback records each buffer's peak in an
+   atomic, and a task emits `dictation-indicator-level` to the pill window at
+   ~15 Hz (in-process, no sockets). Hide timing lives in `hotkey.tsx`
+   (completed 1.5 s, errors 5 s — Prompt 0 proved the hidden main webview's
+   timers are not throttled); Rust's `hide_dictation_indicator` emits a
+   `dictation-indicator-hide` fade event, waits 150 ms, re-checks the session,
+   then hides. Rules learned: the three indicator commands are `async fn`
+   because `WebviewWindowBuilder::build()` deadlocks inside a synchronous
+   command on Windows; every show re-raises the pill with
+   `SetWindowPos(HWND_TOPMOST)` because tao's `set_visible` never touches
+   z-order; the pill is placed on the foreground window's monitor and sized
+   physically for that monitor's DPI. See
+   [docs/dictation-indicator-plan.md](docs/dictation-indicator-plan.md).
 
 ### Rust backend layout
 

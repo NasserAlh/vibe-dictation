@@ -174,6 +174,77 @@ as nasser):** tooling not yet recorded; its only SSH key pair is
 `~/.ssh/id_ed25519_vps`, and it holds no installer archive that has been
 listed. Fill this in from B.
 
+## Unreleased — queued for v1.5.0 (dictation indicator rework, 2026-09-04/05)
+
+**Not yet built or gated.** Everything below is on `main` only; the six
+verification criteria run when the installer is cut. Nothing here changes
+the guarantee surface: no new crates, crate features or Tauri plugins, and
+`git diff main -- desktop/src-tauri/Cargo.toml Cargo.lock desktop/package.json
+pnpm-lock.yaml` is empty. The only new runtime traffic is two **in-process**
+Tauri events from Rust to the indicator window (`dictation-indicator-hide`,
+`dictation-indicator-level`); no socket, no file, no host.
+
+What changed (docs/dictation-indicator-plan.md, Prompts 0–5):
+
+- `d53e7c5` instrumentation and the manual test matrix
+  (docs/dictation-indicator-tests.md); `4fdb773` deadlock fix, z-order
+  re-raise, foreground-window monitor, DPI-correct sizing, fade-before-hide,
+  listen-before-fetch; `91c6f05` pill at key-down and visible start failures;
+  `e921de6` redesigned pill (language badge, elapsed, destination glyph,
+  phases, word count, amber/red errors, 400 px window); `4bada78` short
+  focus-lost label and label-width audit; `e9073c6` live level meter;
+  `4e7121f` dB curve for the meter; closeout commit trims the Prompt 0
+  instrumentation to one info line per show and per hide, updates CLAUDE.md,
+  README.md and docs/debug.md, and records the re-run of the test matrix.
+- User-visible: the pill appears the moment the hotkey is pressed; every
+  failure before recording is an amber or red pill plus a notification; a
+  press during transcription says "Still transcribing — wait"; recording shows
+  a five-bar level meter, EN/ع badge, elapsed time, type/clipboard glyph and a
+  2 s stop hint; transcribing shows loading-model → "Transcribing N s…" →
+  formatting; completed shows the word count; errors stay 5 s; states
+  cross-fade and the pill fades before hiding; `prefers-reduced-motion`
+  disables the motion.
+
+Findings worth keeping (they explain code that would otherwise look odd):
+
+1. **2.7 — window creation inside a synchronous command deadlocks the app on
+   Windows.** `set_dictation_indicator_enabled`, `show_dictation_indicator`
+   and `hide_dictation_indicator` were sync `#[tauri::command]`s; the first
+   two could call `WebviewWindowBuilder::build()`. tauri 2.10.3 documents this
+   ("On Windows, this function deadlocks when used in a synchronous command …
+   use async commands"). Reproduced twice on 2026-09-04: turning the indicator
+   off and on again in Settings froze v1.4.0/v1.4.1 (every IPC call hung until
+   the process was killed; the store key was already written, so a restart
+   came back with the indicator enabled). All three commands are `async fn`
+   now; verified by hand — four off/on toggles returned in 13–83 ms and the
+   pill returned.
+2. **tao z-order.** tao 0.34.6 `set_visible(true)` only calls `ShowWindow` and
+   its style refresh passes `SWP_NOZORDER`, so a re-shown topmost window is
+   not raised; `set_always_on_top(true)` is a no-op when the flag is already
+   set (tao diffs the flag). Any topmost window raised after the pill's last
+   raise covered it (reproduced with a TopMost stand-in; the z-order log named
+   it directly above the pill). Fix: `SetWindowPos(HWND_TOPMOST, … SWP_NOMOVE |
+   SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)` after every `show()`.
+   Exclusive-fullscreen games still hide every topmost window — documented as a
+   known limitation in docs/debug.md.
+3. **Timer throttling in the hidden main webview — refuted.** Hypothesis: the
+   hide timers and the live-dictation interval run in the main window, which
+   sits hidden in the tray, and Chromium throttles hidden pages. Measured
+   2026-09-04 with the window closed to tray: `document.visibilityState`
+   stayed "visible", no `visibilitychange` fired, a 1500 ms timer took
+   1506.6 ms, and 272 chained 1500 ms timers over 411 s ranged 1500–1516 ms.
+   tao hides the HWND but nothing calls WebView2 `SetIsVisible(false)`, so the
+   page never learns it is hidden. The JS timers stay; the Rust-owned
+   auto-hide drafted in Prompt 1 was dropped.
+4. Also measured: `get_audio_devices` costs 5–9 ms, so the pill-at-key-down
+   change is about the WASAPI stream start, not enumeration.
+
+Test matrix status at closeout (docs/dictation-indicator-tests.md): owner
+microphone run 2026-09-05 after Prompts 1–4 — English and Arabic dictation,
+hint, badge, colours and meter all correct. Rows b, f, g not run; d not
+testable on one monitor; c, h, i verified through the same commands the UI
+calls. The gate for v1.5.0 is the full six criteria, unchanged.
+
 ## Shipped in v1.4.1 (2026-08-25)
 
 **Verification record (partial gate — owner ruling, 2026-08-25): shipped

@@ -69,6 +69,17 @@ MS Word is the reference injection target. The Windows 11 tabbed Notepad mangles
 synthetic keystrokes; for Arabic (RTL), switch to **clipboard** output mode
 (Settings → Dictation) — the documented RTL-safe fallback.
 
+### The dictation indicator is not visible over a fullscreen game
+
+Known limitation, not a bug. An **exclusive-fullscreen** game (or any app that
+takes the display exclusively) hides every topmost window, the indicator pill
+included; dictation still works and the log still reports the pill as shown.
+Borderless/windowed fullscreen (browser video fullscreen, "windowed
+fullscreen" game modes) is fine — the pill re-raises itself to the top of the
+topmost band on every show. If the pill is missing elsewhere, run the dev
+build with `RUST_LOG=vibe=debug` and read the `[indicator]` show line: it
+records visibility, position and size.
+
 ### Autostart didn't launch at login
 
 v1.0.1 writes a **quoted** HKCU Run entry and works natively; confirm it:

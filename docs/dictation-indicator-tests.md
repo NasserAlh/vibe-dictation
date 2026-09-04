@@ -1,9 +1,13 @@
-# Dictation indicator — manual test matrix (Prompt 0)
+# Dictation indicator — manual test matrix
 
 Companion to [dictation-indicator-plan.md](dictation-indicator-plan.md) §2. One
-row per case. Fill in **observed** and **log excerpt** from a dev run with the
-Prompt 0 instrumentation in place; the "cause" column says which §2 item the
-row is meant to prove or rule out.
+row per case; the "cause" column says which §2 item the row proves or rules
+out. Written for Prompt 0 (instrumented build), re-run at Prompt 5 closeout.
+The "expected" column still describes the **pre-fix** code so the observed
+values read as before/after; the Prompt 0 `[indicator]` instrumentation was
+trimmed at closeout to one info line per show and per hide (timestamp,
+session, status, visible, position, size), so the detailed log lines quoted
+below come from builds up to `4e7121f`.
 
 ## How to run
 
@@ -26,20 +30,60 @@ pnpm exec tauri dev
   open `http://127.0.0.1:9222` in a Chromium browser.
 - Every row assumes: indicator enabled (Settings → Dictation), a model
   selected, hotkeys F9 (EN) / F10 (AR) unless stated.
+- Rows c, e, h and i can be driven without a microphone through the same
+  Tauri commands the UI calls (`show_dictation_indicator`,
+  `set_dictation_indicator_enabled`, …) over the WebView2 debug port; rows
+  a, b, f and g need a person at the keyboard, row d a second monitor.
 
 ## Matrix
 
 | # | Case | Steps | Expected (today's code) | Cause | Observed | Log excerpt |
 |---|------|-------|-------------------------|-------|----------|-------------|
-| a | Push-to-talk phrase under 1 s | Push-to-talk mode. Focus Word. Press F9, say one word, release within ~0.8 s. Repeat 5×. | "Listening…" is shown only after `start_record resolved`; with `sinceDownMs` in the hundreds the key is often already released, so the visible sequence is "Transcribing…" → "Inserted"/"Copied" (1.5 s) or nothing registers. Log shows `hotkey down accepted` → `get_audio_devices resolved` → `start_record resolved` → `showIndicator recording` → `hotkey up`, with `sinceDownMs` on `start_record resolved`. | 2.2 | | |
-| b | No default mic | Unplug / power off the mic (or Settings → Sound → disable the input device) so Windows has no default input. Press F9. Then re-enable, and repeat with the Bluetooth headset switching profiles (start speaking as it connects). | Nothing on screen, no notification. Main-window console shows `start FAILED silently: no default input device` (devices list without an `isDefault && isInput` entry) or `start FAILED silently: start_record threw` with the error. No Rust `[indicator] show requested` line at all. | 2.1 | | |
-| c | Task Manager always-on-top over the pill | Task Manager → Options → Always on top. Drag it so it covers the bottom-centre of the monitor under the mouse. Click Task Manager once (raises it). Press F9 and dictate. | Rust `show/after show()` says `visible=Ok(true)` with the expected position, but the pill is not visible on screen. The `z-order:` line names Task Manager (`title="Task Manager" class="TaskManagerWindow"`) as the nearest visible window above the pill. Then close Task Manager: pill is visible on the next dictation. | 2.3 | | |
-| d | Two monitors, different scale, mouse on the other one | Set monitor A to 100 %, B to 150 % (Settings → Display). Focus Word on A. Park the mouse on B. Press F9. Then swap (Word on B, mouse on A). | Pill appears on **B** (mouse monitor), not A where you type: `position_window: cursor=… monitor(name=B, scale=1.5)`. Check `show/after set_size` vs `show/after show()`: `outer_size` should be 280×64 × B's scale (420×96); if it is 280×64 × A's scale (280×64) the label is clipped — `window_monitor(scale)` and `cursor_monitor(scale)` differ in the snapshot lines. | 2.4 | | |
-| e | Main window in tray for 6 minutes | Close the main window (goes to tray). Keep DevTools attached (open it first, then close the window — the DevTools window stays). Wait ≥ 6 min. Enable live dictation (type mode), focus Word, press F9 and dictate ~10 s in toggle mode, press F9 again. | Note `vis=` on every frontend line while hidden. If it says `hidden`: `live-dictation interval fired` shows `sinceLastMs` ≫ 1500 (1000 alignment at first, 60000 after 5 min) and `hide timer fired` shows `lateMs` in the hundreds or more, so "Inserted" lingers. If it says `visible`: timers fire on time and 2.5 is ruled out on this machine. | 2.5 | | |
-| f | Fullscreen game / video | Start an exclusive-fullscreen game (or a YouTube video in browser fullscreen as the borderless control). Press F9 and dictate. | Exclusive fullscreen: Rust reports `visible=Ok(true)` but nothing is drawn over the game — expected, cannot be fixed. Borderless/browser fullscreen: pill should be visible; if not, the `z-order:` line names what is above. | 2.3 (documented limitation) | | |
-| g | Hotkey pressed while "Transcribing…" | Dictate a long phrase (~10 s, cold model so transcription takes a few seconds). The moment "Transcribing…" appears, press F9 again (push-to-talk: press and release; toggle: press once). | Press is dropped silently: `hotkey event received` followed by `hotkey down DROPPED by busy guard` with `stopping: true`. Pill keeps showing "Transcribing…" then "Inserted"/"Copied"; no new session, no feedback that the press was ignored. | 2.1 (third path) | | |
-| h | Indicator re-enabled in Settings, then dictate immediately | Settings → Dictation → indicator off, then on again (window is re-created). Press F9 within a second. | Pill webview console: `mounted; fetching initial state` … `listen registered`. If a `[indicator] show` fires between those two lines and before `initial state fetch resolved`, the window shows a stale or empty state until the next event. **Blocked by row (i) on Windows — the re-enable never completes.** | 2.6 | | |
-| i | Indicator re-enabled in Settings (Windows) | Settings → Dictation → indicator off, then on again. Then try any other action in the app (open a settings tab, press F9). | Nothing in the app responds any more: every Tauri command hangs, the app has to be killed. `set_dictation_indicator_enabled(true)` is a *synchronous* command that calls `WebviewWindowBuilder::build()`; tauri documents that this deadlocks on Windows from a sync command. Same code path as the lazy create inside `show_dictation_indicator` (indicator enabled while the window is missing). | new — 2.7 | | |
+| a | Push-to-talk phrase under 1 s | Push-to-talk mode. Focus Word. Press F9, say one word, release within ~0.8 s. Repeat 5×. | "Listening…" is shown only after `start_record resolved`; with `sinceDownMs` in the hundreds the key is often already released, so the visible sequence is "Transcribing…" → "Inserted"/"Copied" (1.5 s) or nothing registers. Log shows `hotkey down accepted` → `get_audio_devices resolved` → `start_record resolved` → `showIndicator recording` → `hotkey up`, with `sinceDownMs` on `start_record resolved`. | 2.2 | Owner, 2026-09-05, after Prompts 1–4, toggle mode: "Listening" with the "F9 to stop" hint appeared on the key press and the hint faded after about 2 s; EN badge and red ring shown; transcribing and inserted colours correct; Arabic run also correct. `sinceDownMs` not read. | — |
+| b | No default mic | Unplug / power off the mic (or Settings → Sound → disable the input device) so Windows has no default input. Press F9. Then re-enable, and repeat with the Bluetooth headset switching profiles (start speaking as it connects). | Nothing on screen, no notification. Main-window console shows `start FAILED silently: no default input device` (devices list without an `isDefault && isInput` entry) or `start FAILED silently: start_record threw` with the error. No Rust `[indicator] show requested` line at all. | 2.1 | Not run. Fix landed in `91c6f05`; the cpal error-text classifier is unverified against a real device failure. | — |
+| c | Task Manager always-on-top over the pill | Task Manager → Options → Always on top. Drag it so it covers the bottom-centre of the monitor under the mouse. Click Task Manager once (raises it). Press F9 and dictate. | Rust `show/after show()` says `visible=Ok(true)` with the expected position, but the pill is not visible on screen. The `z-order:` line names Task Manager (`title="Task Manager" class="TaskManagerWindow"`) as the nearest visible window above the pill. Then close Task Manager: pill is visible on the next dictation. | 2.3 | Reproduced 2026-09-04 with a TopMost stand-in (see below). Re-run after `4fdb773`: only system helper windows above the pill; stand-in no longer covers it. | see below |
+| d | Two monitors, different scale, mouse on the other one | Set monitor A to 100 %, B to 150 % (Settings → Display). Focus Word on A. Park the mouse on B. Press F9. Then swap (Word on B, mouse on A). | Pill appears on **B** (mouse monitor), not A where you type: `position_window: cursor=… monitor(name=B, scale=1.5)`. Check `show/after set_size` vs `show/after show()`: `outer_size` should be 280×64 × B's scale (420×96); if it is 280×64 × A's scale (280×64) the label is clipped — `window_monitor(scale)` and `cursor_monitor(scale)` differ in the snapshot lines. | 2.4 | Not testable: one monitor on this machine. Fix (foreground-window monitor, position before physical size) landed in `4fdb773` with unit tests. | — |
+| e | Main window in tray for 6 minutes | Close the main window (goes to tray). Keep DevTools attached (open it first, then close the window — the DevTools window stays). Wait ≥ 6 min. Enable live dictation (type mode), focus Word, press F9 and dictate ~10 s in toggle mode, press F9 again. | Note `vis=` on every frontend line while hidden. If it says `hidden`: `live-dictation interval fired` shows `sinceLastMs` ≫ 1500 (1000 alignment at first, 60000 after 5 min) and `hide timer fired` shows `lateMs` in the hundreds or more, so "Inserted" lingers. If it says `visible`: timers fire on time and 2.5 is ruled out on this machine. | 2.5 | Refuted 2026-09-04: `visibilityState` stayed "visible", 272 timers within 1500–1516 ms. The window re-appearing during the wait was the owner opening it. | see below |
+| f | Fullscreen game / video | Start an exclusive-fullscreen game (or a YouTube video in browser fullscreen as the borderless control). Press F9 and dictate. | Exclusive fullscreen: Rust reports `visible=Ok(true)` but nothing is drawn over the game — expected, cannot be fixed. Borderless/browser fullscreen: pill should be visible; if not, the `z-order:` line names what is above. | 2.3 (documented limitation) | Not run. | — |
+| g | Hotkey pressed while "Transcribing…" | Dictate a long phrase (~10 s, cold model so transcription takes a few seconds). The moment "Transcribing…" appears, press F9 again (push-to-talk: press and release; toggle: press once). | Press is dropped silently: `hotkey event received` followed by `hotkey down DROPPED by busy guard` with `stopping: true`. Pill keeps showing "Transcribing…" then "Inserted"/"Copied"; no new session, no feedback that the press was ignored. | 2.1 (third path) | Not run. Fix ("Still transcribing — wait" for 1 s) landed in `91c6f05`. | — |
+| h | Indicator re-enabled in Settings, then dictate immediately | Settings → Dictation → indicator off, then on again (window is re-created). Press F9 within a second. | Pill webview console: `mounted; fetching initial state` … `listen registered`. If a `[indicator] show` fires between those two lines and before `initial state fetch resolved`, the window shows a stale or empty state until the next event. **Blocked by row (i) on Windows — the re-enable never completes.** | 2.6 | Fix (listen before fetch) landed in `4fdb773`. Re-enable now completes, so the row is runnable; not yet run with a dictation inside the first second. | — |
+| i | Indicator re-enabled in Settings (Windows) | Settings → Dictation → indicator off, then on again. Then try any other action in the app (open a settings tab, press F9). | Nothing in the app responds any more: every Tauri command hangs, the app has to be killed. `set_dictation_indicator_enabled(true)` is a *synchronous* command that calls `WebviewWindowBuilder::build()`; tauri documents that this deadlocks on Windows from a sync command. Same code path as the lazy create inside `show_dictation_indicator` (indicator enabled while the window is missing). | new — 2.7 | Reproduced twice 2026-09-04. After `4fdb773` (async commands): off/on twice via the same command returned in 13–83 ms, app responsive, pill returned. Settings switch click itself not exercised. | see below |
+
+### Prompt 5 closeout, 2026-09-05
+
+- Rows a (owner run), b, d, f, g keep the owner's observed values above; they
+  need a microphone, a second monitor or a fullscreen game and were not
+  re-run by the automation. Row f is documented as a known limitation in
+  [debug.md](debug.md) (exclusive fullscreen hides every topmost window).
+- Rows c, h and i were last verified through the UI's own commands on the
+  `4fdb773` build (see the observed column and the Prompt 0 section). Row e
+  was measured on 2026-09-04. A re-run against the final closeout build was
+  **not possible in the closeout session**: the dev server on port 1420 was
+  held by the owner's own `tauri dev` instance (started 01:10, no
+  remote-debugging port), a second instance is absorbed by the
+  single-instance plugin, and stopping the owner's instance was not the
+  automation's call. Re-run c, e, h, i once that instance is closed:
+  `PYTHONIOENCODING=utf-8 uv run --with websockets rerun-rows.py` with the
+  scratch scripts, or by hand per the steps column.
+- Instrumentation trimmed to one info line per show and per hide, e.g.
+  `[indicator] t=68394ms show: session=0 status=error visible=Some(true)
+  position=Some((1420, 1272)) size=Some((600, 96))` (taken from the owner's
+  instance after it rebuilt with the closeout code). Everything else from
+  Prompt 0 — snapshots at each step, the z-order walk, the frontend
+  `console.info` timing lines — is gone.
+- Full check set at closeout: cargo fmt / clippy / 41 tests, check_i18n,
+  i18n:generate, tsc, eslint, 66 vitest tests — all green. No dependency
+  change against `main`.
+
+### Owner microphone run, 2026-09-05 (after Prompts 1–4)
+
+Dev build, toggle mode, English then Arabic. Everything worked: "Listening"
+on the key press with the "F9 to stop" hint for about 2 s, EN badge, red
+ring, correct colours for transcribing and inserted, Arabic labels correct.
+The five-bar level meter followed the voice and settled on silence — the
+cpal → atomic → pill path is verified live. Owner note: bar movement is
+subtle; a perceptual curve is requested in Prompt 5. Rows b, f, g and h were
+not run in this session.
 
 ## Observed on this machine (automated Prompt 0 run, 2026-09-04)
 
