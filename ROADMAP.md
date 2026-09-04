@@ -26,13 +26,6 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Planned
 
-- **Animated recording indicator.** The floating indicator is static while
-  recording — "Listening…" with a fixed dot. Animate it with a smooth
-  level meter driven by the live microphone signal (a small waveform or
-  pulsing bars scaled to input level), so you can see the app is hearing you
-  before any text arrives. The backend already mirrors samples during capture;
-  the indicator needs a lightweight level event from it (local, status-only —
-  the indicator never shows transcript text, per the standing owner decision).
 - **Better first-run experience.** Right now a new user installs, then has to
   fetch a model (via the opt-in in-app download or by hand) and select it. A
   guided first launch would remove the remaining steps.
@@ -68,6 +61,13 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Shipped
 
+- **Animated recording indicator** (2026-09, `e9073c6`). While recording, the
+  floating pill shows a five-bar level meter driven by the live microphone
+  signal instead of a fixed dot, so you can see the app is hearing you before
+  any text arrives. The audio callback records each buffer's peak; a Rust task
+  decays it and sends a level to the indicator window only, about 15 times a
+  second. In-process, status-only — the indicator still never shows transcript
+  text. Under `prefers-reduced-motion` the pulsing dot remains.
 - **Reopening the app from its shortcut** (2026-08). Closing the window hides
   it so the tray icon and hotkeys stay alive — but launching from the
   Start-menu or taskbar shortcut afterwards did nothing at all, leaving the
