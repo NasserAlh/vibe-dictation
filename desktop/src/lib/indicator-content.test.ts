@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { HINT_VISIBLE_MS, METER_MAX_PX, METER_REST_PX, METER_REST_THRESHOLD, badgeText, formatElapsed, isMeterResting, meterBarHeights, pillContent } from './indicator-content'
+import { HINT_VISIBLE_MS, METER_MAX_PX, METER_REST_PX, METER_REST_THRESHOLD, badgeText, formatElapsed, isMeterResting, meterBarHeights, perceptualLevel, pillContent } from './indicator-content'
+
+describe('perceptualLevel', () => {
+	it('is a dB curve with a −40 dB floor', () => {
+		expect(perceptualLevel(1)).toBe(1) // 0 dB
+		expect(perceptualLevel(0.1)).toBeCloseTo(0.5) // −20 dB
+		expect(perceptualLevel(0.01)).toBe(0) // −40 dB is below the rest threshold anyway
+		expect(perceptualLevel(Math.pow(10, -30 / 20))).toBeCloseTo(0.25) // −30 dB
+	})
+
+	it('puts normal speech around two thirds and loud speech near the top', () => {
+		// Owner live run: normal speech peaks ≈ 0.15–0.3, loud ≥ 0.5.
+		expect(perceptualLevel(0.15)).toBeGreaterThan(0.55)
+		expect(perceptualLevel(0.3)).toBeLessThan(0.78)
+		expect(perceptualLevel(0.2)).toBeCloseTo(0.65, 1)
+		expect(perceptualLevel(0.5)).toBeGreaterThan(0.84)
+		expect(perceptualLevel(0.9)).toBeGreaterThan(0.97)
+	})
+
+	it('keeps the raw rest threshold and clamps', () => {
+		expect(perceptualLevel(METER_REST_THRESHOLD - 0.001)).toBe(0)
+		expect(perceptualLevel(METER_REST_THRESHOLD)).toBeGreaterThan(0)
+		expect(perceptualLevel(1.7)).toBe(1)
+		expect(perceptualLevel(-1)).toBe(0)
+		expect(perceptualLevel(Number.NaN)).toBe(0)
+	})
+})
 
 describe('meterBarHeights', () => {
 	it('rests every bar at the resting height below the threshold', () => {
@@ -9,18 +35,24 @@ describe('meterBarHeights', () => {
 		expect(isMeterResting(0.02)).toBe(false)
 	})
 
-	it('scales the bars by the per-bar multipliers (0.6, 0.85, 1, 0.85, 0.6)', () => {
+	it('scales the bars by the per-bar multipliers (0.6, 0.85, 1, 0.85, 0.6) of the perceptual drive', () => {
 		const full = meterBarHeights(1)
 		expect(full[2]).toBe(METER_MAX_PX)
 		expect(full[0]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.6)
 		expect(full[1]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.85)
 		expect(full[3]).toBe(full[1])
 		expect(full[4]).toBe(full[0])
-		const half = meterBarHeights(0.5)
-		expect(half[2]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.5)
-		expect(half[0]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.5 * 0.6)
+		// A −20 dB peak (0.1) drives the bars to half height.
+		const quiet = meterBarHeights(0.1)
+		expect(quiet[2]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.5)
+		expect(quiet[0]).toBeCloseTo(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.5 * 0.6)
+		// Normal speech (0.2) reaches about two thirds of the centre bar.
+		const speech = meterBarHeights(0.2)
+		expect(speech[2]).toBeGreaterThan(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.6)
+		expect(speech[2]).toBeLessThan(METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * 0.72)
 		// Monotonic in level.
-		expect(meterBarHeights(0.8)[2]).toBeGreaterThan(half[2])
+		expect(meterBarHeights(0.8)[2]).toBeGreaterThan(speech[2])
+		expect(speech[2]).toBeGreaterThan(quiet[2])
 	})
 
 	it('clamps out-of-range and non-finite levels', () => {

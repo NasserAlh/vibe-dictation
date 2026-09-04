@@ -23,11 +23,29 @@ export const METER_REST_PX = 3
 /** Bar height (px) for the centre bar at full level. */
 export const METER_MAX_PX = 16
 
-/** Height in px of each of the five bars for a level in 0..1. */
-export function meterBarHeights(level: number): number[] {
+/** dB floor of the perceptual curve: a peak this quiet (or quieter) sits at rest. */
+export const METER_FLOOR_DB = -40
+
+/**
+ * Perceptual mapping of the raw peak (0..1 linear) to bar drive (0..1).
+ * Linear peaks made the bars look subtle on real speech (owner live run,
+ * 2026-09-05): normal speech peaks around 0.15–0.3, i.e. −16 to −10 dB.
+ * A dB scale with a −40 dB floor puts that at roughly two thirds of the bar
+ * and lets loud speech (−6 dB and up) reach the top. Below the rest
+ * threshold the meter stays at rest regardless.
+ */
+export function perceptualLevel(level: number): number {
 	const clamped = Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 0
-	if (clamped < METER_REST_THRESHOLD) return METER_BAR_MULTIPLIERS.map(() => METER_REST_PX)
-	return METER_BAR_MULTIPLIERS.map((multiplier) => METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * clamped * multiplier)
+	if (clamped < METER_REST_THRESHOLD) return 0
+	const db = 20 * Math.log10(clamped)
+	return Math.min(1, Math.max(0, 1 - db / METER_FLOOR_DB))
+}
+
+/** Height in px of each of the five bars for a raw peak level in 0..1. */
+export function meterBarHeights(level: number): number[] {
+	const drive = perceptualLevel(level)
+	if (drive === 0) return METER_BAR_MULTIPLIERS.map(() => METER_REST_PX)
+	return METER_BAR_MULTIPLIERS.map((multiplier) => METER_REST_PX + (METER_MAX_PX - METER_REST_PX) * drive * multiplier)
 }
 
 export function isMeterResting(level: number): boolean {
