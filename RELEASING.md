@@ -245,15 +245,21 @@ Not passed (carried debt, now against v1.4.1):
 
 4. **Firewall-block test — NOT RUN (no longer BLOCKED as of 2026-09-04).** The
    2026-08-25 finding was that no outbound-block rules existed for the
-   installed `vibe.exe`/`sona.exe`. On 2026-09-04 two enabled outbound Block
-   rules were observed, profile Any, named `Vibe Dictation - block outbound`
-   (program `%LOCALAPPDATA%\Vibe Dictation\vibe.exe`) and
-   `Vibe Dictation Sona - block outbound` (program `…\sona.exe`) — when and
-   by whom they were created is not recorded. The seven dictation sessions of the criterion-3
-   sample above ran with those rules enabled, which is the "dictation still
-   works under the block" half of the criterion; the other half — a model
-   download attempted under the block fails cleanly (error dialog, `.part`
-   removed, dictation unaffected) — has not been attempted.
+   installed `vibe.exe`/`sona.exe`. **Both rules were created by the owner on
+   Machine A on 2026-09-03** (owner statement 2026-09-04; corroborated on A by
+   the firewall event log — two "rule has been added" events, id 2097, at
+   2026-09-03 20:45:29 UTC, modifying user the owner's account SID, via the
+   WMI provider that `New-NetFirewallRule` uses — and by the two
+   `New-NetFirewallRule` commands from `docs/deployment.md` in the owner's
+   interactive PowerShell history), in an elevated shell:
+   `Vibe Dictation - block outbound` (program
+   `%LOCALAPPDATA%\Vibe Dictation\vibe.exe`) and
+   `Vibe Dictation Sona - block outbound` (program `…\sona.exe`), both
+   Outbound, Block, profile Any, enabled. The seven dictation sessions of the
+   criterion-3 sample above ran with those rules enabled, which is the
+   "dictation still works under the block" half of the criterion; the other
+   half — a model download attempted under the block fails cleanly (error
+   dialog, `.part` removed, dictation unaffected) — has not been attempted.
 5. **Functional EN + AR dictation into MS Word — NOT RUN.** Needs the owner
    speaking. v1.4.0's pass is not inherited: this document's standing rule is
    that verification is re-proven per artifact.
