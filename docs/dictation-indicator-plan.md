@@ -32,7 +32,23 @@ no microphone driven):
 
 Commits so far: `d53e7c5` instrumentation and test matrix (Prompt 0), `4fdb773`
 deadlock, z-order, monitor choice, DPI sizing, fade, listen-first (Prompt 1).
-Prompt 1 also moved both error timeouts to 5 s. No dependency change.
+Prompt 1 also moved both error timeouts to 5 s. `76040fc` this plan.
+`91c6f05` pill at key-down, visible failures (`lib/indicator-messages.ts`),
+"still transcribing" hint, 10 s device cache (Prompt 2). No dependency change.
+`e921de6` richer states: payload fields lang/phase/words/hint/shortcut plus
+`severity` (amber vs red), pure `lib/indicator-content.ts`, rebuilt component,
+window width 280 → 400 logical px, screenshots in `docs/screenshots/indicator/`
+(Prompt 3). Design rulings: busy microphone is amber; focus-lost uses the
+short label; fixed labels never truncate.
+`4bada78` short focus-lost label; width audit of all 40 fixed-label rows
+(widest 358 px of 384). `e9073c6` live level meter: per-buffer peak via
+`AtomicU32::fetch_max`, 66 ms drain task with 0.8 decay, `emit_to` the
+indicator only, five bars, reset on any status or session change (Prompt 4).
+`2500c40` ROADMAP item moved to Shipped.
+Pending a microphone run: row a timing, the cpal error-text classifier in
+`classifyStartRecordError`, phase transitions, word count, focus-lost path,
+the real cpal → atomic → pill signal path and decay feel on speech, and the
+Arabic wording of all new strings.
 
 ### 2.1 Nothing is shown when the start fails (confirmed)
 
