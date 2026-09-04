@@ -13,11 +13,22 @@ export default function DictationIndicator() {
 	const [state, setState] = useState<DictationIndicatorState | null>(null)
 
 	useEffect(() => {
+		// Prompt 0 instrumentation (§2.6): order of initial fetch vs listen
+		// registration. A state event that lands between "fetch started" and
+		// "listen registered" is dropped.
+		const log = (event: string, details: Record<string, unknown> = {}) =>
+			console.info(`[indicator-window] t=${performance.now().toFixed(1)}ms vis=${document.visibilityState} ${event}`, details)
+		log('mounted; fetching initial state (listen not yet registered)')
 		invoke('dictation_indicator_ready').catch(console.error)
 		getDictationIndicatorState().then((initialState) => {
+			log('initial state fetch resolved', { state: initialState })
 			if (initialState) setState(initialState)
 		}).catch(console.error)
-		const unlisten = listen<DictationIndicatorState>('dictation-indicator-state', ({ payload }) => setState(payload))
+		const unlisten = listen<DictationIndicatorState>('dictation-indicator-state', ({ payload }) => {
+			log('state event received', { state: payload })
+			setState(payload)
+		})
+		unlisten.then(() => log('listen registered'))
 		return () => {
 			unlisten.then((stop) => stop())
 		}

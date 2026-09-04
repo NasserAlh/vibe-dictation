@@ -87,6 +87,16 @@ function getErrorMessage(error: unknown): string {
 	return String(error)
 }
 
+// --- Prompt 0 instrumentation (docs/dictation-indicator-plan.md §5) ----------
+// Temporary. Every indicator-relevant step is stamped with performance.now()
+// (ms since this webview's time origin) and document.visibilityState — the
+// latter decides whether Chromium throttles our hide/live-dictation timers
+// (§2.5). Read alongside the Rust "[indicator] t=…ms" lines.
+function indicatorLog(event: string, details: Record<string, unknown> = {}) {
+	console.info(`[indicator] t=${performance.now().toFixed(1)}ms vis=${document.visibilityState} ${event}`, details)
+}
+// --- end Prompt 0 instrumentation --------------------------------------------
+
 export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const preference = usePreferenceProvider()
 	const preferenceRef = useRef(preference)
@@ -147,14 +157,22 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const warmupStartedRef = useRef(false)
 
 	const showIndicator = useCallback((status: 'recording' | 'transcribing' | 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
+		indicatorLog('showIndicator', { session: indicatorSessionRef.current, status, ...details, clearedPendingHide: indicatorTimerRef.current !== null })
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
 		showDictationIndicator({ sessionId: indicatorSessionRef.current, status, ...details })
 	}, [])
 
 	const finishIndicator = useCallback((status: 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
 		const sessionId = indicatorSessionRef.current
+		const delay = status === 'error' ? 3500 : 1500
+		indicatorLog('finishIndicator', { session: sessionId, status, ...details, hideInMs: delay })
 		showIndicator(status, details)
-		indicatorTimerRef.current = window.setTimeout(() => hideDictationIndicator(sessionId), status === 'error' ? 3500 : 1500)
+		const scheduledAt = performance.now()
+		indicatorTimerRef.current = window.setTimeout(() => {
+			// §2.5: lateMs > ~100 means the hidden-page timer throttle is biting.
+			indicatorLog('hide timer fired', { session: sessionId, status, expectedMs: delay, actualMs: +(performance.now() - scheduledAt).toFixed(1), lateMs: +(performance.now() - scheduledAt - delay).toFixed(1) })
+			hideDictationIndicator(sessionId)
+		}, delay)
 	}, [showIndicator])
 
 	useEffect(() => {
@@ -210,7 +228,13 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		// A rejection is otherwise unhandled when the loop stops before any
 		// tick awaits the preload.
 		preload.catch(() => {})
+		let lastTickAt = performance.now()
 		const tick = () => {
+			// §2.5: sinceLastMs should sit near 1500; ≥ 60000 means the
+			// hidden-page chained-timer throttle (once per minute) is active.
+			const now = performance.now()
+			indicatorLog('live-dictation interval fired', { session, sinceLastMs: +(now - lastTickAt).toFixed(1), inFlight: liveDictationInFlightRef.current !== null })
+			lastTickAt = now
 			if (liveDictationInFlightRef.current) return
 			if (!isHotkeyRecordingRef.current || indicatorSessionRef.current !== session) return
 			liveDictationInFlightRef.current = (async () => {
@@ -253,14 +277,23 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	}, [stopLiveDictationLoop])
 
 	const handleHotkeyDown = useCallback(async (lang: DictationLang) => {
-		if (isHotkeyRecordingRef.current || isStartingRef.current || isStoppingRef.current) return
+		if (isHotkeyRecordingRef.current || isStartingRef.current || isStoppingRef.current) {
+			// §2.1 third path: the press is dropped and nothing is shown.
+			indicatorLog('hotkey down DROPPED by busy guard', { lang, recording: isHotkeyRecordingRef.current, starting: isStartingRef.current, stopping: isStoppingRef.current })
+			return
+		}
+		const downAt = performance.now()
+		indicatorLog('hotkey down accepted', { lang, session: indicatorSessionRef.current })
 		isStartingRef.current = true
 		activeLangRef.current = lang
 		try {
 			vocabRef.current = parseVocabulary(hotkeyVocabularyRef.current)
 			const devices = await invoke<AudioDevice[]>('get_audio_devices')
 			const defaultInput = devices.find((d) => d.isDefault && d.isInput)
+			indicatorLog('get_audio_devices resolved', { sinceDownMs: +(performance.now() - downAt).toFixed(1), devices: devices.length, defaultInput: defaultInput?.name ?? null })
 			if (!defaultInput) {
+				// §2.1 first path: silent failure — no indicator, no notification.
+				indicatorLog('start FAILED silently: no default input device', { lang, devices: devices.map((d) => ({ name: d.name, isDefault: d.isDefault, isInput: d.isInput })) })
 				console.error('No default input device found')
 				return
 			}
@@ -277,6 +310,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				recordingName: null,
 				captureLive: liveDictation,
 			})
+			// §2.2: this is how long the user waited with no pill on screen.
+			indicatorLog('start_record resolved', { sinceDownMs: +(performance.now() - downAt).toFixed(1), liveDictation })
 			indicatorSessionRef.current += 1
 			liveInjectedRef.current = ''
 			liveFrozenRef.current = false
@@ -290,6 +325,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				startLiveDictationLoop(lang)
 			}
 		} catch (error) {
+			// §2.1 second path: silent failure — no indicator, no notification.
+			indicatorLog('start FAILED silently: start_record threw', { lang, sinceDownMs: +(performance.now() - downAt).toFixed(1), error: getErrorMessage(error) })
 			console.error('Hotkey start_record error:', error)
 			stopLiveDictationLoop()
 			isHotkeyRecordingRef.current = false
@@ -300,6 +337,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	}, [showIndicator, startLiveDictationLoop, stopLiveDictationLoop])
 
 	const handleHotkeyUp = useCallback(async (lang: DictationLang) => {
+		indicatorLog('hotkey up', { lang, recording: isHotkeyRecordingRef.current, stopping: isStoppingRef.current, activeLang: activeLangRef.current })
 		if (!isHotkeyRecordingRef.current || isStoppingRef.current) return
 		if (activeLangRef.current !== lang) return
 		isStoppingRef.current = true
@@ -314,6 +352,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	// Listen for record_finish and process when hotkey-triggered
 	useEffect(() => {
 		const unlisten = listen<{ path: string; name: string }>('record_finish', async (event) => {
+			indicatorLog('record_finish received', { session: indicatorSessionRef.current, hotkeyRecording: isHotkeyRecordingRef.current })
 			if (!isHotkeyRecordingRef.current) return
 
 			const { path } = event.payload
@@ -473,6 +512,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				if (cancelled) return
 				try {
 					await register(shortcut, (event) => {
+						indicatorLog('hotkey event received', { lang, shortcut, state: event.state, mode: hotkeyActivationMode })
 						if (hotkeyActivationMode === 'toggle') {
 							if (event.state === 'Released') {
 								shortcutPressedRef.current[lang] = false
@@ -504,16 +544,26 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			if (cancelled || startupAnnouncedRef.current) return
 			startupAnnouncedRef.current = true
 			const registered = registeredShortcutsRef.current
+			const scheduledAt = performance.now()
 			if (registered.length > 0) {
+				indicatorLog('announceStartup: showIndicator ready', { shortcuts: registered, hideInMs: 5000 })
 				showDictationIndicator({ sessionId: 0, status: 'ready', message: registered.join(' / ') })
-				startupTimerRef.current = window.setTimeout(() => hideDictationIndicator(0), 5000)
+				startupTimerRef.current = window.setTimeout(() => {
+					indicatorLog('startup hide timer fired', { expectedMs: 5000, actualMs: +(performance.now() - scheduledAt).toFixed(1) })
+					hideDictationIndicator(0)
+				}, 5000)
 			} else if (hotkeyEnabled) {
 				// Enabled but nothing registered (shortcut taken by another app,
 				// or both fields empty) — surface it instead of vanishing.
+				indicatorLog('announceStartup: showIndicator error (no shortcuts registered)', { hideInMs: 3500 })
 				showDictationIndicator({ sessionId: 0, status: 'error', message: m.dictationIndicatorHotkeysFailed() })
-				startupTimerRef.current = window.setTimeout(() => hideDictationIndicator(0), 3500)
+				startupTimerRef.current = window.setTimeout(() => {
+					indicatorLog('startup hide timer fired', { expectedMs: 3500, actualMs: +(performance.now() - scheduledAt).toFixed(1) })
+					hideDictationIndicator(0)
+				}, 3500)
 			} else {
 				// Hotkeys disabled: just clear the seeded starting state.
+				indicatorLog('announceStartup: hotkeys disabled, hiding seeded starting state')
 				hideDictationIndicator(0)
 			}
 		}

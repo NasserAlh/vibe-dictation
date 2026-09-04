@@ -1,6 +1,7 @@
 use crate::config::STORE_FILENAME;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
+use std::time::Instant;
 use tauri::webview::PageLoadEvent;
 use tauri::{Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
@@ -10,6 +11,114 @@ const ENABLED_KEY: &str = "dictation_indicator_enabled";
 const WIDTH: f64 = 280.0;
 const HEIGHT: f64 = 64.0;
 const BOTTOM_MARGIN: f64 = 48.0;
+
+// --- Prompt 0 instrumentation (docs/dictation-indicator-plan.md §5) ----------
+// Temporary diagnostics for the show/hide flakiness investigation. First
+// touched in `initialize` (app setup), so "uptime" is ms since setup ran —
+// close enough to process start for correlating with the frontend's
+// performance.now() stamps.
+static PROCESS_START: LazyLock<Instant> = LazyLock::new(Instant::now);
+
+fn uptime_ms() -> u128 {
+    PROCESS_START.elapsed().as_millis()
+}
+
+/// One-line snapshot of everything §2.3–2.4 depend on: visibility, physical
+/// geometry, and the scale of the monitor the window sits on versus the one
+/// under the cursor (`position_window` picks the cursor monitor, `set_size`
+/// with a `LogicalSize` uses the window's current monitor).
+fn log_window_snapshot(context: &str, window: &WebviewWindow, session_id: u64, status: &str) {
+    let window_monitor_scale = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|monitor| (monitor.scale_factor(), monitor.name().cloned()));
+    let cursor_monitor_scale = window
+        .cursor_position()
+        .ok()
+        .and_then(|cursor| window.monitor_from_point(cursor.x, cursor.y).ok().flatten())
+        .map(|monitor| (monitor.scale_factor(), monitor.name().cloned()));
+    tracing::info!(
+        "[indicator] t={}ms {context}: session={session_id} status={status} visible={:?} outer_position={:?} outer_size={:?} window_monitor(scale,name)={:?} cursor_monitor(scale,name)={:?}",
+        uptime_ms(),
+        window.is_visible(),
+        window.outer_position(),
+        window.outer_size(),
+        window_monitor_scale,
+        cursor_monitor_scale,
+    );
+}
+
+/// Logs the window directly above the pill in z-order (`GW_HWNDPREV`) — that
+/// is what covers it when `show()` succeeds but nothing is visible (§2.3).
+/// The immediate predecessor is often an invisible helper window, so the
+/// nearest *visible* predecessor is logged too.
+#[cfg(windows)]
+fn log_window_above(window: &WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetWindow, GetWindowTextW, IsWindowVisible, GW_HWNDPREV};
+
+    fn describe(hwnd: HWND) -> String {
+        let mut title = [0u16; 256];
+        let mut class = [0u16; 128];
+        // SAFETY: valid buffers; the functions only write up to the buffer length.
+        let (title_len, class_len, visible) = unsafe {
+            (
+                GetWindowTextW(hwnd, &mut title),
+                GetClassNameW(hwnd, &mut class),
+                IsWindowVisible(hwnd).as_bool(),
+            )
+        };
+        format!(
+            "hwnd={:#x} visible={visible} title={:?} class={:?}",
+            hwnd.0 as isize,
+            String::from_utf16_lossy(&title[..title_len.max(0) as usize]),
+            String::from_utf16_lossy(&class[..class_len.max(0) as usize]),
+        )
+    }
+
+    // tauri re-exports HWND from its own `windows` crate version; rewrap the
+    // raw pointer for ours.
+    let Ok(pill) = window.hwnd() else {
+        tracing::warn!("[indicator] t={}ms z-order: could not get pill HWND", uptime_ms());
+        return;
+    };
+    let pill = HWND(pill.0);
+    // SAFETY: `pill` is a live window handle owned by this process.
+    let above = unsafe { GetWindow(pill, GW_HWNDPREV) };
+    let Ok(above) = above else {
+        tracing::info!(
+            "[indicator] t={}ms z-order: pill {:#x} is topmost of its band (no window above)",
+            uptime_ms(),
+            pill.0 as isize
+        );
+        return;
+    };
+    let mut nearest_visible = None;
+    let mut cursor = above;
+    for _ in 0..64 {
+        // SAFETY: `cursor` came from GetWindow on a live handle.
+        if unsafe { IsWindowVisible(cursor) }.as_bool() {
+            nearest_visible = Some(cursor);
+            break;
+        }
+        match unsafe { GetWindow(cursor, GW_HWNDPREV) } {
+            Ok(next) => cursor = next,
+            Err(_) => break,
+        }
+    }
+    tracing::info!(
+        "[indicator] t={}ms z-order: pill hwnd={:#x}; immediately above: {}; nearest visible above: {}",
+        uptime_ms(),
+        pill.0 as isize,
+        describe(above),
+        nearest_visible.map(describe).unwrap_or_else(|| "none".to_string()),
+    );
+}
+
+#[cfg(not(windows))]
+fn log_window_above(_window: &WebviewWindow) {}
+// --- end Prompt 0 instrumentation --------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,6 +199,8 @@ fn create_window(app: &tauri::AppHandle) -> Result<WebviewWindow, String> {
 }
 
 pub fn initialize(app: &tauri::AppHandle) {
+    // Anchor the instrumentation clock as early as possible.
+    LazyLock::force(&PROCESS_START);
     tracing::info!("Initializing dictation indicator (enabled={})", is_enabled(app));
     if is_enabled(app) && app.get_webview_window(WINDOW_LABEL).is_none() {
         // Seed a "starting…" state before the window loads so the indicator is
@@ -128,10 +239,26 @@ fn position_window(app: &tauri::AppHandle, window: &WebviewWindow) -> Result<(),
         let height = HEIGHT * scale;
         let x = monitor_position.x as f64 + (monitor_size.width as f64 - width) / 2.0;
         let y = monitor_position.y as f64 + monitor_size.height as f64 - height - BOTTOM_MARGIN * scale;
+        // Prompt 0 instrumentation (§2.4): which monitor the cursor picked.
+        tracing::info!(
+            "[indicator] t={}ms position_window: cursor=({:.0},{:.0}) monitor(name={:?}, position={:?}, size={:?}, scale={scale}) -> target=({},{}) expected_physical_size=({width:.0}x{height:.0})",
+            uptime_ms(),
+            cursor.x,
+            cursor.y,
+            monitor.name(),
+            monitor_position,
+            monitor_size,
+            x.round() as i32,
+            y.round() as i32,
+        );
         window
             .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
             .map_err(|error| error.to_string())?;
     } else if let Some(main) = app.get_webview_window("main") {
+        tracing::info!(
+            "[indicator] t={}ms position_window: no monitor under cursor and no primary; falling back to main window position",
+            uptime_ms()
+        );
         window
             .set_position(main.outer_position().map_err(|error| error.to_string())?)
             .map_err(|error| error.to_string())?;
@@ -166,7 +293,8 @@ pub fn set_dictation_indicator_enabled(app: tauri::AppHandle, enabled: bool) -> 
 #[tauri::command]
 pub fn show_dictation_indicator(app: tauri::AppHandle, state: DictationIndicatorPayload) -> Result<(), String> {
     tracing::info!(
-        "Showing dictation indicator: status={}, session={}",
+        "[indicator] t={}ms show requested: status={}, session={}",
+        uptime_ms(),
         state.status,
         state.session_id
     );
@@ -180,15 +308,31 @@ pub fn show_dictation_indicator(app: tauri::AppHandle, state: DictationIndicator
         .map_err(|error| error.to_string())? = Some(state.clone());
     let window = match app.get_webview_window(WINDOW_LABEL) {
         Some(window) => window,
-        None => create_window(&app)?,
+        None => {
+            tracing::info!(
+                "[indicator] t={}ms show: window did not exist, creating it lazily (§2.6 — emit may precede page load)",
+                uptime_ms()
+            );
+            create_window(&app)?
+        }
     };
+    log_window_snapshot("show/before set_size", &window, state.session_id, &state.status);
     window
         .set_size(LogicalSize::new(WIDTH, HEIGHT))
         .map_err(|error| error.to_string())?;
+    log_window_snapshot(
+        "show/after set_size, before position",
+        &window,
+        state.session_id,
+        &state.status,
+    );
     if let Err(error) = position_window(&app, &window) {
         tracing::error!("Could not position dictation indicator: {error}");
     }
+    log_window_snapshot("show/after position, before show()", &window, state.session_id, &state.status);
     window.show().map_err(|error| error.to_string())?;
+    log_window_snapshot("show/after show()", &window, state.session_id, &state.status);
+    log_window_above(&window);
     #[cfg(target_os = "macos")]
     unsafe {
         use objc2_app_kit::{NSStatusWindowLevel, NSWindow};
@@ -197,14 +341,14 @@ pub fn show_dictation_indicator(app: tauri::AppHandle, state: DictationIndicator
         native_window.setLevel(NSStatusWindowLevel);
         native_window.orderFrontRegardless();
     }
-    if let Err(error) = window.emit("dictation-indicator-state", state) {
+    if let Err(error) = window.emit("dictation-indicator-state", &state) {
         tracing::error!("Could not update dictation indicator: {error}");
     }
     tracing::info!(
-        "Dictation indicator shown (visible={:?}, position={:?}, size={:?}, title={:?}, url={:?})",
-        window.is_visible(),
-        window.outer_position(),
-        window.outer_size(),
+        "[indicator] t={}ms show done: session={} status={} emitted state (title={:?}, url={:?})",
+        uptime_ms(),
+        state.session_id,
+        state.status,
         window.title(),
         window.url()
     );
@@ -231,14 +375,30 @@ pub fn dictation_indicator_ready(window: tauri::WebviewWindow) {
 
 #[tauri::command]
 pub fn hide_dictation_indicator(app: tauri::AppHandle, session_id: u64) -> Result<(), String> {
-    tracing::info!("Hiding dictation indicator: session={session_id}");
     let runtime = app.state::<DictationIndicatorRuntime>();
     let mut current = runtime.current.lock().map_err(|error| error.to_string())?;
+    let (current_session, current_status) = current
+        .as_ref()
+        .map(|state| (Some(state.session_id), state.status.clone()))
+        .unwrap_or((None, "none".to_string()));
+    tracing::info!(
+        "[indicator] t={}ms hide requested: session={session_id} (current session={current_session:?} status={current_status})",
+        uptime_ms()
+    );
     if current.as_ref().is_some_and(|state| state.session_id == session_id) {
         *current = None;
         if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
+            log_window_snapshot("hide/before hide()", &window, session_id, &current_status);
             window.hide().map_err(|error| error.to_string())?;
+            log_window_snapshot("hide/after hide()", &window, session_id, &current_status);
+        } else {
+            tracing::info!("[indicator] t={}ms hide: no window to hide", uptime_ms());
         }
+    } else {
+        tracing::info!(
+            "[indicator] t={}ms hide ignored: stale session {session_id} (current={current_session:?})",
+            uptime_ms()
+        );
     }
     Ok(())
 }
