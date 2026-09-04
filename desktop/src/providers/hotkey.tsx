@@ -8,7 +8,7 @@ import { AudioDevice } from '~/lib/audio'
 import * as transcript from '~/lib/transcript'
 import { usePreferenceProvider } from '~/providers/preference'
 import { m } from '~/paraglide/messages.js'
-import { hideDictationIndicator, showDictationIndicator } from '~/lib/dictation-indicator'
+import { hideDictationIndicator, showDictationIndicator, type DictationIndicatorPhase, type DictationIndicatorState } from '~/lib/dictation-indicator'
 import { injectionDiff, isLikelyPartialHallucination, stableLivePrefix } from '~/lib/live-typing'
 import { applyCorrections, parseVocabulary, vocabularyPrompt, type Vocabulary } from '~/lib/vocabulary'
 import * as config from '~/lib/config'
@@ -132,6 +132,13 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const hotkeyNormalizeOutputRef = useRef(hotkeyNormalizeOutput)
 	const hotkeyLlmRef = useRef({ enabled: hotkeyLlmEnabled, model: hotkeyLlmModel, prompt: hotkeyLlmPrompt, port: hotkeyLlmPort })
 	const registeredShortcutsRef = useRef<string[]>([])
+	// Accelerator per dictation language, for the pill's toggle hint and the
+	// ready flash ("F9 EN · F10 AR"). Cleared with registeredShortcutsRef.
+	const registeredByLangRef = useRef<Partial<Record<DictationLang, string>>>({})
+	const hotkeyActivationModeRef = useRef(hotkeyActivationMode)
+	// Sub-phase of the in-flight transcription, so a re-show (the "still
+	// transcribing" hint and its restore) keeps the phase label.
+	const phaseRef = useRef<DictationIndicatorPhase | undefined>(undefined)
 	const indicatorSessionRef = useRef(0)
 	const indicatorTimerRef = useRef<number | null>(null)
 	// Restores "Transcribing…" after the 1 s "Still transcribing — wait" hint.
@@ -163,13 +170,17 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const startupTimerRef = useRef<number | null>(null)
 	const warmupStartedRef = useRef(false)
 
-	const showIndicator = useCallback((status: 'recording' | 'transcribing' | 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
+	type IndicatorDetails = Partial<Omit<DictationIndicatorState, 'sessionId' | 'status'>>
+
+	// Every session state carries the dictation language (badge) unless the
+	// caller overrides it; the pill decides per status whether to show it.
+	const showIndicator = useCallback((status: 'recording' | 'transcribing' | 'completed' | 'error', details: IndicatorDetails = {}) => {
 		indicatorLog('showIndicator', { session: indicatorSessionRef.current, status, ...details, clearedPendingHide: indicatorTimerRef.current !== null })
 		if (indicatorTimerRef.current) window.clearTimeout(indicatorTimerRef.current)
-		showDictationIndicator({ sessionId: indicatorSessionRef.current, status, ...details })
+		showDictationIndicator({ sessionId: indicatorSessionRef.current, status, lang: activeLangRef.current, ...details })
 	}, [])
 
-	const finishIndicator = useCallback((status: 'completed' | 'error', details: { output?: HotkeyOutputMode; message?: string } = {}) => {
+	const finishIndicator = useCallback((status: 'completed' | 'error', details: IndicatorDetails = {}) => {
 		const sessionId = indicatorSessionRef.current
 		// Errors stay 5 s (plan §4); completed 1.5 s.
 		const delay = status === 'error' ? 5000 : 1500
@@ -190,6 +201,10 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		hotkeyOutputModeRef.current = hotkeyOutputMode
 	}, [hotkeyOutputMode])
+
+	useEffect(() => {
+		hotkeyActivationModeRef.current = hotkeyActivationMode
+	}, [hotkeyActivationMode])
 
 	useEffect(() => {
 		hotkeyNormalizeOutputRef.current = hotkeyNormalizeOutput
@@ -292,7 +307,9 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			microphoneBusy: m.dictationIndicatorMicrophoneBusy(),
 			startFailed: m.dictationIndicatorStartFailed(),
 		})
-		finishIndicator('error', { message })
+		// Amber for a missing or unavailable microphone (an environment
+		// condition, plan §4), red for a failure to start.
+		finishIndicator('error', { message, severity: kind === 'start-failed' ? 'error' : 'warning' })
 		await notify('Vibe', message)
 	}, [finishIndicator])
 
@@ -306,11 +323,11 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				// restore is skipped if that session finished (or a new one
 				// started) in the meantime — finishIndicator owns the pill then.
 				const session = indicatorSessionRef.current
-				showIndicator('transcribing', { message: m.dictationIndicatorStillTranscribing() })
+				showIndicator('transcribing', { phase: phaseRef.current, message: m.dictationIndicatorStillTranscribing() })
 				if (stillTranscribingTimerRef.current) window.clearTimeout(stillTranscribingTimerRef.current)
 				stillTranscribingTimerRef.current = window.setTimeout(() => {
 					stillTranscribingTimerRef.current = null
-					if (isStoppingRef.current && indicatorSessionRef.current === session) showIndicator('transcribing')
+					if (isStoppingRef.current && indicatorSessionRef.current === session) showIndicator('transcribing', { phase: phaseRef.current })
 				}, 1000)
 			}
 			return
@@ -323,7 +340,12 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		// "Listening…" while devices are enumerated and the stream starts, and
 		// any failure below replaces it with an error in the same session.
 		indicatorSessionRef.current += 1
-		showIndicator('recording')
+		phaseRef.current = undefined
+		showIndicator('recording', {
+			output: hotkeyOutputModeRef.current,
+			hint: hotkeyActivationModeRef.current === 'toggle' ? 'toggle' : 'release',
+			shortcut: registeredByLangRef.current[lang],
+		})
 		try {
 			vocabRef.current = parseVocabulary(hotkeyVocabularyRef.current)
 			const cached = audioDevicesCacheRef.current
@@ -399,7 +421,13 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 
 			const { path } = event.payload
 			stopLiveDictationLoop()
-			showIndicator('transcribing')
+			// Phases (plan §4): "Loading model…" until load_model returns,
+			// "Transcribing N s…" during whisper, "Formatting…" for the Ollama pass.
+			const setPhase = (phase: DictationIndicatorPhase) => {
+				phaseRef.current = phase
+				showIndicator('transcribing', { phase })
+			}
+			setPhase('loading-model')
 			// Serialize against an in-flight partial pass so sona never runs
 			// two transcriptions at once and the final reconcile never
 			// interleaves with a partial injection.
@@ -418,6 +446,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				}
 
 				await invoke('load_model', { modelPath, gpuDevice: preferenceRef.current.gpuDevice })
+				setPhase('transcribing')
 				const requiresVad = preferenceRef.current.modelMetadata?.capabilities.requires_vad ?? false
 				const modelsFolder = requiresVad ? await invoke<string>('get_models_folder') : null
 				// Dictation always forces the hotkey's language — never 'auto', never
@@ -441,6 +470,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				// dictation: on any failure, fall through with the raw transcript.
 				const llm = hotkeyLlmRef.current
 				if (llm.enabled && llm.model && resultText) {
+					setPhase('formatting')
 					try {
 						const formatted = await formatWithOllama({ model: llm.model, prompt: llm.prompt.trim() || defaultLlmFormatPrompt, text: resultText, port: llm.port })
 						if (formatted) resultText = formatted
@@ -450,7 +480,9 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 					}
 				}
 				// Output result
+				const words = resultText.split(/\s+/).filter(Boolean).length
 				let effectiveOutput = hotkeyOutputModeRef.current
+				let focusLost = false
 				if (effectiveOutput === 'type') {
 					if (!liveSessionRef.current) {
 						await invoke('type_text', { text: resultText })
@@ -468,6 +500,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 						// Focus left the target window mid-dictation. Never type
 						// into whatever is focused now — deliver via clipboard.
 						effectiveOutput = 'clipboard'
+						focusLost = true
 						await clipboard.writeText(resultText)
 						await notify('Vibe', m.liveDictationFocusLost())
 					}
@@ -475,13 +508,20 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 					await clipboard.writeText(resultText)
 					await notify('Vibe', m.hotkeyTranscriptionCopied())
 				}
-				finishIndicator('completed', { output: effectiveOutput })
+				if (focusLost) {
+					// Amber warning, not a green "Copied": the text went somewhere
+					// other than where the user was typing (plan §4).
+					finishIndicator('error', { message: m.liveDictationFocusLost(), severity: 'warning' })
+				} else {
+					finishIndicator('completed', { output: effectiveOutput, words })
+				}
 			} catch (error) {
 				console.error('Hotkey transcription error:', error)
 				const message = getErrorMessage(error)
-				finishIndicator('error', { message })
+				finishIndicator('error', { message, severity: 'error' })
 				await notify('Vibe', message)
 			} finally {
+				phaseRef.current = undefined
 				liveSessionRef.current = false
 				liveInjectedRef.current = ''
 				isStoppingRef.current = false
@@ -530,6 +570,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				}
 			}
 			registeredShortcutsRef.current = []
+			registeredByLangRef.current = {}
 		}
 
 		async function setupShortcuts() {
@@ -572,6 +613,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 						}
 					})
 					registeredShortcutsRef.current.push(shortcut)
+					registeredByLangRef.current[lang] = shortcut
 				} catch (e) {
 					console.error(`Failed to register ${lang} shortcut:`, e)
 				}
@@ -589,8 +631,14 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			const registered = registeredShortcutsRef.current
 			const scheduledAt = performance.now()
 			if (registered.length > 0) {
+				// Right slot of the ready flash: "F9 EN · F10 AR" (plan §4).
+				const byLang = registeredByLangRef.current
+				const shortcut = (['en', 'ar'] as DictationLang[])
+					.filter((lang) => byLang[lang])
+					.map((lang) => `${byLang[lang]} ${lang.toUpperCase()}`)
+					.join(' · ')
 				indicatorLog('announceStartup: showIndicator ready', { shortcuts: registered, hideInMs: 5000 })
-				showDictationIndicator({ sessionId: 0, status: 'ready', message: registered.join(' / ') })
+				showDictationIndicator({ sessionId: 0, status: 'ready', shortcut })
 				startupTimerRef.current = window.setTimeout(() => {
 					indicatorLog('startup hide timer fired', { expectedMs: 5000, actualMs: +(performance.now() - scheduledAt).toFixed(1) })
 					hideDictationIndicator(0)

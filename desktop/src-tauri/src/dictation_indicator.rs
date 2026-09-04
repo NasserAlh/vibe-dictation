@@ -8,7 +8,11 @@ use tauri_plugin_store::StoreExt;
 
 const WINDOW_LABEL: &str = "dictation-indicator";
 const ENABLED_KEY: &str = "dictation_indicator_enabled";
-const WIDTH: f64 = 280.0;
+// Logical px. The pill inside is content-sized and centred, so the window is
+// only a transparent, click-through bound; 400 fits "Listening · release to
+// finish · EN · 0:07 · ⌨" and the "Still transcribing — wait" hint without
+// truncation (plan §4, checked against docs/screenshots/indicator/).
+const WIDTH: f64 = 400.0;
 const HEIGHT: f64 = 64.0;
 const BOTTOM_MARGIN: f64 = 48.0;
 
@@ -120,13 +124,30 @@ fn log_window_above(window: &WebviewWindow) {
 fn log_window_above(_window: &WebviewWindow) {}
 // --- end Prompt 0 instrumentation --------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Status-only payload for the pill. Never carries transcript text (owner
+/// decision). The optional fields feed the richer states of plan §4; the
+/// frontend fills them and the pill component renders them.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DictationIndicatorPayload {
     pub session_id: u64,
     pub status: String,
+    /// "type" | "clipboard" — destination glyph while recording, wording of "completed".
     pub output: Option<String>,
+    /// Error text, the transient "Still transcribing — wait" hint, or the ready-flash shortcuts.
     pub message: Option<String>,
+    /// "en" | "ar" — language badge.
+    pub lang: Option<String>,
+    /// "loading-model" | "transcribing" | "formatting" — sub-phase of "transcribing".
+    pub phase: Option<String>,
+    /// Word count shown with "completed".
+    pub words: Option<u32>,
+    /// "release" | "toggle" — which stop hint to show for the first seconds of recording.
+    pub hint: Option<String>,
+    /// Accelerator of the active language ("F9"), for the toggle hint and the ready flash.
+    pub shortcut: Option<String>,
+    /// "warning" (amber: no mic, focus lost) | "error" (red) — ring colour of "error".
+    pub severity: Option<String>,
 }
 
 #[derive(Default)]
@@ -299,8 +320,7 @@ pub fn initialize(app: &tauri::AppHandle) {
             *current = Some(DictationIndicatorPayload {
                 session_id: 0,
                 status: "starting".to_string(),
-                output: None,
-                message: None,
+                ..Default::default()
             });
         }
         if let Err(error) = create_window(app) {
@@ -523,33 +543,32 @@ mod tests {
 
     #[test]
     fn pill_rect_scale_1_0() {
-        // 1920×1080 at 100 %: 280×64, centred, 48 px above the bottom.
-        assert_eq!(pill_rect((0, 0), (1920, 1080), 1.0), (820, 968, 280, 64));
+        // 1920×1080 at 100 %: 400×64, centred, 48 px above the bottom.
+        assert_eq!(pill_rect((0, 0), (1920, 1080), 1.0), (760, 968, 400, 64));
     }
 
     #[test]
     fn pill_rect_scale_1_25() {
-        // 2560×1440 at 125 %: 350×80, margin 60.
-        assert_eq!(pill_rect((0, 0), (2560, 1440), 1.25), (1105, 1300, 350, 80));
+        // 2560×1440 at 125 %: 500×80, margin 60.
+        assert_eq!(pill_rect((0, 0), (2560, 1440), 1.25), (1030, 1300, 500, 80));
     }
 
     #[test]
     fn pill_rect_scale_1_5() {
-        // 3440×1440 at 150 % — the Prompt 0 machine; matches the observed
-        // `outer_position=(1510,1272) outer_size=420×96` log lines.
-        assert_eq!(pill_rect((0, 0), (3440, 1440), 1.5), (1510, 1272, 420, 96));
+        // 3440×1440 at 150 % — the Prompt 0 machine: 600×96, margin 72.
+        assert_eq!(pill_rect((0, 0), (3440, 1440), 1.5), (1420, 1272, 600, 96));
     }
 
     #[test]
     fn pill_rect_scale_2_0() {
-        // 3840×2160 at 200 %: 560×128, margin 96.
-        assert_eq!(pill_rect((0, 0), (3840, 2160), 2.0), (1640, 1936, 560, 128));
+        // 3840×2160 at 200 %: 800×128, margin 96.
+        assert_eq!(pill_rect((0, 0), (3840, 2160), 2.0), (1520, 1936, 800, 128));
     }
 
     #[test]
     fn pill_rect_second_monitor_at_negative_x() {
         // A 1920×1080 monitor to the left of the primary: x stays negative.
-        assert_eq!(pill_rect((-1920, 0), (1920, 1080), 1.0), (-1100, 968, 280, 64));
+        assert_eq!(pill_rect((-1920, 0), (1920, 1080), 1.0), (-1160, 968, 400, 64));
     }
 
     #[test]
@@ -557,7 +576,7 @@ mod tests {
         // Monitor to the right of a 3440-wide primary, at 125 %.
         assert_eq!(
             pill_rect((3440, 200), (1920, 1080), 1.25),
-            (3440 + 785, 200 + 1080 - 80 - 60, 350, 80)
+            (3440 + 710, 200 + 1080 - 80 - 60, 500, 80)
         );
     }
 }

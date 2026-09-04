@@ -8,6 +8,67 @@ html.dictation-indicator-window #root {
 	overflow: hidden;
 }
 
+/* Dictation pill motion (docs/dictation-indicator-plan.md §4): 150 ms
+   cross-fade between states, 150 ms fade-out before the window hides, and
+   the stop hint fading after its 2 s. All of it off under
+   prefers-reduced-motion. */
+@keyframes pill-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+@keyframes pill-fade-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+.pill {
+	transition:
+		opacity 150ms ease-out,
+		box-shadow 150ms ease-out;
+}
+.pill-hiding {
+	opacity: 0;
+}
+.pill-layer-enter {
+	animation: pill-fade-in 150ms ease-out both;
+}
+.pill-layer-leave {
+	animation: pill-fade-out 150ms ease-out both;
+}
+.pill-sub {
+	animation: pill-fade-in 150ms ease-out both;
+}
+.pill-sub-leave {
+	animation: pill-fade-out 150ms ease-out both;
+}
+.pill-no-motion,
+.pill-no-motion .pill-layer-enter,
+.pill-no-motion .pill-layer-leave,
+.pill-no-motion .pill-sub,
+.pill-no-motion .pill-sub-leave,
+.pill-no-motion .animate-spin,
+.pill-no-motion .animate-pulse {
+	transition: none;
+	animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.pill,
+	.pill-layer-enter,
+	.pill-layer-leave,
+	.pill-sub,
+	.pill-sub-leave {
+		transition: none;
+		animation: none;
+	}
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
