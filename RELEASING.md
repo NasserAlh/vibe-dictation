@@ -309,6 +309,15 @@ voice for 5 and 6; 4 no longer needs an elevated shell, see item 4). The
 release notes went out without a verification statement; amended 2026-09-03 to
 carry the same partial-gate disclosure as the v1.3.0 and v1.4.0 notes.
 
+**Gate CLOSED — 3 of 6, debt moved to v1.5.0 (owner ruling, 2026-09-05).**
+The v1.5.0 release candidate was installed over v1.4.1 on machine A on
+2026-09-05 (see the v1.5.0 section), so criteria **4**, **5** and **6** can
+no longer be run against the v1.4.1 artifact here; machine B's state is
+unrecorded since 2026-08-26. Same treatment as v1.4.0's closure: the three
+unrun criteria are carried debt, now against v1.5.0, and this record does
+not change again. Final standing of v1.4.1: criteria 1, 2 and 3 passed
+against the published artifact; 4, 5 and 6 never run against it.
+
 Build-step check (not one of the six criteria): sidecar content pins —
 `desktop/src-tauri/binaries/` was already populated, so the sidecar binaries
 themselves were hashed against `docs/sona-sidecar-sha256.txt` rather than the
