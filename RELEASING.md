@@ -125,6 +125,13 @@ from the Visual Studio Installer's licence view.
    exist (recreate if the install path changed); dictation still works under
    the block. A model download attempted under the block must fail cleanly
    (error dialog, `.part` file removed) without affecting dictation.
+   **The `vibe.exe` rule is a verification fixture, not a standing
+   deployment requirement (owner ruling, 2026-09-05):** create or enable it
+   for this test, and it may be disabled again afterwards — the opt-in
+   downloader's own guards (per-download confirmation, pinned URL prefix,
+   redirect-host allowlist, SHA-256 pins, cargo feature) are the daily-use
+   control on this personal tool. The `sona.exe` rule stays enabled: the
+   engine has no legitimate reason to open a non-loopback socket.
 5. **Functional**: one English + one Arabic dictation into MS Word (reference
    target; Windows 11 Notepad is a known-bad injection target); latency within
    ~2 s of key release after warmup.
@@ -578,11 +585,54 @@ results above do not carry. Nothing is tagged or published.
    true`, matching the entry's presence. Launch itself in the install
    record (Ready pill t=91 ms).
 3. **Netstat sampler during live dictation — NOT RUN** (owner run pending;
-   `scripts/netstat-sampler.ps1`).
-4. **Firewall-block test — NOT RUN** (owner run pending; both rules
-   enabled on the installed paths, `ggml-large-v3-turbo.bin.hold` still
-   staged).
-5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
+   `scripts/netstat-sampler.ps1`; no sampler output directory existed under
+   `%TEMP%\vibe-netstat` at 20:53 local).
+4. **Firewall-block test — PASSED 2026-09-05** against the rebuilt
+   candidate. Both rules observed enabled and bound to the installed
+   `vibe.exe` / `sona.exe` at 19:44 and 20:53 local, and the firewall event
+   log shows no rule change today. *Dictation works under the block:* five
+   hotkey dictation sessions in the clean-launch instance (17:14–17:50
+   UTC) recorded, transcribed (`sona model loaded: …\ggml-large-v3.bin`)
+   and completed — sessions 3, 4 and 5 after the download attempts. *A
+   download under the block fails cleanly:* the owner attempted the
+   large-v3-turbo download from Settings → Select Model at 17:45:54 and
+   17:47:23 UTC (the `.bin.hold` fixture made it downloadable); two more
+   attempts were made through the WebView2 debugging port at 17:54:16 and
+   17:55:39 UTC — the confirmation and error dialogs are native and were
+   answered at the machine — with the download card's row observed every
+   500 ms: "Download" → "Cancel" the moment the confirmation was accepted →
+   "Download" again 3.0 s later, i.e. the connection failed and the error
+   dialog was dismissed inside that window. No `.part` file existed in the
+   models folder after any of the four attempts. The app log carries only
+   "model download start" — the failure and its message are not logged
+   (housekeeping: worth one `tracing::warn!`). The error text observed by
+   the owner on the superseded build was "Download failed — failed to reach
+   huggingface.co"; the owner's dialog text and timing on the rebuilt
+   build were not stated to the record.
+   **Owner ruling 2026-09-05 — the `vibe.exe` block rule is a verification
+   fixture, not a standing deployment requirement.** This is a personal
+   tool; the downloader's own guards (per-download confirmation naming URL
+   and size, pinned URL prefix, redirect-host allowlist, SHA-256 pins, the
+   `model-download` cargo feature) are sufficient in daily use. The rule is
+   created or enabled for this criterion and may be disabled afterwards;
+   the `sona.exe` rule stays enabled. The Verify ladder and
+   docs/deployment.md step 7 say so as of this ruling. Disabling it is the
+   owner's own elevated action:
+   `Disable-NetFirewallRule -DisplayName "Vibe Dictation - block outbound"`.
+   *Checked at the owner's request:* whether the Large V3 Turbo row returns
+   to "Download" after a failed download is dismissed — it does, observed on
+   both debugging-port attempts; it reads "Cancel" (0 %) only while the
+   request is in flight and while the error dialog is open, because
+   `startModelDownload` resets the progress state in its `finally` after
+   the awaited error dialog closes. No change made.
+   Fixture retired: `ggml-large-v3-turbo.bin.hold` renamed back to
+   `ggml-large-v3-turbo.bin` at 20:58 local, SHA-256
+   `1FC70F774D38EB169993AC391EEA357EF47C88757EF72EE5943879B7E8E2BC69`,
+   equal to the pin in docs/model-sha256.txt, so no download is needed.
+5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner). The
+   five sessions above show dictation working on the rebuilt build; the
+   criterion needs the owner's statement of target (MS Word), languages and
+   latency, which has not been given.
 6. **Live-dictation functional check — NOT RUN** (owner).
 
 Model selection after the store repair (owner ruling, step 5): the
@@ -604,7 +654,12 @@ on `127.0.0.1:52005`) survived as an orphan — the exact condition behind
 the v1.4.1 sona-lock finding — and was killed by hand before the owner's
 run; the preflight afterwards shows one `sona.exe`, child of the clean
 instance, listening on `127.0.0.1:64855`.
-`ggml-large-v3-turbo.bin.hold` left staged for criterion 4.
+`ggml-large-v3-turbo.bin.hold` was left staged for criterion 4 and renamed
+back once that criterion was recorded (see item 4). The app was ended and
+relaunched from the Start-menu shortcut twice more this evening for the
+debugging-port checks in item 4; each forced stop orphaned a `sona.exe`,
+killed by hand before the clean relaunch (the last at 20:57 local, Ready
+pill t=86 ms, one `sona.exe` child).
 
 ## Shipped in v1.4.1 (2026-08-25)
 

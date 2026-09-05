@@ -83,11 +83,23 @@ no downloads on the target.**
    ```
    Expect `"...\Vibe Dictation\vibe.exe"` **with** the quotes. (v1.0.0 wrote it
    unquoted and needed the manual stopgap in §5c; that no longer applies.)
-7. **Re-create the firewall enforcement — it is per-machine and does not travel
+7. **Re-create the firewall rules — they are per-machine and do not travel
    with the installer.** From an elevated PowerShell:
    ```powershell
    New-NetFirewallRule -DisplayName "Vibe Dictation - block outbound" -Direction Outbound -Program "$env:LOCALAPPDATA\Vibe Dictation\vibe.exe" -Action Block -Profile Any
    New-NetFirewallRule -DisplayName "Vibe Dictation Sona - block outbound" -Direction Outbound -Program "$env:LOCALAPPDATA\Vibe Dictation\sona.exe" -Action Block -Profile Any
+   ```
+   The **Sona** rule is standing: the engine never has a reason to open a
+   non-loopback socket. The **`vibe.exe`** rule is a verification fixture
+   (owner ruling 2026-09-05, recorded in RELEASING.md): it must be enabled
+   for step 8 and for RELEASING.md's criterion 4, and may be disabled
+   afterwards for daily use — the opt-in model downloader's own guards
+   (per-download confirmation naming the URL and size, pinned URL prefix,
+   redirect-host allowlist, SHA-256 pins, `model-download` cargo feature)
+   are the daily-use control on this personal tool. Disable / re-enable:
+   ```powershell
+   Disable-NetFirewallRule -DisplayName "Vibe Dictation - block outbound"
+   Enable-NetFirewallRule  -DisplayName "Vibe Dictation - block outbound"
    ```
 8. **Mini-audit (per RELEASING.md):** run the netstat sampler while dictating one
    English and one Arabic sentence:
