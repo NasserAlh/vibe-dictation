@@ -29,7 +29,7 @@ function nextView(previous: View | null, state: DictationIndicatorState, now: nu
 
 /** Identity of what is on screen; a change cross-fades, a clock tick does not. */
 function contentKey(state: DictationIndicatorState): string {
-	return [state.sessionId, state.status, state.phase ?? '', state.message ?? '', state.severity ?? '', state.output ?? '', state.words ?? ''].join('|')
+	return [state.sessionId, state.status, state.phase ?? '', state.message ?? '', state.severity ?? '', state.output ?? '', state.words ?? '', state.fallback ?? ''].join('|')
 }
 
 function usePrefersReducedMotion(): boolean {

@@ -26,3 +26,10 @@ export interface OllamaFormatOptions {
 export async function formatWithOllama(options: OllamaFormatOptions): Promise<string> {
 	return invoke<string>('ollama_format_text', { options })
 }
+
+// Loads the formatting model on the loopback Ollama so it is resident by the
+// time the transcript is ready. Fired at hotkey-down, in parallel with the
+// recording; callers do not wait on it.
+export async function warmOllamaModel(options: { model: string; port: number }): Promise<void> {
+	await invoke<void>('ollama_warm_model', options)
+}

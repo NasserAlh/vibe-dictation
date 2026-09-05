@@ -8,12 +8,21 @@ use std::time::Duration;
 const OLLAMA_HOST: &str = "127.0.0.1";
 pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 
-/// Total timeout covers a cold model load (~5 s at the 8K context we request)
-/// plus bounded generation; connect timeout stays short so a stopped Ollama
-/// fails fast. On timeout the caller falls back to the raw transcript, so a
-/// long timeout only delays the dictation — keep it tight.
+/// Budget for the formatting call the dictation waits on. Generation of a
+/// rewrite takes well under a second on a resident model; the budget exists
+/// for the cases where the model is *not* resident. Owner ruling 2026-09-05
+/// after the v1.5.0 gating finding (a 40 s cold load of qwen3.5:9b fit inside
+/// the old 45 s budget, and the text was typed 43 s after key release into
+/// whatever window was in front by then): a raw transcript in 12 s beats a
+/// formatted one in 45. On timeout the caller delivers the raw transcript.
+/// Connect timeout stays short so a stopped Ollama fails fast. The cold load
+/// itself is paid by `warm_model`, fired at hotkey-down in parallel with the
+/// recording, under its own longer budget.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
+/// Budget for the fire-and-forget warm-up load; nothing waits on it, so it
+/// may outlast a slow load rather than abandon the request mid-load.
+const WARM_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// A formatter never needs the model's full context window. Ollama otherwise
 /// loads the model with its native maximum (262K for qwen3.5 — a KV cache that
@@ -76,12 +85,57 @@ fn base_url(port: u16) -> String {
 }
 
 fn client() -> Result<reqwest::Client> {
+    client_with_timeout(REQUEST_TIMEOUT)
+}
+
+fn client_with_timeout(timeout: Duration) -> Result<reqwest::Client> {
     reqwest::Client::builder()
         .no_proxy()
         .connect_timeout(CONNECT_TIMEOUT)
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(timeout)
         .build()
         .context("failed to build ollama http client")
+}
+
+/// Ollama's "load this model into memory" request: `/api/chat` with an empty
+/// messages array. Same `num_ctx` and `keep_alive` as the formatting call —
+/// a different context would make Ollama reload the model at format time.
+fn build_warm_body(model: &str, supports_thinking: bool) -> serde_json::Value {
+    let mut body = serde_json::json!({
+        "model": model,
+        "stream": false,
+        "keep_alive": KEEP_ALIVE,
+        "messages": [],
+        "options": { "num_ctx": NUM_CTX },
+    });
+    if supports_thinking {
+        body["think"] = serde_json::json!(false);
+    }
+    body
+}
+
+/// Loads the formatting model on the loopback Ollama so it is resident by the
+/// time the transcript is ready. Fired at hotkey-down, in parallel with the
+/// recording; nothing waits on it. Same host constant, same cloud-model block
+/// as `format_text`: a cloud model is never warmed either.
+pub async fn warm_model(port: u16, model: &str) -> Result<()> {
+    let local_models = list_models(port).await?;
+    let Some(local) = local_models.iter().find(|local| local.name == model) else {
+        bail!("'{model}' is not a local ollama model — cloud models are blocked");
+    };
+    let supports_thinking = local.capabilities.iter().any(|capability| capability == "thinking");
+    let started = std::time::Instant::now();
+    let response = client_with_timeout(WARM_TIMEOUT)?
+        .post(format!("{}/api/chat", base_url(port)))
+        .json(&build_warm_body(model, supports_thinking))
+        .send()
+        .await
+        .context("failed to reach ollama")?;
+    if !response.status().is_success() {
+        bail!("ollama warm-up failed: {}", response.text().await.unwrap_or_default());
+    }
+    tracing::debug!("ollama warm-up done in {:?}: model={model}", started.elapsed());
+    Ok(())
 }
 
 pub async fn list_models(port: u16) -> Result<Vec<OllamaModel>> {
@@ -273,7 +327,33 @@ fn strip_think_blocks(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_chat_body, formatting_diverged, strip_think_blocks, strip_transcript_tags, OllamaModel, TagsResponse};
+    use super::{
+        build_chat_body, build_warm_body, formatting_diverged, strip_think_blocks, strip_transcript_tags, OllamaModel,
+        TagsResponse, NUM_CTX, REQUEST_TIMEOUT,
+    };
+
+    #[test]
+    fn warm_body_loads_the_model_with_the_formatting_footprint() {
+        // An empty messages array is Ollama's "load into memory" request. It
+        // must carry the same num_ctx and keep_alive as the formatting call,
+        // or Ollama reloads the model with a different context at format time
+        // and the warm-up bought nothing.
+        let body = build_warm_body("m", false);
+        assert_eq!(body["model"], "m");
+        assert_eq!(body["messages"].as_array().map(Vec::len), Some(0));
+        assert_eq!(body["keep_alive"], "30m");
+        assert_eq!(body["options"]["num_ctx"], NUM_CTX);
+        assert!(body.get("think").is_none());
+        assert_eq!(build_warm_body("m", true)["think"], false);
+    }
+
+    #[test]
+    fn formatting_call_gives_up_before_the_user_does() {
+        // Owner ruling 2026-09-05: a raw transcript in 12 s beats a formatted
+        // one in 45. The gating finding was a 40 s cold load inside the old
+        // 45 s budget, delivered into the wrong window.
+        assert_eq!(REQUEST_TIMEOUT.as_secs(), 12);
+    }
 
     #[test]
     fn chat_body_pins_context_and_bounds_generation() {

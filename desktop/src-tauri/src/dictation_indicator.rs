@@ -63,6 +63,9 @@ pub struct DictationIndicatorPayload {
     pub shortcut: Option<String>,
     /// "warning" (amber: no mic, focus lost) | "error" (red) — ring colour of "error".
     pub severity: Option<String>,
+    /// "formatting-skipped" — "completed" delivered the raw transcript because
+    /// the Ollama pass failed or timed out.
+    pub fallback: Option<String>,
 }
 
 #[derive(Default)]

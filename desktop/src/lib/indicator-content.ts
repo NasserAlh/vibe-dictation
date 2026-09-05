@@ -118,14 +118,21 @@ export function pillContent(state: PillInput, now: number): PillContent {
 			if (state.message) label = state.message
 			else if (state.phase === 'loading-model') label = m.dictationIndicatorLoadingModel()
 			else if (state.phase === 'transcribing') label = m.dictationIndicatorTranscribingFor({ seconds: Math.floor(sinceMs / 1000) })
-			else if (state.phase === 'formatting') label = m.dictationIndicatorFormatting()
+			// Elapsed seconds on the formatting phase too: a cold Ollama load
+			// (40 s in the v1.5.0 gating finding) must be visible as such.
+			else if (state.phase === 'formatting') label = m.dictationIndicatorFormattingFor({ seconds: Math.floor(sinceMs / 1000) })
 			else label = m.dictationIndicatorTranscribing()
 			return { ring: 'blue', left: 'spinner', label, right: state.lang ? { badge: state.lang } : null, sub: null }
 		}
 		case 'completed': {
 			const inserted = state.output === 'type'
 			let label: string
-			if (typeof state.words === 'number') {
+			if (state.fallback === 'formatting-skipped') {
+				// The Ollama pass failed or timed out; the raw transcript went
+				// out. Said plainly, so a silent downgrade never looks like a
+				// formatted result.
+				label = inserted ? m.dictationIndicatorFormattingSkippedInserted() : m.dictationIndicatorFormattingSkippedCopied()
+			} else if (typeof state.words === 'number') {
 				label = inserted ? m.dictationIndicatorInsertedWords({ words: state.words }) : m.dictationIndicatorCopiedWords({ words: state.words })
 			} else {
 				label = inserted ? m.dictationIndicatorInserted() : m.dictationIndicatorCopied()

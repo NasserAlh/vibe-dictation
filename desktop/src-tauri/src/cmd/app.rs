@@ -90,6 +90,44 @@ pub fn type_text(text: String) -> Result<()> {
     Ok(())
 }
 
+/// The foreground window at this instant, as an integer handle (0 on other
+/// platforms). The frontend records it at key release and hands it back to
+/// `type_text_if_foreground`, so text is never typed into a window the user
+/// moved to while transcription or formatting was still running.
+#[tauri::command]
+pub fn foreground_window_handle() -> isize {
+    #[cfg(windows)]
+    {
+        foreground_window()
+    }
+    #[cfg(not(windows))]
+    {
+        0
+    }
+}
+
+/// `type_text`, guarded: types only if the foreground window is still
+/// `target` (the window that held the cursor at key release) and returns
+/// whether it did. On a mismatch nothing is typed and the caller delivers by
+/// clipboard — the same rule `inject_live_update` applies to live dictation.
+/// Found gating v1.5.0 (2026-09-05): a 40 s Ollama cold load, then the text
+/// went to whatever window was in front by then.
+#[tauri::command]
+pub fn type_text_if_foreground(text: String, target: isize) -> Result<bool> {
+    #[cfg(windows)]
+    {
+        let current = foreground_window();
+        if current != target {
+            tracing::info!("type_text refused: foreground window changed since key release");
+            return Ok(false);
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = target;
+    type_text(text)?;
+    Ok(true)
+}
+
 /// Frozen until `start_live_typing` arms a session; re-frozen the moment the
 /// foreground window changes, and only the next session can un-freeze.
 static LIVE_TYPING_FROZEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);

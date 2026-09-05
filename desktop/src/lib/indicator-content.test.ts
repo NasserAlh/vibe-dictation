@@ -129,8 +129,16 @@ describe('pillContent', () => {
 		const base = { sessionId: 6, status: 'transcribing' as const, lang: 'en' as const, since: 10_000 }
 		expect(pillContent({ ...base, phase: 'loading-model' }, 12_000)).toEqual({ ring: 'blue', left: 'spinner', label: 'Loading model…', right: { badge: 'en' }, sub: null })
 		expect(pillContent({ ...base, phase: 'transcribing' }, 18_400).label).toBe('Transcribing 8 s…')
-		expect(pillContent({ ...base, phase: 'formatting' }, 30_000).label).toBe('Formatting…')
+		// A slow Ollama (cold model load) must be visible: elapsed seconds, like transcribing.
+		expect(pillContent({ ...base, phase: 'formatting' }, 30_000).label).toBe('Formatting 20 s…')
+		expect(pillContent({ ...base, phase: 'formatting' }, 10_400).label).toBe('Formatting 0 s…')
 		expect(pillContent({ sessionId: 6, status: 'transcribing' }, 0)).toEqual({ ring: 'blue', left: 'spinner', label: 'Transcribing…', right: null, sub: null })
+	})
+
+	it('completed: says so when formatting was skipped and the raw transcript was delivered', () => {
+		expect(pillContent({ sessionId: 7, status: 'completed', output: 'type', words: 12, fallback: 'formatting-skipped' }, 0).label).toBe('Formatting skipped — inserted raw')
+		expect(pillContent({ sessionId: 7, status: 'completed', output: 'clipboard', fallback: 'formatting-skipped' }, 0).label).toBe('Formatting skipped — copied raw')
+		expect(pillContent({ sessionId: 7, status: 'completed', output: 'type', words: 12, fallback: 'formatting-skipped' }, 0).ring).toBe('green')
 	})
 
 	it('transcribing: an explicit message (the "still transcribing" hint) wins over the phase', () => {

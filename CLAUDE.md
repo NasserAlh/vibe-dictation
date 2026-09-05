@@ -90,12 +90,20 @@ The core loop lives in [desktop/src/providers/hotkey.tsx](desktop/src/providers/
    to a user-run local Ollama server (`ollama_format_text` →
    [ollama.rs](desktop/src-tauri/src/ollama.rs), loopback-only, model chosen from
    Ollama's `/api/tags`). Any failure falls back to the raw transcript — dictation is
-   never lost to a dead Ollama. The transcript travels wrapped in `<transcript>` tags
+   never lost to a dead Ollama. The formatting call has a 12 s budget (owner ruling
+   2026-09-05: a raw transcript in 12 s beats a formatted one in 45); the model's
+   cold load is paid by a fire-and-forget loopback warm-up (`ollama_warm_model`)
+   at hotkey-down, in parallel with the recording. The transcript travels wrapped in `<transcript>` tags
    with a compile-time guard epilogue, and a deterministic divergence check falls back
    to the raw transcript when the model *answers* a command-shaped dictation instead
    of rewriting it (prompt injection by dictation).
-6. Result is routed by output mode: **type** → `type_text` command (enigo synthetic
-   keystrokes), or **clipboard** → clipboard manager. Clipboard is the RTL-safe fallback
+6. Result is routed by output mode: **type** → `type_text_if_foreground` (enigo
+   synthetic keystrokes, but only into the window that held the cursor at key
+   release — recorded by `foreground_window_handle`; if focus moved while
+   transcription or formatting ran, the text goes to the clipboard with the amber
+   "Focus changed" pill, the rule live dictation already followed;
+   [lib/delivery.ts](desktop/src/lib/delivery.ts) is the pure decision), or
+   **clipboard** → clipboard manager. Clipboard is the RTL-safe fallback
    for Arabic; enigo mangles RTL ordering in some targets. MS Word is the reference
    injection target — the Windows 11 tabbed Notepad mangles synthetic keystrokes.
 7. The floating [dictation_indicator](desktop/src-tauri/src/dictation_indicator.rs) window

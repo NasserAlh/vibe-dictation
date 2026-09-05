@@ -20,6 +20,8 @@ export interface DictationIndicatorState {
 	hint?: DictationIndicatorHint
 	shortcut?: string
 	severity?: DictationIndicatorSeverity
+	/** "completed" delivered the raw transcript because the Ollama pass failed or timed out. */
+	fallback?: 'formatting-skipped'
 }
 
 export const getDictationIndicatorEnabled = () => invoke<boolean>('get_dictation_indicator_enabled')

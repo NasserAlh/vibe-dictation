@@ -12,7 +12,8 @@ import { hideDictationIndicator, showDictationIndicator, type DictationIndicator
 import { injectionDiff, isLikelyPartialHallucination, stableLivePrefix } from '~/lib/live-typing'
 import { applyCorrections, parseVocabulary, vocabularyPrompt, type Vocabulary } from '~/lib/vocabulary'
 import * as config from '~/lib/config'
-import { defaultLlmFormatPrompt, defaultOllamaPort, formatWithOllama } from '~/lib/ollama'
+import { defaultLlmFormatPrompt, defaultOllamaPort, formatWithOllama, warmOllamaModel } from '~/lib/ollama'
+import { planDelivery } from '~/lib/delivery'
 import { forcedLangOptions, type DictationLang } from '~/lib/dictation-lang'
 import { acceleratorsCollide } from '~/lib/accelerator'
 import { classifyStartRecordError, startFailureMessage, type StartFailureKind } from '~/lib/indicator-messages'
@@ -154,6 +155,10 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const liveFrozenRef = useRef(false)
 	// True while the current dictation session is live-typing at the cursor.
 	const liveSessionRef = useRef(false)
+	// The window holding the cursor at key release — the only window the
+	// final text may be typed into (type_text_if_foreground). 0 = unknown,
+	// which the guard treats as "changed": clipboard, never a guess.
+	const targetWindowRef = useRef(0)
 	// Startup ready-feedback: the indicator shows "Starting…" from launch
 	// (seeded on the Rust side); the first registration pass replaces it with
 	// a ready flash and hides it. One-shot — later re-registrations (settings
@@ -326,6 +331,17 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 			hint: hotkeyActivationModeRef.current === 'toggle' ? 'toggle' : 'release',
 			shortcut: registeredByLangRef.current[lang],
 		})
+		// Warm the formatting model while the user speaks, so the transcript
+		// does not wait on a cold load afterwards (v1.5.0 gating finding: a
+		// 40 s load). Loopback only, fire-and-forget; a failure here changes
+		// nothing — the formatting call has its own short budget and falls
+		// back to the raw transcript.
+		const llm = hotkeyLlmRef.current
+		if (llm.enabled && llm.model) {
+			warmOllamaModel({ model: llm.model, port: llm.port }).catch((error) => {
+				console.error('Ollama warm-up error:', error)
+			})
+		}
 		try {
 			vocabRef.current = parseVocabulary(hotkeyVocabularyRef.current)
 			const cached = audioDevicesCacheRef.current
@@ -380,6 +396,12 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		if (activeLangRef.current !== lang) return
 		isStoppingRef.current = true
 		try {
+			// Remember where the cursor is *now*: the final text is typed only
+			// if this window is still in front when it is ready (planDelivery).
+			targetWindowRef.current = await invoke<number>('foreground_window_handle').catch((error) => {
+				console.error('foreground_window_handle error:', error)
+				return 0
+			})
 			await emit('stop_record')
 		} catch (error) {
 			isStoppingRef.current = false
@@ -442,6 +464,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				// Optional LLM formatting pass via local Ollama. Never lose the
 				// dictation: on any failure, fall through with the raw transcript.
 				const llm = hotkeyLlmRef.current
+				let formattingSkipped = false
 				if (llm.enabled && llm.model && resultText) {
 					setPhase('formatting')
 					try {
@@ -449,6 +472,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 						if (formatted) resultText = formatted
 					} catch (error) {
 						console.error('Ollama formatting error:', error)
+						formattingSkipped = true
 						await notify('Vibe', m.llmFormatFailed())
 					}
 				}
@@ -457,8 +481,13 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 				let effectiveOutput = hotkeyOutputModeRef.current
 				let focusLost = false
 				if (effectiveOutput === 'type') {
+					let foregroundChanged = false
 					if (!liveSessionRef.current) {
-						await invoke('type_text', { text: resultText })
+						// Typed only if the window recorded at key release is still
+						// in front; refused otherwise (the check and the typing are
+						// one Rust call, so nothing can slip in between).
+						const applied = await invoke<boolean>('type_text_if_foreground', { text: resultText, target: targetWindowRef.current })
+						foregroundChanged = !applied
 					} else if (!liveFrozenRef.current) {
 						// Live dictation already typed the stable prefix; reconcile
 						// the target to the definitive transcript instead of
@@ -469,9 +498,12 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 							if (!applied) liveFrozenRef.current = true
 						}
 					}
-					if (liveSessionRef.current && liveFrozenRef.current) {
-						// Focus left the target window mid-dictation. Never type
-						// into whatever is focused now — deliver via clipboard.
+					const plan = planDelivery({ output: 'type', liveSession: liveSessionRef.current, liveFrozen: liveFrozenRef.current, foregroundChanged })
+					if (plan.focusLost) {
+						// Focus left the window that held the cursor — during a
+						// live session, or while transcription/formatting ran.
+						// Never type into whatever is focused now — deliver via
+						// clipboard.
 						effectiveOutput = 'clipboard'
 						focusLost = true
 						await clipboard.writeText(resultText)
@@ -487,7 +519,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 					// for the pill; the notification above keeps the full sentence.
 					finishIndicator('error', { message: m.dictationIndicatorFocusLost(), severity: 'warning' })
 				} else {
-					finishIndicator('completed', { output: effectiveOutput, words })
+					finishIndicator('completed', { output: effectiveOutput, words, ...(formattingSkipped ? { fallback: 'formatting-skipped' as const } : {}) })
 				}
 			} catch (error) {
 				console.error('Hotkey transcription error:', error)

@@ -20,6 +20,17 @@ pub async fn ollama_list_models(port: Option<u16>) -> Result<Vec<ollama::OllamaM
         .map_err(map_error)
 }
 
+/// Fire-and-forget model warm-up at hotkey-down (see `ollama::warm_model`).
+#[tauri::command]
+pub async fn ollama_warm_model(model: String, port: Option<u16>) -> Result<(), CommandError> {
+    if model.trim().is_empty() {
+        return Ok(());
+    }
+    ollama::warm_model(port.unwrap_or(ollama::DEFAULT_OLLAMA_PORT), &model)
+        .await
+        .map_err(map_error)
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct OllamaFormatOptions {
     pub model: String,
