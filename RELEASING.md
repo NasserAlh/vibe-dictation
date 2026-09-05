@@ -548,11 +548,88 @@ identical to `1c89500`, and the binary self-reports `c48c6f8`. Tree clean.
 - `cargo clean` after the installer-script audit below: 5,306 files
   removed, `target\` confirmed gone.
 
-### Verification record against the rebuilt candidate (opened 2026-09-05 evening)
+### Verification record against the second candidate (opened 2026-09-05 evening) — superseded
 
 Artifact under test: installed `vibe.exe` `B5D39FC3…478C`, `sona.exe`
-`96C7BA10…F1207`. Full six, no inheritance — the superseded candidate's
+`96C7BA10…F1207`. Full six, no inheritance — the first candidate's
 results above do not carry. Nothing is tagged or published.
+
+**This candidate is superseded too (2026-09-05, late evening).** A second
+defect was found during gating, before criteria 3, 5 and 6 were run, and
+fixed on `main` in `3b5cf08`; the candidate was rebuilt from that commit
+(next section). Criteria 1, 2 and 4 below stand as the record of what was
+checked on this build; 1 and 2 are re-run on the third candidate, and
+criterion 4 — a firewall-and-downloader check whose code did not change in
+`3b5cf08` — is carried as PROVISIONAL until re-run.
+
+**Defect found during gating — "Formatting…" for 40 s, then the text went
+to the wrong window (2026-09-05, first dictation with LLM formatting on).**
+Owner observation: with LLM formatting on (`qwen3.5:9b`, Ollama running,
+model not yet loaded) the pill stayed on "Formatting…" and no text appeared
+anywhere; the second dictation worked. Reconstruction from the app log,
+session 1 of the 20:57 launch:
+
+- 18:08:21.776 UTC recording starts; 18:08:40.539 key release
+  (`record_finish`); model large-v3 loaded 18:08:42.459; transcription
+  complete 18:08:43.027 (136 characters).
+- 18:08:43.032 `ollama format start` — 18:09:23.309 `ollama format done in
+  40.27687s: output_chars=136`. The call succeeded inside the 45 s
+  `REQUEST_TIMEOUT`, so no timeout and no fallback: the formatted (same
+  length, no divergence warning) text was used.
+- 18:09:23.462 pill `completed` — i.e. the delivery ran: output mode was
+  **type**, so `type_text` sent 136 characters of synthetic keystrokes
+  **42.8 s after key release** to whatever window was in the foreground at
+  that moment. `type_text` had no foreground guard (only live dictation
+  had one) and logs nothing, so where the keystrokes landed is not
+  recorded; the pill said "Inserted · N words".
+- No second hotkey press was dropped: between 18:08:43 and 18:09:23 there is
+  no "Still transcribing — wait" show line (a press while transcribing
+  always produces one). Session 2 started 18:09:28, its format call took
+  0.26 s (model resident), and it worked.
+
+So what actually happened to the text: it was **not lost to Ollama and not
+dropped** — it was typed, late, into the wrong place, with a green pill
+that said otherwise. Cause: three things compounded — the formatting budget
+(45 s) allowed a cold model load to complete inside it; the non-live type
+path had no foreground guard; and the pill showed a static "Formatting…"
+with no elapsed time, so a 40 s wait looked like a hang. The
+"never lost to Ollama" promise in CLAUDE.md held; the "typed at the cursor"
+promise did not.
+
+**Fix in `3b5cf08`** (frontend + Rust, no dependency change, owner-specified):
+
+- (a) **Warm-up at hotkey-down.** `ollama::warm_model` — an empty
+  `/api/chat` load request with the same `num_ctx` (8192) and `keep_alive`
+  (30m) as the formatting call, through the same client builder and the
+  same `127.0.0.1` host constant, behind the same cloud-model block —
+  fired by `handleHotkeyDown` when LLM formatting is on, fire-and-forget,
+  so the model loads while the user speaks. Its own budget is 120 s
+  (nothing waits on it). Unit test: `warm_body_loads_the_model_with_the_
+  formatting_footprint`.
+- (b) **`REQUEST_TIMEOUT` 45 s → 12 s**, comment rewritten; unit test pins
+  the value. A raw transcript in 12 s beats a formatted one in 45.
+- (c) **Foreground guard for the non-live type path.** `handleHotkeyUp`
+  records `foreground_window_handle()` at key release; delivery goes
+  through `type_text_if_foreground(text, target)`, which types only if the
+  foreground window is still that one (check and typing in one Rust call)
+  and otherwise returns `false` — the caller then copies to the clipboard,
+  sends the existing "Focus changed" notification and shows the amber pill,
+  exactly the live-dictation rule. `lib/delivery.ts` (`planDelivery`) is
+  the pure decision, five unit tests. An unknown target (0) counts as
+  changed: clipboard, never a guess.
+- (d) **Pill.** "Formatting N s…" (elapsed seconds, like transcribing) so a
+  slow Ollama is visible as such; when the pass fails or times out the
+  completed label reads "Formatting skipped — inserted raw" / "… copied
+  raw" (new payload field `fallback`, mirrored in
+  `dictation_indicator.rs`). Two pill unit tests. New strings in both
+  locales (Arabic is machine wording).
+
+Check set at `3b5cf08`: vitest 77/77 (six new tests), tsc, eslint,
+`check_i18n`, `cargo fmt --check`, clippy clean, Rust 43/43 (two new);
+`cargo clean` afterwards, `target\` gone. CLAUDE.md's data-flow steps 5 and
+6 updated. Not changed: the divergence fallback inside `format_text` still
+returns the raw transcript silently (the frontend cannot tell it from a
+rewrite), so "Formatting skipped" covers failures and timeouts only.
 
 1. **Strings audit — PASSED 2026-09-05** (same method as on the superseded
    candidate). Installed `vibe.exe` (`B5D39FC3…478C`): forbidden patterns
@@ -660,6 +737,92 @@ relaunched from the Start-menu shortcut twice more this evening for the
 debugging-port checks in item 4; each forced stop orphaned a `sona.exe`,
 killed by hand before the clean relaunch (the last at 20:57 local, Ready
 pill t=86 ms, one `sona.exe` child).
+
+### Release candidate rebuilt a second time on machine A, 2026-09-05 late evening (third candidate, not gated)
+
+Owner ruling 2026-09-05: rebuild from the fix commit. Built from `3b5cf08`
+itself (tree clean at build time; the record below was written afterwards),
+binary self-reports `3b5cf08`.
+
+- MSVC shell (`link.exe` MSVC 14.44.35207), `uv run scripts/pre_build.py`
+  first (both sidecars present, no fetch), corepack pnpm 10.4.1,
+  `pnpm exec tauri build`, cargo 2 m 16 s, 189 s end to end.
+- Installer `Vibe Dictation_1.5.0_x64-setup.exe` SHA-256
+  `1AC9051B5446241486E20DDACAC54C9BB9119722A500DFA466086B4446899EC6`,
+  44,409,618 bytes. Raw `target\release\vibe.exe` SHA-256
+  `55FC8DAE737AA48518300BEE082EAC06B69C7E302858C1847E5D11202EBE307D`,
+  8,628,736 bytes.
+- Install: the owner's running instance (second candidate) was ended with
+  `Stop-Process` — no preference write pending — and its orphaned
+  `sona.exe` killed; NSIS `/S` over the second candidate, exit 0, nothing
+  auto-launched. Installed `vibe.exe` SHA-256
+  `A5D1E7E94FB1BF36270112510A5784F1C941EA6746896A15E8F1B5EDA07CC125`,
+  8,628,736 bytes (differs from the raw build as in every prior record);
+  `sona.exe`, `ffmpeg.exe` and the five DLLs beside it match the pin table
+  byte for byte; uninstall key 1.5.0.
+- HKCU Run entry `"C:\Users\nasser\AppData\Local\Vibe Dictation\vibe.exe"`,
+  unchanged before and after launch. Both outbound-block rules still
+  enabled and bound to the installed exes (the owner has not disabled the
+  `vibe.exe` fixture yet).
+- **Preferences untouched by the install**, as expected: the store read
+  back afterwards holds LLM formatting on with `qwen3.5:9b` (set by the
+  owner 18:05 UTC), output mode type, model large-v3; leveldb reopened with
+  no corruption line. Nothing to restore. Both models present in the models
+  folder, no fixture.
+- Launched from `Start Menu\Programs\Vibe Dictation.lnk` (no debugging
+  environment; first attempt's shell command failed before launching and
+  was repeated): log "App Info: Commit Hash: 3b5cf08", Ready pill at
+  t=106 ms, one `sona.exe` child. Tray icon not checked.
+- Archive `C:\Users\nasser\Dev\releases\vibe-dictation\v1.5.0\`: the second
+  candidate's installer renamed to
+  `Vibe Dictation_1.5.0_x64-setup-superseded-2026-09-05b.exe` (re-hashed
+  `C41202E4…99DB`, unchanged; the first candidate keeps its
+  `-superseded-2026-09-05` name); the third copied in and re-hashed
+  `1AC9051B…9EC6`, 44,409,618 bytes, equal to the build.
+- `cargo clean` after the audits below: 5,306 files, `target\` gone.
+
+### Verification record against the third candidate (opened 2026-09-05 late evening)
+
+Artifact under test: installed `vibe.exe` `A5D1E7E9…C125`, `sona.exe`
+`96C7BA10…F1207`. Full six, no inheritance. Nothing is tagged or published.
+
+1. **Strings audit — PASSED 2026-09-05** (same method as before).
+   Installed `vibe.exe` (`A5D1E7E9…C125`): forbidden patterns zero in both
+   encodings; control `sona` 91× (+3 UTF-16); `updater` 5 — the known h2 /
+   rustls / Win32 substrings; `huggingface.co` 2 — the manifest prefix and
+   the "failed to reach huggingface.co" string; no DLL-name hits. Installed
+   `sona.exe` (`96C7BA10…F1207`, unchanged): forbidden zero, control 73×,
+   `huggingface.co` zero, DLL names import table only, the 82 `updater`
+   hits the embedded-JavaScript identifiers. **This build's own
+   `installer.nsi`**: `!define INSTALLWEBVIEW2MODE ""` (line 51),
+   `hooks.nsh` included (line 28), the template's only `NSISdl::download`
+   (line 535) inside the compiled-out `downloadBootstrapper` branch;
+   `hooks.nsh` 29 lines, zero forbidden hits. `makensis /V4` recompile to
+   a scratch path: exit 0, 44,408,120 bytes; packed `vibe.exe` (8,628,736 —
+   this build's raw exe), the five DLLs, `ffmpeg.exe`, `sona.exe` and the
+   three plugins; 170 plugin commands, **zero from `NSISdl`**. `tauri build
+   --no-bundle -- --no-default-features` (1 m 34 s): `vibe.exe` 8,602,112
+   bytes, `947947CA…44E7` — `huggingface.co` **zero**, forbidden zero,
+   control 91×; never launched; `cargo clean` followed.
+2. **Install / autostart — PASSED 2026-09-05.** Installed `vibe.exe`
+   re-hashed `A5D1E7E9…C125` (8,628,736 bytes), equal to the install
+   record; HKCU Run `Vibe Dictation` = the quoted installed path, unchanged
+   after the Start-menu launch; store `app_config.json`
+   `"autostart_enabled": true`, matching the entry's presence.
+3. **Netstat sampler during live dictation — NOT RUN** (owner;
+   `scripts/netstat-sampler.ps1`; LLM formatting is on and the model is
+   `qwen3.5:9b`, so the sample will cover the Ollama loopback path and the
+   new warm-up request).
+4. **Firewall-block test — PROVISIONAL.** Passed on the second candidate
+   (record above: rules enabled, five dictations under the block, four
+   downloads failed cleanly with no `.part`). `3b5cf08` changed no
+   downloader, firewall or installer code and no dependency, but the
+   artifact is new; counts as MET only after one download attempt fails
+   cleanly on this build with the `vibe.exe` rule enabled — the rule is
+   still enabled, and `ggml-large-v3-turbo.bin` is present, so the attempt
+   needs the fixture rename again or a fresh models folder.
+5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
+6. **Live-dictation functional check — NOT RUN** (owner).
 
 ## Shipped in v1.4.1 (2026-08-25)
 
