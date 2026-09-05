@@ -301,7 +301,91 @@ subsection above — `vibe.exe` `F72E57EC…F585A8`, `sona.exe` `96C7BA10…F120
 Carries the debt moved from v1.4.1 (criteria 4, 5, 6) plus everything else:
 the full six, no inheritance. Nothing is tagged or published.
 
-1. **Strings audit — PASSED 2026-09-05.** The raw `target\release\vibe.exe`
+**This candidate is superseded (2026-09-05, afternoon).** The defect below
+was found during the owner's criterion-4 step and fixed on `main` in
+`0fd58ec`, which lands after `f51fa20`, so the installed candidate carries
+the defect. Consequence: the candidate must be **rebuilt from the fixed
+tree and reinstalled**, and criteria **1 and 2 re-run against the new
+artifact**, before criteria 3–6 can count — the two PASSED entries below
+stand only as the record of what was checked on the superseded build.
+Not rebuilt yet (owner instruction: stop and report).
+
+**Defect found during gating — "No model selected" on the first hotkey
+press after installing the candidate (2026-09-05, criterion-4 step).**
+Owner observation: the first press showed the red "No model selected" pill
+and a "Vibe — No model selected" notification while Settings → Select Model
+showed "Large V3" and the download list showed Large V3 as Installed.
+Evidence and cause, from the app log and the WebView2 profile:
+
+- The saved model preference is `prefs_model_path` in WebView2
+  localStorage (`usehooks-ts` `useLocalStorage`, `providers/preference.tsx`),
+  loaded synchronously at mount; there is no Rust-side copy and nothing
+  checked that the file existed.
+- At both candidate launches (08:55:42 UTC and 10:38:09 UTC) the log shows
+  `load_model` for `…\ggml-large-v3-turbo.bin` failing with "The system
+  cannot find the file specified" — the opt-in warmup, logged as a WARN and
+  nothing else. That file has been `ggml-large-v3-turbo.bin.hold` since
+  2026-09-04 (the criterion-4 fixture). Session 1 (10:38:25–34 UTC) tried
+  the same load on the hotkey and put the raw sona error on the pill.
+- 10:38:49 UTC: Settings opened; `loadModels` in `settings/view-model.ts`
+  found the saved path absent from the folder listing and wrote
+  `prefs_model_path = null` silently (a second null at 10:39:09 UTC on
+  window focus). Sessions 2 and 3 (10:39:18 and 10:39:33 UTC) then failed
+  immediately with the literal `throw new Error('No model selected')`
+  (`hotkey.tsx`) — the text the owner saw. Both download attempts
+  (10:39:02 and 10:40:26 UTC) requested large-v3-turbo, as expected with
+  the fixture in place.
+- **Why the saved path was the turbo model at all**, when the owner had
+  selected large-v3 on 2026-08-29 and again on 2026-09-03 (and the 09-04
+  board called large-v3 "the active model"): the profile's localStorage
+  leveldb log (`%LOCALAPPDATA%\net.nasserhub.dictation\EBWebView\Default\
+  Local Storage\leveldb\000003.log`) has a **corrupt record at byte 2631**
+  — its CRC32C does not match (stored `a741fd9b`, computed `fd781406`) —
+  and leveldb's own LOG shows it dropping everything after that record at
+  every open ("Recovering log #3 … dropping 3505 bytes; Corruption: checksum
+  mismatch" at 11:55:41, "dropping 3588 bytes" at 13:38:08 local). The last
+  intact `prefs_model_path` write is the **2026-08-25 16:50 UTC selection of
+  large-v3-turbo**; the large-v3 writes of 2026-08-29 14:04 UTC and
+  2026-09-03 20:30 UTC, the null of 2026-09-04 19:56 UTC (the previous
+  session opening Settings after the rename) and today's two nulls all sit
+  past the bad record and are discarded at the next launch. So every launch
+  on machine A since at least 2026-08-29 has started from the turbo
+  selection, whatever was chosen in the session before — which also means
+  the v1.4.1 criterion-3 dictations of 2026-09-04 ran on large-v3-turbo,
+  not large-v3 (that record names no whisper model; nothing in it changes).
+  The corruption is environmental (a torn write in the WebView2 profile,
+  origin not determinable — the last intact record is a launch on
+  2026-08-28 09:21 UTC); no code change can repair it. **Not touched:**
+  resetting it means deleting that leveldb directory with the app closed,
+  which discards every stored preference (hotkeys, output mode, LLM
+  settings, vocabulary) — owner's call.
+- The "Large V3" reading in the dropdown is **not corroborated** by the
+  stored data: no large-v3 write exists after the nulls, and the dropdown is
+  bound to the saved value (Radix Select shows its placeholder for an
+  undefined value). One code path did make the dropdown show a choice the
+  user never made — `getDefaultModel` in `settings/view-model.ts` silently
+  saved the first model file in the folder whenever the preference was
+  empty (in this folder that file is `ggml-large-v3.bin`) — and it is
+  removed by the fix; whether it ran in the owner's session cannot be told
+  from the log.
+
+So, of the two candidate causes, it was the **stale path to the renamed
+file** (the 2026-08-25 turbo selection resurrected by the corrupt storage
+log, then made unreadable by the fixture rename), not a dropdown displaying
+an unsaved model. Fix in `0fd58ec` (frontend only, no dependency change):
+at startup the saved path is checked with `fs.exists` (`lib/model-path.ts`,
+unit-tested: a check that itself fails keeps the path); a missing file
+clears the preference, sends a notification naming the file, and puts
+"Model file not found: <name>" on the pill in place of the ready flash;
+warmup waits for the check; the silent Settings default is gone — a model
+is saved only through the dropdown or a completed download. New string
+`modelFileMissing` in both locales (Arabic wording is machine wording,
+awaiting the owner's check). Check set at `0fd58ec`: vitest 71/71 (five new
+tests), tsc, eslint, `check_i18n`, `cargo fmt --check`, clippy, 41/41 Rust;
+`cargo clean` afterwards, `target\` gone.
+
+1. **Strings audit — PASSED 2026-09-05 on the superseded candidate; re-run
+   required on the rebuilt artifact.** The raw `target\release\vibe.exe`
    of the candidate no longer existed (`cargo clean` in the install record),
    so the audit ran on the **installed** exes, scanning the bytes both as
    Latin-1 (ASCII/UTF-8 strings) and as UTF-16LE, patterns as an array.
@@ -357,7 +441,8 @@ the full six, no inheritance. Nothing is tagged or published.
      `393473FE…1EFD` — `huggingface.co` **zero**, forbidden zero, control
      91×. `cargo clean` afterwards removed 5,306 files (2.3 GiB); `target\`
      confirmed gone; no `vibe.exe`/`sona.exe` process running.
-2. **Install / autostart — PASSED 2026-09-05** (re-checked after the
+2. **Install / autostart — PASSED 2026-09-05 on the superseded candidate;
+   re-run required on the rebuilt artifact** (re-checked after the
    install record, 12:2x local, app not running at the time — its log ends
    with the sona teardown at 09:01:57 UTC; the launch itself is in the install
    record above, Ready pill at t=211 ms). Installed `vibe.exe` re-hashed
