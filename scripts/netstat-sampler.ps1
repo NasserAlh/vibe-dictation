@@ -55,9 +55,13 @@ function Get-AppPids {
     return $r
 }
 
-function Test-Loopback([string]$endpoint) {
+function Test-Loopback([string]$endpoint, [bool]$isRemote = $false) {
     # endpoint is "addr:port" — IPv6 is "[::1]:port"
     if ($endpoint -match '^\[(.+)\]:\d+$') { $a = $Matches[1] } else { $a = ($endpoint -replace ':\d+$', '') }
+    # netstat prints the unbound remote side of a LISTENING (or UDP) row as
+    # 0.0.0.0:0 / [::]:0 / *:*; that is a placeholder, not a peer. A wildcard
+    # LOCAL address on a listener is the real failure and is still caught.
+    if ($isRemote -and ($endpoint -eq '0.0.0.0:0' -or $endpoint -eq '[::]:0' -or $endpoint -eq '*:*')) { return $true }
     return ($a -eq '127.0.0.1' -or $a -like '127.*' -or $a -eq '::1' -or $a -eq '*')
 }
 
@@ -165,7 +169,7 @@ if ($Analyze) {
             $key = "{0,-4} {1,-24} {2,-24} {3,-12} {4}" -f $r.Proto, $r.Local, $r.Remote, $r.State, $owner
             if (-not $dist.ContainsKey($key)) { $dist[$key] = 0 }
             $dist[$key]++
-            if (-not ((Test-Loopback $r.Local) -and (Test-Loopback $r.Remote))) { $nonLoop[$key] = $dist[$key] }
+            if (-not ((Test-Loopback $r.Local) -and (Test-Loopback $r.Remote $true))) { $nonLoop[$key] = $dist[$key] }
         }
         if ($sawListen) { $listenPerSample++ }
     }
