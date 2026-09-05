@@ -357,6 +357,17 @@ the full six, no inheritance. Nothing is tagged or published.
      `393473FE…1EFD` — `huggingface.co` **zero**, forbidden zero, control
      91×. `cargo clean` afterwards removed 5,306 files (2.3 GiB); `target\`
      confirmed gone; no `vibe.exe`/`sona.exe` process running.
+2. **Install / autostart — PASSED 2026-09-05** (re-checked after the
+   install record, 12:2x local, app not running at the time — its log ends
+   with the sona teardown at 09:01:57 UTC; the launch itself is in the install
+   record above, Ready pill at t=211 ms). Installed `vibe.exe` re-hashed
+   `F72E57EC175346CAE28D8B42D6BC537A46C9C6A1DC655A0A5C27E3FDB6F585A8`,
+   8,612,352 bytes, equal to the install record. HKCU
+   `…\CurrentVersion\Run` value `Vibe Dictation` =
+   `"C:\Users\nasser\AppData\Local\Vibe Dictation\vibe.exe"` — quoted,
+   the installed path. Store
+   `%APPDATA%\net.nasserhub.dictation\app_config.json` reads
+   `"autostart_enabled": true`, matching the entry's presence. All three hold.
 
 3. **Netstat sampler during live dictation — NOT RUN** (owner run pending;
    `scripts/netstat-sampler.ps1` prepared).
