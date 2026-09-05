@@ -898,6 +898,37 @@ gate before publication. Two limitations stand in the record above: the
 owner's statement), and criteria 5 and 6 are, as always, the owner's
 observation.
 
+### Publication (2026-09-06)
+
+- Tag `v1.5.0`, annotated, at `1847c45` ("Record v1.5.0 verification and
+  ship" — the record commit; the binary was built from `3b5cf08`, three
+  documentation-only commits earlier), pushed 2026-09-06 00:17 local.
+- GitHub Release created 2026-09-05T21:17:17Z (2026-09-06 00:17:17 local)
+  with `gh release create`, title "v1.5.0 — Indicator rework, offline
+  installer, Ollama guard", notes body owner-confirmed after three edits
+  (absolute links, "during dictation", structure check).
+  URL: <https://github.com/NasserAlh/vibe-dictation/releases/tag/v1.5.0>
+- Asset: `Vibe.Dictation_1.5.0_x64-setup.exe`, 44,409,618 bytes,
+  <https://github.com/NasserAlh/vibe-dictation/releases/download/v1.5.0/Vibe.Dictation_1.5.0_x64-setup.exe>.
+  The archived installer was re-hashed immediately before upload
+  (`1AC9051B5446241486E20DDACAC54C9BB9119722A500DFA466086B4446899EC6`,
+  equal to the build); the published asset was downloaded back with
+  `gh release download` to session scratch and re-hashed to the **same
+  value**. The live release body was read back and compared equal to the
+  notes file (GitHub appends one trailing newline).
+- Notes carry a full-gate verification statement, the installer and
+  installed-exe hashes, the dotted asset name, the unsigned-installer
+  warning, and the three known issues (0.0.6 file version — fix in the next
+  release, owner ruling; RTL injection; the WebView2 store corruption and
+  its workaround). The in-repo notes copy (`docs/RELEASE-NOTES-v1.5.0.md`)
+  was used for the upload and then removed, following the v1.4.1 record's
+  rule that no release keeps an in-repo notes copy; its hashes are in this
+  record.
+- Machine A's installed build is the published artifact (installed
+  `vibe.exe` `A5D1E7E9…C125`). The `vibe.exe` firewall rule was enabled at
+  publication time (re-enabled by the owner for the criterion-4 re-run);
+  disabling it again is the owner's call.
+
 ## Shipped in v1.4.1 (2026-08-25)
 
 **Verification record (partial gate — owner ruling, 2026-08-25): shipped
