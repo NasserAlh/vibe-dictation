@@ -294,7 +294,7 @@ debt moved here).
   while `tauri.conf.json` carries 1.5.0 — cosmetic, like the stale commit
   stamp; `Cargo.toml` is deliberately not being changed now.
 
-### Verification record against the installed v1.5.0 candidate (opened 2026-09-05)
+### Verification record against the first (superseded) candidate, 2026-09-05
 
 Artifact under test: the installed `%LOCALAPPDATA%\Vibe Dictation\` from the
 subsection above — `vibe.exe` `F72E57EC…F585A8`, `sona.exe` `96C7BA10…F1207`.
@@ -500,6 +500,88 @@ tests), tsc, eslint, `check_i18n`, `cargo fmt --check`, clippy, 41/41 Rust;
 4. **Firewall-block test — NOT RUN** (owner run pending; preflight at
    12:32 local: both rules enabled on the installed paths,
    `ggml-large-v3-turbo.bin.hold` staged).
+5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
+6. **Live-dictation functional check — NOT RUN** (owner).
+
+### Release candidate rebuilt and reinstalled on machine A, 2026-09-05 evening (not gated)
+
+Owner ruling 2026-09-05: rebuild from `1c89500` (the fix plus its record).
+Built from `c48c6f8` — `1c89500` plus one documentation-only commit
+(RELEASING.md, ROADMAP.md); every file under `desktop/` and `i18n/` is
+identical to `1c89500`, and the binary self-reports `c48c6f8`. Tree clean.
+
+- MSVC shell (`link.exe` resolved to MSVC 14.44.35207), `uv run
+  scripts/pre_build.py` first (both sidecars present, no fetch), sidecars
+  and the five VC++ DLLs in the tree hashed against
+  `docs/sona-sidecar-sha256.txt` — all exact; corepack pnpm 10.4.1;
+  `pnpm exec tauri build`, cargo 2 m 19 s, 201 s end to end.
+- Installer `Vibe Dictation_1.5.0_x64-setup.exe` SHA-256
+  `C41202E48BBB5C0A7DD9D851EA448ED137C32885562615C0A6A8DCEDBD7B99DB`,
+  44,399,699 bytes. Raw `target\release\vibe.exe` SHA-256
+  `06AB360FCBEEC35604C04364FFEC7E49AC1C32F6CAD5FD5D1B9AF2631F62147C`.
+- Install: no `vibe.exe`/`sona.exe` running (the store-repair instance had
+  been quit); NSIS `/S` over the superseded candidate, exit 0, nothing
+  auto-launched. Installed `vibe.exe` SHA-256
+  `B5D39FC37676280BDB7E73EBE98951DB06CC5DBBAC48D8F7D879D7821F4F478C`,
+  8,612,352 bytes (differs from the raw build as in every prior record);
+  `sona.exe`, `ffmpeg.exe` and the five DLLs beside it match the pin table
+  byte for byte; uninstall key 1.5.0.
+- HKCU Run entry `"C:\Users\nasser\AppData\Local\Vibe Dictation\vibe.exe"`,
+  unchanged before and after launch. Both outbound-block rules enabled and
+  bound to the installed `vibe.exe` / `sona.exe`.
+- Launched from `Start Menu\Programs\Vibe Dictation.lnk` (target the
+  installed exe, no debugging environment): log "App Info: Commit Hash:
+  c48c6f8", Ready pill at t=91 ms, no model-load line (fresh store, no
+  model saved yet). Tray icon not checked this time.
+- Archive `C:\Users\nasser\Dev\releases\vibe-dictation\v1.5.0\`: the
+  superseded installer renamed to
+  `Vibe Dictation_1.5.0_x64-setup-superseded-2026-09-05.exe` (re-hashed
+  `71EA839D…DE122`, 44,410,905 bytes, unchanged); the new installer copied
+  in and re-hashed `C41202E4…99DB`, 44,399,699 bytes, equal to the build.
+- `cargo clean` after the installer-script audit below: 5,306 files
+  removed, `target\` confirmed gone.
+
+### Verification record against the rebuilt candidate (opened 2026-09-05 evening)
+
+Artifact under test: installed `vibe.exe` `B5D39FC3…478C`, `sona.exe`
+`96C7BA10…F1207`. Full six, no inheritance — the superseded candidate's
+results above do not carry. Nothing is tagged or published.
+
+1. **Strings audit — PASSED 2026-09-05** (same method as on the superseded
+   candidate). Installed `vibe.exe` (`B5D39FC3…478C`): forbidden patterns
+   zero in both encodings; control `sona` 91× (+3 UTF-16); `updater` 5 —
+   h2 `next_window_update` / `is_pending_window_update`, rustls
+   `KeyUpdateRequest` / `KeyUpdateReceivedInQuic` /
+   `TooManyKeyUpdateRequests`, Win32 `GetUpdateRect`; `huggingface.co` 2 —
+   the manifest prefix and the "failed to reach huggingface.co" string; no
+   DLL-name hits. Installed `sona.exe` (`96C7BA10…F1207`, unchanged bytes):
+   forbidden zero, control 73×, `huggingface.co` zero, DLL names import
+   table only, the 82 `updater` hits the embedded-JavaScript identifiers
+   classified above. **Installer-script audit on this build's own
+   generated script** (`target\release\nsis\x64\installer.nsi`, before
+   `cargo clean`): `!define INSTALLWEBVIEW2MODE ""` (line 51), `hooks.nsh`
+   included (line 28), the template's only `NSISdl::download` (line 535)
+   inside the compiled-out `downloadBootstrapper` branch; `hooks.nsh` 29
+   lines, zero hits for `NSISdl` / `inetc` / `ExecShell` / URL. `makensis
+   /V4` recompile to a scratch path: exit 0, 44,404,396 bytes; packed
+   `vibe.exe` (8,612,352 — this build's raw exe), the five DLLs, `ffmpeg.exe`,
+   `sona.exe`, plugins `System.dll` / `nsExec.dll` / `nsis_tauri_utils.dll`;
+   170 plugin commands (`System::Call/Alloc/Free`, `nsExec::Exec` ×2,
+   `nsis_tauri_utils` ×7, nsDialogs ×7), **zero from `NSISdl`**. Then
+   `tauri build --no-bundle -- --no-default-features` (1 m 34 s): `vibe.exe`
+   8,588,800 bytes, `8DB7AF35…DF21` — `huggingface.co` **zero**, forbidden
+   zero, control 91×. That exe was never launched; `cargo clean` followed.
+2. **Install / autostart — PASSED 2026-09-05.** Installed `vibe.exe`
+   re-hashed `B5D39FC3…478C` (8,612,352 bytes), equal to the install record;
+   HKCU Run `Vibe Dictation` = the quoted installed path, unchanged after
+   the Start-menu launch; store `app_config.json` `"autostart_enabled":
+   true`, matching the entry's presence. Launch itself in the install
+   record (Ready pill t=91 ms).
+3. **Netstat sampler during live dictation — NOT RUN** (owner run pending;
+   `scripts/netstat-sampler.ps1`).
+4. **Firewall-block test — NOT RUN** (owner run pending; both rules
+   enabled on the installed paths, `ggml-large-v3-turbo.bin.hold` still
+   staged).
 5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
 6. **Live-dictation functional check — NOT RUN** (owner).
 
