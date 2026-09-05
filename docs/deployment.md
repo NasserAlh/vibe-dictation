@@ -22,33 +22,41 @@ Written for generic Windows 11 x64; AMD-specific notes in the
 
 | Field | Value |
 |---|---|
-| Artifact | `Vibe Dictation_1.0.1_x64-setup.exe` (unsigned NSIS, per-user install; 44,167,947 bytes) |
-| Installer SHA-256 | `4A0051C1ACC840038447CFEA5EF3DAA812C678E0DB88440CB3C4195D63A5922B` |
-| Installed exe SHA-256 | `514B8EA46FDE12C3AC1A2DC14C72C7D93B2E725BC207E5CCDCD5A33157A6B223` (differs from the pre-NSIS built exe by the NSIS bundle-type stamp) |
-| What it does | Local speech-to-text dictation (global hotkey → on-device Whisper via Vulkan GPU → text typed at cursor or copied to clipboard). Registers one HKCU Run entry (autostart) and a global hotkey. Injects synthetic keystrokes (may interest endpoint protection). |
-| What it cannot do | **No network code is compiled in** — analytics, updater, downloads, and all HTTP client code are physically absent, verified per release by a binary strings audit and loopback-only netstat sampling during live dictation. The only socket is loopback to its own local engine process. OS-enforced outbound-block firewall rules are added on top (step 6). |
-| Verification (re-runnable) | Steps 1, 5, 7, 8 below — hash check, GPU/device enumeration, firewall rules, netstat sampler + dictate-under-block. |
+| Artifact | `Vibe.Dictation_1.5.0_x64-setup.exe` as served by GitHub (built as `Vibe Dictation_1.5.0_x64-setup.exe`; unsigned NSIS, per-user install; 44,409,618 bytes) |
+| Installer SHA-256 | `1AC9051B5446241486E20DDACAC54C9BB9119722A500DFA466086B4446899EC6` |
+| Installed exe SHA-256 | `A5D1E7E94FB1BF36270112510A5784F1C941EA6746896A15E8F1B5EDA07CC125` (differs from the pre-NSIS built exe by the NSIS bundle-type stamp) |
+| What it does | Local speech-to-text dictation (global hotkey → on-device Whisper via Vulkan GPU → text typed at cursor or copied to clipboard). Registers one HKCU Run entry (autostart) and two global hotkeys. Injects synthetic keystrokes (may interest endpoint protection). Optional: sends each transcript to a user-run local Ollama (loopback only) for clean-up. |
+| What it cannot do | **No network egress except one opt-in path.** Analytics, updater, deep links, YouTube ingestion, LLM summarisation and the HTTP plugin are compiled out, verified per release by a binary strings audit and loopback-only netstat sampling during live dictation. The only sockets are loopback: to its own engine process and, if enabled, to Ollama on `127.0.0.1`. The one exception is the opt-in model downloader: nothing is fetched without a per-download confirmation, only from huggingface.co (compile-time pinned URLs and SHA-256s). A firewall rule on the engine is added on top (step 7); a rule on the app itself is a verification fixture. |
+| Verification (re-runnable) | Steps 1, 5, 7, 8 below — hash check, GPU/device enumeration, firewall rules, netstat sampler + dictate-under-block. Full record: RELEASING.md, "Shipped in v1.5.0". |
 
 ### Payload (USB-friendly — no network needed on the target)
 
 From your release archive (or the [Releases page](https://github.com/NasserAlh/vibe-dictation/releases))
 and the models folder:
 
-1. `Vibe Dictation_1.0.1_x64-setup.exe` + `SHA256.txt`
-2. `ggml-large-v3.bin` (default) and optionally `ggml-large-v3-turbo.bin`
+1. `Vibe.Dictation_1.5.0_x64-setup.exe` — its SHA-256 is in the release notes
+   and in RELEASING.md
+2. `ggml-large-v3.bin` (default; 3,095,033,483 bytes) and optionally
+   `ggml-large-v3-turbo.bin` — **or** skip the copy and use the in-app
+   downloader on the target (step 4)
 3. `model-sha256.txt` (from `docs/`) — the model pins
 
-The installer already bundles the Sona + ffmpeg sidecars — **no `pre_build.py`,
-no downloads on the target.**
+The installer already bundles the Sona + ffmpeg sidecars and the five VC++
+runtime DLLs — **no `pre_build.py`, no downloads during installation, no
+system runtime install.** Windows 11 needs nothing else (WebView2 is in-box).
 
 ### Steps
 
-1. **Verify the installer hash** against the pin:
+1. **Verify the installer hash** against the pin (from the release notes):
    ```powershell
-   (Get-FileHash '.\Vibe Dictation_1.0.1_x64-setup.exe' -Algorithm SHA256).Hash -eq (Get-Content .\SHA256.txt).Trim()
+   (Get-FileHash '.\Vibe.Dictation_1.5.0_x64-setup.exe' -Algorithm SHA256).Hash -eq '1AC9051B5446241486E20DDACAC54C9BB9119722A500DFA466086B4446899EC6'
    ```
-2. **Install** — run the installer (silent: `& '.\Vibe Dictation_1.0.1_x64-setup.exe' /S`).
-   Installs to `%LOCALAPPDATA%\Vibe Dictation\` (vibe.exe + sona.exe + ffmpeg.exe).
+2. **Install** — run the installer (silent: `& '.\Vibe.Dictation_1.5.0_x64-setup.exe' /S`).
+   The installer is unsigned: SmartScreen shows "Windows protected your PC" —
+   choose *More info* → *Run anyway*. Installs to `%LOCALAPPDATA%\Vibe
+   Dictation\` (vibe.exe + sona.exe + ffmpeg.exe + five DLLs). Upgrading over
+   an older version is fine; the installer ends any leftover `sona.exe`
+   first.
 
    > ⚠ **Run the installer, first launch, and all verification from a
    > non-virtualized shell.** A shell inside an MSIX/AppContainer context
@@ -61,11 +69,23 @@ no downloads on the target.**
 3. **First launch** (Start menu → Vibe Dictation). This creates the data dirs and
    the autostart entry (preference-sync writes the HKCU Run entry to the
    installed exe path).
-4. **Models:** verify the copied `.bin` hashes against `model-sha256.txt`, place
-   them in `%LOCALAPPDATA%\net.nasserhub.dictation\` (or use Settings → Select
-   Model → Change Models Folder), then select **Large V3** in Settings → Select
-   Model. Leave GPU Device = Auto on single-GPU machines (see AMD appendix for
-   dual-device machines).
+4. **Models — one of two ways.** *Copy:* verify the copied `.bin` hashes
+   against `model-sha256.txt`, place them in
+   `%LOCALAPPDATA%\net.nasserhub.dictation\` (or use Settings → Select Model →
+   Change Models Folder). *Download:* on a machine with internet and no
+   `vibe.exe` block rule (a fresh machine has none), Settings → Select Model →
+   "Download a model" → **Large V3** (2.9 GB): a confirmation names the exact
+   URL and size, the file is fetched from huggingface.co only and verified
+   against the built-in SHA-256 before use. Either way, then select
+   **Large V3** in Settings → Select Model — nothing is selected by default,
+   and a saved model whose file goes missing is announced at launch. Leave
+   GPU Device = Auto on single-GPU machines (see AMD appendix for dual-device
+   machines).
+   *Optional — LLM clean-up:* install [Ollama](https://ollama.com) yourself,
+   pull a local model (the owner uses `qwen3.5:9b`), then Settings →
+   Dictation → "Refine with local LLM" and pick the model. The app talks to
+   Ollama on `127.0.0.1` only; cloud models are filtered out. Without Ollama
+   the setting simply stays off.
 5. **Verify GPU binding** via the engine's own device enumeration:
    ```powershell
    & "$env:LOCALAPPDATA\Vibe Dictation\sona.exe" devices
@@ -83,8 +103,9 @@ no downloads on the target.**
    ```
    Expect `"...\Vibe Dictation\vibe.exe"` **with** the quotes. (v1.0.0 wrote it
    unquoted and needed the manual stopgap in §5c; that no longer applies.)
-7. **Re-create the firewall rules — they are per-machine and do not travel
-   with the installer.** From an elevated PowerShell:
+7. **Firewall rules — optional, per-machine, they do not travel with the
+   installer.** Recommended: the Sona rule. Only for running step 8 /
+   RELEASING.md criterion 4: the `vibe.exe` rule. From an elevated PowerShell:
    ```powershell
    New-NetFirewallRule -DisplayName "Vibe Dictation - block outbound" -Direction Outbound -Program "$env:LOCALAPPDATA\Vibe Dictation\vibe.exe" -Action Block -Profile Any
    New-NetFirewallRule -DisplayName "Vibe Dictation Sona - block outbound" -Direction Outbound -Program "$env:LOCALAPPDATA\Vibe Dictation\sona.exe" -Action Block -Profile Any
@@ -102,13 +123,16 @@ no downloads on the target.**
    Enable-NetFirewallRule  -DisplayName "Vibe Dictation - block outbound"
    ```
 8. **Mini-audit (per RELEASING.md):** run the netstat sampler while dictating one
-   English and one Arabic sentence:
+   English and one Arabic sentence. With a clone of the repository, the full
+   ~1 s sampler is `scripts\netstat-sampler.ps1 -Sample` then `-Analyze`;
+   without one, this one-liner:
    ```powershell
    1..12 | ForEach-Object { $ids = (Get-Process | Where-Object { $_.ProcessName -match '^(vibe|sona)$' }).Id; netstat -ano | Select-String 'LISTENING|ESTABLISHED' | Where-Object { $ids -contains [int](($_ -split '\s+')[-1]) }; Start-Sleep 5 } | Sort-Object -Unique
    ```
-   Expect **only** `127.0.0.1` rows (Sona listener + app↔engine pair), never
-   `0.0.0.0`. Then dictate once more **under the block** (rules from step 7
-   active) — it must still work; loopback is unaffected.
+   Expect **only** `127.0.0.1` rows (Sona listener + app↔engine pair, plus
+   app→`127.0.0.1:11434` if LLM clean-up is on), never `0.0.0.0`. Then
+   dictate once more **under the block** (rules from step 7 active) — it
+   must still work; loopback is unaffected.
 9. **Record results** (netstat output, device enumeration, hash checks) alongside
    this checklist — that completed record is the per-machine audit evidence.
 

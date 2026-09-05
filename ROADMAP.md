@@ -71,6 +71,38 @@ issue** = a defect that exists today, **Shipped** = done, on main.
 
 ## Shipped
 
+- **Ollama warm-up and a typing guard** (2026-09, `3b5cf08`, v1.5.0). With LLM
+  formatting on, the selected model is loaded on the local Ollama the moment
+  the hotkey goes down, in parallel with the recording, so the transcript no
+  longer waits on a cold load; the formatting call gives up after 12 s and the
+  raw transcript is delivered instead ("Formatting skipped" on the indicator).
+  Text is typed only into the window that held the cursor when the key was
+  released — if focus moved while transcription or formatting ran, it goes to
+  the clipboard with a notification and the amber "Focus changed" indicator.
+- **Missing model file said out loud** (2026-09, `0fd58ec`, v1.5.0). If the
+  saved model file is gone at startup (renamed, deleted, folder moved), the
+  indicator and a notification name the file and the selection is cleared,
+  instead of a raw engine error on the first dictation. Settings no longer
+  silently picks the first model in the folder.
+- **Dictation indicator rework** (2026-09, `d53e7c5`…`0407600`, v1.5.0). The
+  indicator appears the moment the hotkey is pressed; every failure before
+  recording (no microphone, microphone busy, could not start) is an amber or
+  red indicator plus a notification; a press during transcription says
+  "Still transcribing — wait"; recording shows a language badge (EN/ع),
+  elapsed time, the type/clipboard destination and a 2 s stop hint;
+  transcription shows its phases with elapsed seconds; completion shows the
+  word count. Two defects fixed on the way: turning the indicator off and on
+  in Settings froze the app (window creation inside a synchronous command
+  deadlocks on Windows — the commands are async now), and a re-shown
+  indicator could sit under other always-on-top windows (re-raised on every
+  show).
+- **Offline installer** (2026-09, `1f64e26`, v1.5.0). The installer no longer
+  downloads the VC++ runtime or the WebView2 bootstrapper: the five runtime
+  DLLs the engine needs ship app-local and content-pinned, and WebView2 is
+  expected in-box (Windows 11). Nothing is fetched during installation.
+- **Upgrade no longer blocked by an orphaned engine** (2026-08, `6a980de`,
+  v1.5.0). The installer ends any leftover `sona.exe` before touching files,
+  so an upgrade cannot fail with "Error opening file for writing: sona.exe".
 - **Animated recording indicator** (2026-09, `e9073c6`). While recording, the
   floating pill shows a five-bar level meter driven by the live microphone
   signal instead of a fixed dot, so you can see the app is hearing you before

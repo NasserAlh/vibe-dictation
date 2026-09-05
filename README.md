@@ -15,8 +15,10 @@ typed at the cursor (or copied to the clipboard). Everything runs on-device.
 - **Zero network egress — OS-enforced.** Every network-capable component of the
   upstream app (analytics, auto-updater, model download, deep-link, YouTube/yt-dlp,
   LLM summarization, HTTP plugin) is removed at compile time; the only socket the
-  running app opens is loopback to its local speech engine, and permanent Windows
-  Firewall outbound-block rules sit on top. The one deliberate exception is the
+  running app opens is loopback to its local speech engine (and, if you opt in,
+  to a local Ollama), and a Windows Firewall outbound-block rule on the engine
+  sits on top (a second rule on the app itself is a verification fixture, not a
+  daily requirement). The one deliberate exception is the
   opt-in model downloader: nothing is fetched without a per-download
   confirmation, it can reach only huggingface.co (compile-time pinned URLs and
   SHA-256 hashes), and a `--no-default-features` build removes it entirely.

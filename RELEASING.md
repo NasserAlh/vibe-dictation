@@ -181,16 +181,42 @@ as nasser):** tooling not yet recorded; its only SSH key pair is
 `~/.ssh/id_ed25519_vps`, and it holds no installer archive that has been
 listed. Fill this in from B.
 
-## Unreleased — queued for v1.5.0 (dictation indicator rework, 2026-09-04/05)
+## Shipped in v1.5.0 (2026-09-06)
 
-**Built, not gated** (release candidate installed on A on 2026-09-05, see
-the subsection at the end of this section). Everything below is on `main`;
-the six verification criteria have not been run against the candidate. Nothing here changes
-the guarantee surface: no new crates, crate features or Tauri plugins, and
-`git diff main -- desktop/src-tauri/Cargo.toml Cargo.lock desktop/package.json
-pnpm-lock.yaml` is empty. The only new runtime traffic is two **in-process**
-Tauri events from Rust to the indicator window (`dictation-indicator-hide`,
-`dictation-indicator-level`); no socket, no file, no host.
+**Verification record: full gate — six of six criteria PASSED against the
+published artifact** (installer `1AC9051B5446241486E20DDACAC54C9BB9119722A500DFA466086B4446899EC6`,
+44,409,618 bytes; installed `vibe.exe`
+`A5D1E7E94FB1BF36270112510A5784F1C941EA6746896A15E8F1B5EDA07CC125`,
+8,628,736 bytes; built from `3b5cf08`; sidecars `sona` `96C7BA10…F1207`,
+`ffmpeg` `1326DDE4…3EC5E` and the five VC++ DLLs pin-exact). The first
+release since v1.2.0 to clear the whole ladder before publication — no
+partial-gate disclosure in the notes. Archive:
+`C:\Users\nasser\Dev\releases\vibe-dictation\v1.5.0\` on machine A, holding
+the published installer and the two superseded candidates
+(`…-superseded-2026-09-05.exe` `71EA839D…DE122`, `…-superseded-2026-09-05b.exe`
+`C41202E4…99DB`). The full record — three candidates, the two defects found
+during gating and their fixes, the localStorage-corruption finding and
+repair, and the six criteria with their evidence — is in the subsections
+below in the order it happened; the verification record that counts is the
+last one, "against the third candidate". Publication details are recorded
+at the end of this section once the release is cut.
+
+What changed since v1.4.1: the dictation-indicator rework (below), the
+installer-hooks sona-kill (`6a980de`) and the offline installer with the
+app-local VC++ runtime (`1f64e26`) — both recorded in the v1.4.1 section
+where they were found — and the two gating fixes: the startup model-file
+check (`0fd58ec`) and the Ollama warm-up with the foreground-guarded typing
+path (`3b5cf08`). Guarantee surface: no new crates, crate features or Tauri
+plugins — `git diff v1.4.1 -- desktop/src-tauri/Cargo.toml Cargo.lock
+desktop/package.json pnpm-lock.yaml` is empty. New runtime traffic: two
+**in-process** Tauri events from Rust to the indicator window
+(`dictation-indicator-hide`, `dictation-indicator-level`), and one more
+**loopback** request to the user-run Ollama (`127.0.0.1`, compile-time host
+constant, port from settings) at hotkey-down when LLM formatting is on — the
+warm-up, observed in the criterion-3 sample as a second pair of connections
+to `127.0.0.1:11434` per dictation. No new host, no new file.
+
+### Dictation indicator rework (2026-09-04/05)
 
 What changed (docs/dictation-indicator-plan.md, Prompts 0–5):
 
