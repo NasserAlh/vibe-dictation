@@ -609,6 +609,11 @@ Hashes: installer
   2026-09-04 (finding 2.7 in the v1.5.0 section), fixed on `main` in
   `4fdb773`. Workaround until v1.5.0: do not toggle the indicator setting;
   if the app freezes, end `vibe.exe` from Task Manager and relaunch.
+  **Public notes amended 2026-09-05** (owner-confirmed wording, `gh release
+  edit`): one "Known defect" paragraph appended after the notes' Known issues
+  paragraph — the freeze, the Task Manager workaround, "Fixed in v1.5.0" —
+  and nothing else changed; the live body was read back and compared equal to
+  the proposed text.
 
 ## Shipped in v1.4.0 (2026-08-25)
 
