@@ -16,6 +16,8 @@ import { defaultLlmFormatPrompt, defaultOllamaPort, formatWithOllama } from '~/l
 import { forcedLangOptions, type DictationLang } from '~/lib/dictation-lang'
 import { acceleratorsCollide } from '~/lib/accelerator'
 import { classifyStartRecordError, startFailureMessage, type StartFailureKind } from '~/lib/indicator-messages'
+import * as fs from '@tauri-apps/plugin-fs'
+import { checkSavedModel, type SavedModelCheck } from '~/lib/model-path'
 
 // Single keys, not chords — this is a dictation tool held down while
 // speaking; a three-key combination is hostile to that. Stored prefs
@@ -159,6 +161,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 	const startupAnnouncedRef = useRef(false)
 	const startupTimerRef = useRef<number | null>(null)
 	const warmupStartedRef = useRef(false)
+	// Resolves once the saved model path has been checked against the disk.
+	const startupModelCheckRef = useRef<Promise<SavedModelCheck> | null>(null)
 
 	type IndicatorDetails = Partial<Omit<DictationIndicatorState, 'sessionId' | 'status'>>
 
@@ -512,17 +516,51 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		if (startupTimerRef.current) window.clearTimeout(startupTimerRef.current)
 	}, [])
 
+	// Startup model check: a saved model whose file is gone (renamed, deleted,
+	// folder moved) is said out loud at launch — notification now, error pill
+	// in place of the ready flash — and the stale path is cleared so nothing
+	// is selected until the user chooses again. Found gating v1.5.0
+	// (2026-09-05): the first dictation surfaced it as a raw sona error, and
+	// Settings then dropped the preference without a word. A check that itself
+	// fails keeps the path (checkSavedModel): never clear on an unverifiable
+	// answer.
+	useEffect(() => {
+		const saved = preferenceRef.current.modelPath
+		startupModelCheckRef.current = (async (): Promise<SavedModelCheck> => {
+			let exists: boolean | null = null
+			if (saved) {
+				try {
+					exists = await fs.exists(saved)
+				} catch (error) {
+					console.error('Model file check failed:', error)
+				}
+			}
+			const result = checkSavedModel(saved, exists)
+			if (result.status === 'missing') {
+				console.error(`Saved model file is missing: ${result.path}`)
+				preferenceRef.current.setModelPath(null)
+				await notify('Vibe', m.modelFileMissing({ name: result.fileName }))
+			}
+			return result
+		})()
+	}, [])
+
 	// Opt-in model warmup: preload the model as soon as the app starts, so the
 	// first dictation skips the multi-second lazy load. Also fires when the
 	// setting is switched on mid-session. Fire-and-forget — a failure here
-	// surfaces through the normal load path on the next dictation.
+	// surfaces through the normal load path on the next dictation. Waits for
+	// the startup model check so a stale path is never loaded.
 	useEffect(() => {
 		if (!hotkeyModelWarmup || warmupStartedRef.current) return
-		const modelPath = preferenceRef.current.modelPath
-		if (!modelPath) return
-		warmupStartedRef.current = true
-		invoke('load_model', { modelPath, gpuDevice: preferenceRef.current.gpuDevice }).catch((error) => {
-			console.error('Model warmup error:', error)
+		const check = startupModelCheckRef.current ?? Promise.resolve<SavedModelCheck>({ status: 'none' })
+		check.then((result) => {
+			if (result.status === 'missing' || warmupStartedRef.current) return
+			const modelPath = preferenceRef.current.modelPath
+			if (!modelPath) return
+			warmupStartedRef.current = true
+			invoke('load_model', { modelPath, gpuDevice: preferenceRef.current.gpuDevice }).catch((error) => {
+				console.error('Model warmup error:', error)
+			})
 		})
 	}, [hotkeyModelWarmup])
 
@@ -594,11 +632,22 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 		// was cancelled first — the re-run announces instead). Session 0 is the
 		// startup session; a dictation started during the flash bumps the
 		// session, so the timed hide below no-ops instead of hiding it.
-		function announceStartup() {
+		async function announceStartup() {
+			if (cancelled || startupAnnouncedRef.current) return
+			// The saved-model check is milliseconds; awaited before the flag so
+			// a cancellation during the wait leaves the re-run to announce.
+			const modelCheck = await (startupModelCheckRef.current ?? Promise.resolve<SavedModelCheck>({ status: 'none' }))
 			if (cancelled || startupAnnouncedRef.current) return
 			startupAnnouncedRef.current = true
 			const registered = registeredShortcutsRef.current
-			if (registered.length > 0) {
+			if (modelCheck.status === 'missing') {
+				// The saved model file is gone: say which one, in place of the
+				// ready flash. The path was already cleared by the check.
+				showDictationIndicator({ sessionId: 0, status: 'error', message: m.modelFileMissing({ name: modelCheck.fileName }) })
+				startupTimerRef.current = window.setTimeout(() => {
+					hideDictationIndicator(0)
+				}, 5000)
+			} else if (registered.length > 0) {
 				// Right slot of the ready flash: "F9 EN · F10 AR" (plan §4).
 				const byLang = registeredByLangRef.current
 				const shortcut = (['en', 'ar'] as DictationLang[])

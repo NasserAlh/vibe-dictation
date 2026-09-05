@@ -115,18 +115,10 @@ export function viewModel() {
 		}
 	}
 
-	async function getDefaultModel() {
-		if (!preference.modelPath) {
-			const modelsFolder = await invoke<string>('get_models_folder')
-
-			let files = await ls(modelsFolder)
-			files = files.filter((f) => isModelFile(f.name))
-			if (files) {
-				const defaultModelPath = files?.[0].path
-				preference.setModelPath(defaultModelPath as string)
-			}
-		}
-	}
+	// No silent default: a model becomes the saved preference only through
+	// selectModel (the dropdown, or a download completing with nothing
+	// selected). Auto-picking the first file in the folder made the dropdown
+	// show a choice the user never made (found gating v1.5.0, 2026-09-05).
 
 	async function readModelMetadata(modelPath: string) {
 		try {
@@ -221,7 +213,6 @@ export function viewModel() {
 			await store.set('models_folder', path)
 			await store.save()
 			await loadModels()
-			await getDefaultModel()
 		}
 	}
 
@@ -242,7 +233,6 @@ export function viewModel() {
 	useEffect(() => {
 		loadMeta()
 		loadModels()
-		getDefaultModel()
 		loadGpuDevices()
 		loadDownloadableModels()
 		onModelDownloadProgress()

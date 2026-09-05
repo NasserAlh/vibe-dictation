@@ -280,6 +280,7 @@
 	"avx2NotSupported": "معالجك غير مدعوم في هذا الإصدار. يرجى استخدام جهاز أحدث.",
 	"noModelLoadedBatchStopped": "النموذج غير محمّل. إيقاف المعالجة الدفعية.",
 	"noModelSelected": "اختر نموذجاً من الإعدادات للبدء",
+	"modelFileMissing": "لم يُعثر على ملف النموذج: {name}",
 	"transcribeFolder": "تفريغ مجلد",
 	"transcribeTook": "اكتمل التفريغ بنجاح خلال {total} ثانية.",
 	"transcribed": "تم التفريغ",
