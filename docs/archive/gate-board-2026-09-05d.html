@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Dictation Gate Board</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎙️</text></svg>">
+<style>
+  :root {
+    --passed: #2e7d4f;
+    --provisional: #b8860b;
+    --blocked: #c0392b;
+    --inert: #8a8a8a;
+    --accent: #2b6cb0;
+    --bg: #fafaf8;
+    --fg: #1c1c1c;
+    --card: #ffffff;
+    --border: #e2e0da;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem 4rem;
+    background: var(--bg); color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.55;
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  h2 {
+    font-size: 1.05rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--accent); border-bottom: 2px solid var(--border);
+    padding-bottom: .3rem; margin: 2.2rem 0 .8rem;
+  }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; }
+  .header-strip {
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    padding: .7rem 1rem; margin-top: .8rem;
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: .88rem;
+    display: flex; flex-wrap: wrap; gap: .4rem 1.4rem;
+  }
+  .header-strip b { color: var(--accent); font-weight: 600; }
+  .pill {
+    display: inline-block; padding: .05rem .55rem; border-radius: 999px;
+    font-family: Consolas, monospace; font-size: .72rem; font-weight: 700;
+    color: #fff; letter-spacing: .04em; white-space: nowrap; vertical-align: middle;
+  }
+  .p-passed { background: var(--passed); }
+  .p-amber  { background: var(--provisional); }
+  .p-red    { background: var(--blocked); }
+  .p-inert  { background: var(--inert); }
+  .p-open   { background: var(--accent); }
+  .m { font-family: Consolas, monospace; font-size: .8em; font-weight: 700; color: var(--accent); }
+  .next-action {
+    background: #fdf6e3; border: 1px solid var(--provisional); border-radius: 6px;
+    padding: 1rem 1.2rem;
+  }
+  .next-action p { margin: 0 0 .6rem; }
+  .next-action p:last-child { margin-bottom: 0; }
+  pre.cmd {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: .8rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: .5rem .7rem; margin: .5rem 0 0; white-space: pre-wrap; word-break: break-all;
+  }
+  table { border-collapse: collapse; width: 100%; background: var(--card);
+          border: 1px solid var(--border); border-radius: 6px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--border);
+           vertical-align: top; font-size: .95rem; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--inert); }
+  tr:last-child td { border-bottom: none; }
+  ul.activity, ul.docs { padding-left: 1.2rem; }
+  ul.activity li, ul.docs li { margin-bottom: .5rem; }
+  .date { color: var(--inert); font-family: Consolas, monospace; font-size: .85em; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 2px solid var(--border);
+           color: var(--inert); font-size: .85rem; }
+  .reminder { font-style: italic; color: var(--inert); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>🎙️🔒 Vibe Dictation Gate Board</h1>
+<div class="header-strip">
+  <span><b>phase</b> v1.4.1 gate closed at 3 of 6 (owner ruling 2026-09-05, debt moved). The <strong>v1.5.0 gate is open at 3 of 6</strong> against the rebuilt candidate installed on <span class="m">[A]</span>: criteria 1, 2 and 4 passed; 3, 5 and 6 need a dictating owner. Nothing tagged, nothing published.</span>
+  <span><b>branch</b> main</span>
+  <span><b>commit</b> 4712d20, 49 commits past tag <span class="mono">v1.4.1</span>; pushed with this board. Code last changed at <span class="mono">0fd58ec</span>; everything since is records, docs and boards</span>
+  <span><b>tests</b> <strong>71/71 vitest</strong>, 8 files, run this refresh at 4712d20 (<span class="mono">pnpm i18n:generate &amp;&amp; pnpm test</span>, 293 ms). Rust 41/41, clippy and fmt clean at <span class="mono">0fd58ec</span>; no Rust file changed since</span>
+  <span><b>updated</b> 2026-09-05, late evening (fourth board today)</span>
+  <span><b>tree</b> clean at 4712d20 before this refresh; this refresh adds the board and an archive copy of the previous board (<span class="mono">docs/archive/gate-board-2026-09-05c.html</span>)</span>
+  <span><b>machines</b> <span class="m">[A]</span> = the owner's workstation (44 of the 49 commits since the tag); <span class="m">[B]</span> = the machine that committed on 2026-08-26 (5 commits), unobserved since. This refresh ran on <span class="m">[A]</span> with the installed build, the store, the firewall, the models folder and the test command all observable</span>
+</div>
+
+<h2>Right now</h2>
+<p>
+<strong>Three of six pass against the rebuilt v1.5.0 candidate</strong> (installed
+<span class="mono">vibe.exe</span> <span class="mono">B5D39FC3…478C</span>, built from <span class="mono">c48c6f8</span>, code of
+<span class="mono">1c89500</span>). Criterion 4 closed this evening: both outbound-block rules were
+enabled and bound to the installed exes with no rule change today, five hotkey
+dictations completed under the block, and four large-v3-turbo download attempts (two by
+the owner, two driven through the WebView2 debugging port with the row watched every
+500 ms) each failed with no <span class="mono">.part</span> left behind — the row read "Cancel" only
+while the request ran and the error dialog was open, then "Download" again 3.0 s later.
+The <span class="mono">.bin.hold</span> fixture is retired: renamed back, hash equal to the pin, both
+models present. <strong>Owner ruling recorded:</strong> the <span class="mono">vibe.exe</span> block rule is a
+verification fixture, not a standing deployment requirement — the downloader's own guards
+are the daily-use control on this personal tool; the Sona rule stays. RELEASING.md's
+criterion 4 and docs/deployment.md step 7 now say so. Disabling the rule is the owner's own
+elevated action and has not been done: at 20:53 local both rules were still enabled.
+</p>
+<p>
+<strong>What cannot be proven from this machine.</strong> Criteria 3, 5 and 6 need the owner
+speaking: no sampler output directory existed under <span class="mono">%TEMP%\vibe-netstat</span> at
+20:53, and although the five dictation sessions show the build transcribing, the record
+has no statement of the target application, the languages or the latency, so criterion 5
+is not met on evidence. Criterion 3's Ollama half needs LLM formatting on, which the store
+reset lost; Ollama was not running at either preflight. <span class="m">[B]</span> remains
+unobserved. One evidence gap worth knowing: the app log records "model download start"
+but never the failure or its message, so the criterion-4 error text on this build rests
+on the owner's earlier observation and the UI timeline, not on a log line.
+</p>
+<p>
+Contradictions and absences. <strong>Standing:</strong> RELEASING.md's <em>Verify</em> heading says
+"full pass on every release" while the published v1.4.1 closed at 3 of 6; the ladder lists
+five criteria and every record counts six; <span class="mono">Cargo.toml</span> still says 0.0.6.
+<strong>Resolved since the last board:</strong> the "re-enter preferences" call became moot for
+the gate once the owner dictated (LLM formatting remains off unless re-enabled — needed for
+criterion 3 only); the fixture row closes. <strong>Withdrawn earlier today and still
+recorded:</strong> the interim claim that the 2026-09-04 criterion-3 run used turbo — it used
+large-v3. <strong>New:</strong> the two debugging-port download attempts raised native
+confirmation and error dialogs that were answered at the machine; the interception meant
+to answer them did not take, and no further download will be driven that way.
+<strong>Not checked:</strong> the tray icon.
+</p>
+
+<h2>Your next action</h2>
+<div class="next-action">
+<p>
+<strong>Run criteria 3, 5 and 6 against the installed candidate on <span class="m">[A]</span>.</strong>
+The app is running from a clean Start-menu launch (20:57 local, Ready pill t=86 ms,
+one <span class="mono">sona.exe</span> child), Large V3 is the saved model, and both models are back
+in the folder. First: Settings → Dictation → LLM formatting on with
+<span class="mono">qwen3.5:9b</span> (Ollama must be running), so the sample covers the loopback
+Ollama path. Then start the sampler, dictate English (F9) and Arabic (F10) into MS Word for
+about two minutes noting the delay from key release to text, turn live dictation on for the
+three criterion-6 checks, and say "done" with the sampler's output directory and your
+latency notes. Whether the <span class="mono">vibe.exe</span> block rule stays on during the run does
+not matter to these three criteria; disable it when you choose, from an elevated shell.
+</p>
+<pre class="cmd">C:\Users\nasser\Dev\vibe-dictation\scripts\netstat-sampler.ps1 -Sample -DurationSeconds 150
+Disable-NetFirewallRule -DisplayName "Vibe Dictation - block outbound"    # elevated, your call, Sona rule untouched</pre>
+</div>
+
+<h2>Gates</h2>
+<table>
+  <tr><th>Gate</th><th>Date</th><th>Outcome</th><th>Note</th></tr>
+  <tr><td>v1.0.1 release verification</td><td class="date">not recorded</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Autostart quoting defect (was HIGH) fixed and verified over a real reboot; fork versioning adopted.</td></tr>
+  <tr><td>v1.1.0 release verification</td><td class="date">not recorded</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Opt-in loopback Ollama formatting shipped. Finding: the Ollama connection needs a ~1 s netstat sampler incl. TIME_WAIT to be observed — now part of the procedure.</td></tr>
+  <tr><td>v1.1.1 release verification</td><td class="date">not recorded</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Prompt-injection guard after an in-the-wild incident (a command-shaped dictation was answered, not formatted); the incident pair is a permanent regression test.</td></tr>
+  <tr><td>v1.2.0 release verification</td><td class="date">2026-07-28</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Per-language dictation hotkeys (no auto-detect), English-only UI, display-locale/model-language decoupling.</td></tr>
+  <tr><td>v1.3.0 release verification</td><td class="date">2026-08-24</td>
+      <td><span class="pill p-amber">SHIPPED — 3 OF 6</span></td>
+      <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
+  <tr><td>v1.4.0 release verification</td><td class="date">2026-08-25</td>
+      <td><span class="pill p-inert">CLOSED — 3 OF 6, DEBT MOVED</span></td>
+      <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria became unrunnable when both machines' installed build moved on, so they transferred to the v1.4.1 row. Closed inert, not green.</td></tr>
+  <tr><td>v1.4.1 release verification</td><td class="date">2026-08-25 → closed 2026-09-05</td>
+      <td><span class="pill p-inert">CLOSED — 3 OF 6, DEBT MOVED</span></td>
+      <td>Published 2026-08-25 with 2 of 6; criterion 3 passed on <span class="m">[A]</span> 2026-09-04 in the instance configured 2026-09-03 with large-v3 and LLM on. Closed by owner ruling 2026-09-05 after <span class="m">[A]</span> installed v1.5.0 over it; debt (4, 5, 6) carried to v1.5.0. Public notes amended 2026-09-05 with the indicator-deadlock disclosure. Closed inert: a partial gate, not a pass.</td></tr>
+  <tr><td><strong>v1.5.0 release verification</strong></td><td class="date">2026-09-05</td>
+      <td><span class="pill p-open">OPEN — 3 OF 6</span></td>
+      <td><strong>Rebuilt candidate</strong> (installer <span class="mono">C41202E4…99DB</span>, installed <span class="mono">vibe.exe</span> <span class="mono">B5D39FC3…478C</span>) on <span class="m">[A]</span>. <strong>Criteria 1, 2 and 4 PASSED 2026-09-05; 3, 5 and 6 NOT RUN.</strong> The first candidate (<span class="mono">71EA839D…</span>) was superseded by the gating defect (stale model path, fixed in <span class="mono">0fd58ec</span>) and its installer kept with a suffix. Carries the v1.4.1 debt. Content: installer-hooks sona-kill, offline installer with app-local VC++ runtime, dictation-indicator rework, startup model-file check. Not tagged, not published.</td></tr>
+</table>
+
+<h2>What the open gate still needs</h2>
+<p class="reminder">Three of six for v1.5.0: criteria 3, 5 and 6, all against the installed rebuilt candidate on <span class="m">[A]</span> (<span class="mono">B5D39FC3…478C</span>), all needing the owner's voice. Preflight at 20:53 local this refresh: both block rules enabled, both models present (fixture retired at 20:58), no Ollama running, one <span class="mono">sona.exe</span> child of the running app.</p>
+<table>
+  <tr><th>#</th><th>Criterion</th><th>Status</th><th>What was observed / why it falls short</th></tr>
+  <tr><td>3</td><td>Netstat sampler (~1 s, incl. TIME_WAIT) during live dictation — loopback only</td>
+      <td><span class="pill p-red">NOT RUN</span></td>
+      <td>Never attempted against either v1.5.0 candidate; no output directory under <span class="mono">%TEMP%\vibe-netstat</span> at 20:53. The sampler is <span class="mono">scripts/netstat-sampler.ps1</span> (<span class="mono">-Sample</span>, then <span class="mono">-Analyze</span> on the directory it prints). Needs LLM formatting on and Ollama running to exercise the loopback Ollama path the v1.1.0 finding is about — both currently off.</td></tr>
+  <tr><td>5</td><td>Functional EN + AR dictation into MS Word, latency ~2 s after warmup</td>
+      <td><span class="pill p-red">NOT RUN</span></td>
+      <td>Five dictation sessions completed on this build between 17:14 and 17:50 UTC (model large-v3 loaded, transcripts delivered), which shows dictation working — but the record holds no statement of the target (MS Word), the language of each session, or the key-release-to-text latency, and the log carries none of those. The owner's report closes it.</td></tr>
+  <tr><td>6</td><td>Live-dictation functional check</td>
+      <td><span class="pill p-red">NOT RUN</span></td>
+      <td>Needs the owner speaking with live dictation on: words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing. Still absent from RELEASING.md's <em>Verify</em> ladder (five listed, six counted).</td></tr>
+</table>
+
+<h2>Open and unresolved</h2>
+<table>
+  <tr><th>Tag</th><th>Item</th></tr>
+  <tr><td><span class="pill p-amber">YOUR CALL</span></td>
+      <td><strong>Disable the <span class="mono">vibe.exe</span> block rule, or leave it.</strong> By your ruling it is a test fixture; it is still enabled. The elevated one-liner is in the next-action box; the Sona rule stays enabled either way. Re-enable it before the next release's criterion 4.</td></tr>
+  <tr><td><span class="pill p-amber">YOUR CALL</span></td>
+      <td><strong>Re-enter the preferences the store reset lost</strong> (archived store's last values, RELEASING.md): LLM formatting on with <span class="mono">qwen3.5:9b</span> — needed for criterion 3; activation toggle, model warmup, the three vocabulary lines and GPU device 0 — your working setup only.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Download failures are not logged.</strong> The app log records "model download start" but not the failure or its message, so criterion 4's error text rests on UI observation. One <span class="mono">tracing::warn!</span> in <span class="mono">model_download.rs</span> would give the next record a log line. Not gating.</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>Preferences can silently stop persisting</strong> (ROADMAP.md known issue, 2026-09-05): one corrupt leveldb record in WebView2 localStorage discards every later write with no visible error. Durable fix: move them to the tauri store. <strong>Planned, not for v1.5.0.</strong> The corrupt store is preserved at <span class="mono">releases\vibe-dictation\archive\localstorage-leveldb-2026-09-05\</span>.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Crate version 0.0.6 versus app version 1.5.0</strong> — the installed exe's file-version resource reads 0.0.6 from <span class="mono">Cargo.toml</span>. Cosmetic; deliberately not changed now. Worth a line in the release notes.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Five criteria in the procedure, six in every record.</strong> Add the live-dictation check to RELEASING.md's <em>Verify</em> ladder before v1.5.0 is published.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Arabic wording awaiting the owner's check</strong>: the nine indicator strings from the rework plus the new <span class="mono">modelFileMissing</span> are machine wording.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Tray icon not confirmed</strong> on any candidate launch. Check during the criterion-5 run.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong><span class="m">[B]</span> is behind and unobserved</strong> since 2026-08-26; its release tooling is still unrecorded. Not gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Indicator rework: four test rows and two checks still open</strong> (docs/dictation-indicator-plan.md §7): rows b, f, g not run, d needs a second monitor; the cpal error-text classifier has never met a real device failure. None gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>ROADMAP.md's Shipped list lags <span class="mono">main</span></strong>: missing the installer-hooks fix, the offline installer, the indicator rework beyond the level meter, and the startup model-file check. Known issues is current.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>The published v1.4.1 installer still carries</strong> the vc_redist and WebView2 network paths, the sona-lock defect and the indicator deadlock (disclosed in its notes). Closes when v1.5.0 is published.</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>Unsigned installer</strong> (certificate purchase pending, owner ruling 2026-09-03); <strong>RTL text injection</strong>; <strong>stale commit stamp</strong>; <strong>ffmpeg resolution pin</strong>; <strong>hotkey shortcut field</strong>; <strong><span class="mono">cli.rs</span> review</strong> — unchanged (RELEASING deferred list / ROADMAP).</td></tr>
+</table>
+
+<h2>Recent activity</h2>
+<ul class="activity">
+  <li><span class="date">2026-09-05 late evening</span> <span class="m">[A]</span> — <strong>Criterion 4 passed on the rebuilt candidate; <span class="mono">vibe.exe</span> block rule ruled a test fixture; fixture retired</strong> (<span class="mono">4712d20</span>). Both rules enabled with no change events today; five dictations completed under the block; four download attempts failed cleanly with no <span class="mono">.part</span> (row "Cancel" only while the request and its error dialog were up, "Download" 3.0 s later — checked at the owner's request, no change needed). RELEASING.md's Verify item 4 and docs/deployment.md step 7 now carry the ruling and the disable/enable commands. <span class="mono">ggml-large-v3-turbo.bin.hold</span> renamed back, hash equal to the pin. Two forced stops for the debugging-port checks each orphaned a <span class="mono">sona.exe</span>, killed by hand; the app relaunched cleanly at 20:57 local.</li>
+  <li><span class="date">2026-09-05 evening</span> <span class="m">[A]</span> — <strong>Second candidate built, installed, criteria 1 and 2 passed; Large V3 saved</strong> (<span class="mono">8e585cf</span>, <span class="mono">091f8dc</span>). Rebuilt from <span class="mono">c48c6f8</span> after the pin check; installer <span class="mono">C41202E4…99DB</span>; <span class="mono">/S</span> exit 0; installed <span class="mono">vibe.exe</span> <span class="mono">B5D39FC3…478C</span>, DLLs and sidecars pin-exact; strings audit clean, this build's own installer script recompiled with zero <span class="mono">NSISdl</span> commands, feature-less exe with zero <span class="mono">huggingface.co</span>; model chosen through the real dropdown and read back after a restart.</li>
+  <li><span class="date">2026-09-05 evening</span> <span class="m">[A]</span> — <strong>Corrupt localStorage store repaired by owner ruling; criterion-3 model note settled</strong> (<span class="mono">c48c6f8</span>): directory moved to the releases archive, fresh store created, a write shown to survive a relaunch; the archived store read raw showed the 2026-09-04 sample ran on large-v3; ROADMAP.md gained the persistence known issue.</li>
+  <li><span class="date">2026-09-05 afternoon</span> <span class="m">[A]</span> — <strong>Gating defect root-caused and fixed</strong> (<span class="mono">0fd58ec</span>, <span class="mono">1c89500</span>): stale saved model path with no startup check; now checked at launch with a named error pill and notification, warmup gated, Settings auto-default removed; five new unit tests; full check set green. Diagnosis found the CRC32C-mismatched leveldb record.</li>
+  <li><span class="date">2026-09-05 midday</span> <span class="m">[A]</span> — <strong>v1.4.1 gate closed at 3 of 6 by owner ruling; public notes amended; criteria 1 and 2 passed on the first candidate; sampler script added</strong> (<span class="mono">f31498b</span>, <span class="mono">5f8ed58</span>, <span class="mono">b41c09b</span>, <span class="mono">76ca42e</span>, <span class="mono">d980765</span>).</li>
+  <li><span class="date">2026-09-05 morning</span> <span class="m">[A]</span> — <strong>First v1.5.0 candidate built and installed, not gated</strong> (<span class="mono">234d252</span>, board <span class="mono">da9329b</span>); next release named v1.5.0 and the deadlock added to the v1.4.1 record (<span class="mono">f51fa20</span>).</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Criterion 3 closed against the installed v1.4.1</strong>: 175-sample netstat run during six dictation sessions through loopback Ollama, zero non-loopback rows, corroborated by a second sampler.</li>
+</ul>
+
+<h2>Where things are written down</h2>
+<ul class="docs">
+  <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk, the reworked indicator's rules.</li>
+  <li><span class="mono">RELEASING.md</span> — the gate: the verification ladder (five numbered criteria; item 4 now carries the fixture ruling), rules learned the hard way, per-machine tooling, and the records — v1.4.1 closed at 3 of 6; the v1.5.0 section with both candidates, the gating defect, the localStorage-corruption finding and repair, and the open verification record (1, 2, 4 passed; 3, 5, 6 not run).</li>
+  <li><span class="mono">ROADMAP.md</span> — known issues (preferences persistence, Planned fix), planned and considered work, non-goals, shipped features (Shipped lags <span class="mono">main</span>).</li>
+  <li><span class="mono">docs/deployment.md</span> — putting a release on a new machine; step 7 now distinguishes the standing Sona rule from the <span class="mono">vibe.exe</span> test fixture and gives the disable/enable commands.</li>
+  <li><span class="mono">scripts/netstat-sampler.ps1</span> — criterion 3's sampler, the criterion-4 preflight and the post-run analysis. <span class="mono">desktop/src/lib/model-path.ts</span> — the startup saved-model check, unit-tested.</li>
+  <li><span class="mono">docs/dictation-indicator-plan.md</span>, <span class="mono">docs/dictation-indicator-tests.md</span>, <span class="mono">docs/debug.md</span> — the indicator rework and what is still open.</li>
+  <li><span class="mono">C:\Users\nasser\Dev\releases\vibe-dictation\</span> on <span class="m">[A]</span> — <span class="mono">v1.5.0\</span> holds the rebuilt installer and the superseded one (suffixed); <span class="mono">archive\localstorage-leveldb-2026-09-05\</span> holds the corrupt store. Outside the repository; hashes in RELEASING.md.</li>
+  <li><span class="mono">docs/archive/</span> — previous boards, one per refresh, date-suffixed (nothing is deleted); this refresh archived the evening board as <span class="mono">gate-board-2026-09-05c.html</span>.</li>
+</ul>
+<p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
+
+<footer>
+Vibe Dictation — privacy-locked, Windows-only, on-device dictation. Rust/Tauri + React/TS; unsigned NSIS releases, hand-verified zero egress.<br>
+Refresh with "refresh the gate board". Procedure: <span class="mono">docs/STATUS-BOARD.md</span>.
+</footer>
+
+</main>
+</body>
+</html>
