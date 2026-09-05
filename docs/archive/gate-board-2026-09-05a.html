@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Dictation Gate Board</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎙️</text></svg>">
+<style>
+  :root {
+    --passed: #2e7d4f;
+    --provisional: #b8860b;
+    --blocked: #c0392b;
+    --inert: #8a8a8a;
+    --accent: #2b6cb0;
+    --bg: #fafaf8;
+    --fg: #1c1c1c;
+    --card: #ffffff;
+    --border: #e2e0da;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem 4rem;
+    background: var(--bg); color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.55;
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  h2 {
+    font-size: 1.05rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--accent); border-bottom: 2px solid var(--border);
+    padding-bottom: .3rem; margin: 2.2rem 0 .8rem;
+  }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; }
+  .header-strip {
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    padding: .7rem 1rem; margin-top: .8rem;
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: .88rem;
+    display: flex; flex-wrap: wrap; gap: .4rem 1.4rem;
+  }
+  .header-strip b { color: var(--accent); font-weight: 600; }
+  .pill {
+    display: inline-block; padding: .05rem .55rem; border-radius: 999px;
+    font-family: Consolas, monospace; font-size: .72rem; font-weight: 700;
+    color: #fff; letter-spacing: .04em; white-space: nowrap; vertical-align: middle;
+  }
+  .p-passed { background: var(--passed); }
+  .p-amber  { background: var(--provisional); }
+  .p-red    { background: var(--blocked); }
+  .p-inert  { background: var(--inert); }
+  .p-open   { background: var(--accent); }
+  .m { font-family: Consolas, monospace; font-size: .8em; font-weight: 700; color: var(--accent); }
+  .next-action {
+    background: #fdf6e3; border: 1px solid var(--provisional); border-radius: 6px;
+    padding: 1rem 1.2rem;
+  }
+  .next-action p { margin: 0 0 .6rem; }
+  .next-action p:last-child { margin-bottom: 0; }
+  pre.cmd {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: .8rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: .5rem .7rem; margin: .5rem 0 0; white-space: pre-wrap; word-break: break-all;
+  }
+  table { border-collapse: collapse; width: 100%; background: var(--card);
+          border: 1px solid var(--border); border-radius: 6px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--border);
+           vertical-align: top; font-size: .95rem; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--inert); }
+  tr:last-child td { border-bottom: none; }
+  ul.activity, ul.docs { padding-left: 1.2rem; }
+  ul.activity li, ul.docs li { margin-bottom: .5rem; }
+  .date { color: var(--inert); font-family: Consolas, monospace; font-size: .85em; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 2px solid var(--border);
+           color: var(--inert); font-size: .85rem; }
+  .reminder { font-style: italic; color: var(--inert); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>🎙️🔒 Vibe Dictation Gate Board</h1>
+<div class="header-strip">
+  <span><b>phase</b> v1.4.1 publicly released — gate open at 3 of 6, unchanged since 2026-09-04; on <span class="mono">main</span>, unreleased and queued for the next release: the installer-hooks fix, the offline installer, and — new since the last board — the dictation-indicator rework (twelve commits <span class="mono">d53e7c5</span>…<span class="mono">0407600</span>, no dependency change, guarantee surface unchanged per RELEASING.md)</span>
+  <span><b>branch</b> main</span>
+  <span><b>commit</b> 0407600, 36 commits past tag <span class="mono">v1.4.1</span>. Not fetched this session (this refresh ran from an environment without GitHub access); at the last fetch on <span class="m">[A]</span> (2026-09-04 22:04 local) <span class="mono">origin/main</span> was at d8abda4, so <strong>14 local commits are unpushed</strong>: 2774b74, the previous board refresh 46d3a76, and the twelve indicator commits</span>
+  <span><b>tests</b> <strong>not run this refresh</strong> — the configured command (<span class="mono">pnpm i18n:generate &amp;&amp; pnpm test</span>) cannot run from this environment (Windows-installed <span class="mono">node_modules</span>; vitest does not resolve here). Last recorded figure: <strong>66/66 vitest and 41/41 Rust</strong> at the Prompt 5 closeout, 2026-09-05, commit <span class="mono">de63c64</span> (docs/dictation-indicator-tests.md); the one commit since, <span class="mono">0407600</span>, changed only screenshots and the test matrix. Previously 43/43 vitest and 31/31 Rust at 2774b74 — the indicator work added 23 frontend and 10 Rust tests. Build tree on <span class="m">[A]</span>: dev builds ran 2026-09-04/05 for the indicator work; whether <span class="mono">cargo clean</span> was run afterwards is not recorded</span>
+  <span><b>updated</b> 2026-09-05</span>
+  <span><b>tree</b> clean at 0407600 before this refresh; this refresh adds the board, an archive copy of the previous board (<span class="mono">docs/archive/gate-board-2026-09-04.html</span>), and section 7 of <span class="mono">docs/dictation-indicator-plan.md</span> — uncommitted until you commit them</span>
+  <span><b>machines</b> two clones refresh this board: <span class="m">[A]</span> = the owner's workstation (commits authored as Nasser Al-Husayan, including all twelve indicator commits); <span class="m">[B]</span> = the machine that committed on 2026-08-26 (commits authored as nasser). This refresh was made from a Cowork session with A's working copy mounted; it could read the repository and run <span class="mono">git</span>, but not the test command, the models folder, the firewall, or the installed build. Every observation below is tagged with the machine that reported it</span>
+</div>
+
+<h2>Right now</h2>
+<p>
+<strong>The v1.4.1 gate did not move.</strong> It stands at 3 of 6 exactly as
+the 2026-09-04 board left it: criteria 1 and 2 passed on <span class="m">[A]</span>
+2026-08-25, criterion 3 on <span class="m">[A]</span> 2026-09-04, criteria 4, 5 and 6
+NOT RUN. The previous board's next action — ten minutes of owner dictation
+against the installed v1.4.1 plus one model download attempted under the
+firewall block — was not done. What happened instead, on 2026-09-04/05, was
+a rework of the floating dictation indicator ("the pill"), landed on
+<span class="mono">main</span> in twelve commits and recorded in RELEASING.md as
+<em>Unreleased — queued for v1.5.0</em>.
+</p>
+<p>
+<strong>That rework found a defect in the published release.</strong>
+RELEASING.md (finding 1 of the new section, "2.7"): turning the status
+indicator off and on again in Settings <strong>freezes the app</strong> — every
+Tauri command hangs until the process is killed — because two synchronous
+commands could create a window, and tauri 2.10.3 documents that
+<span class="mono">WebviewWindowBuilder::build()</span> deadlocks inside a synchronous
+command on Windows. Reproduced twice on 2026-09-04. It is in the installed
+v1.4.0 and v1.4.1 builds; the fix (<span class="mono">4fdb773</span>, the three commands
+made <span class="mono">async</span>) is on <span class="mono">main</span> only. A second finding
+explains why the pill was sometimes invisible: tao 0.34.6 never raises a
+re-shown window, so any topmost window raised later covered it (reproduced
+with a stand-in; fixed by re-raising with <span class="mono">SetWindowPos</span> on every
+show). A third hypothesis — timer throttling in the hidden main webview — was
+measured and refuted (272 timers within 16 ms of schedule over 411 s). The
+owner ran the result with a microphone on 2026-09-05: English and Arabic
+dictation, badge, colours, hint and the new five-bar level meter all correct
+(docs/dictation-indicator-tests.md).
+</p>
+<p>
+<strong>What that changes for the approver.</strong> First, the published v1.4.1
+now carries four known defects until the next release: the vc_redist and
+WebView2 network paths, the sona-lock upgrade failure (all three recorded in
+RELEASING.md's v1.4.1 section), and the indicator re-enable deadlock — which
+is recorded only in the new <em>Unreleased</em> section, <strong>not in the v1.4.1
+record and not in the public release notes</strong>. Second, the dictation the
+owner did on 2026-09-05 was on a <em>dev build</em>; by RELEASING.md's no-inheritance
+rule it counts for nothing on the v1.4.1 gate, whose criterion 5 still needs
+one English and one Arabic dictation into MS Word against the <em>installed</em>
+build. Third, the guarantee surface is unchanged and RELEASING.md says how it
+knows: <span class="mono">git diff main</span> on the four dependency files is empty, and the
+only new runtime traffic is two in-process Tauri events from Rust to the pill
+window.
+</p>
+<p>
+Contradictions and absences to report. <strong>Standing:</strong> RELEASING.md
+opens by stating every release re-runs the full verification, yet the
+published v1.4.1 shipped at 2 of 6 and sits at 3 of 6 eleven days later; the
+public notes disclose the partial gate but still say 2 of 6. <strong>New:</strong>
+RELEASING.md's <em>Verify</em> ladder enumerates <strong>five</strong> criteria
+(strings, install, netstat, firewall, functional), while every per-release
+record since v1.3.0, the previous boards and the new v1.5.0 note count
+<strong>six</strong> — the sixth, the live-dictation functional check, exists only in
+the records, never in the procedure. <strong>New:</strong> the next release is named
+two ways — the v1.4.1 section says its defects persist "until v1.4.2 ships",
+the new section is "queued for v1.5.0". <strong>New:</strong> the v1.4.1 record does
+not list the deadlock defect (above). <strong>Carried:</strong> ROADMAP.md's Shipped
+list ("done, on <span class="mono">main</span>") still omits the installer-hooks fix and the
+offline installer, and now records the indicator rework only as the level
+meter — the redesigned states, the deadlock fix and the z-order fix are on
+<span class="mono">main</span> and in RELEASING.md but not there. <strong>Not observable from
+this refresh:</strong> the test run, the <span class="mono">.bin.hold</span> fixture, the firewall
+rules and the installed build — each is stated with the commit or date it
+was last observed, not re-observed.
+</p>
+
+<h2>Your next action</h2>
+<div class="next-action">
+<p>
+<strong>Decide which artifact carries the gate.</strong> Two honest paths, and
+only you can choose. <strong>(a) Finish v1.4.1:</strong> the same ten minutes the last
+board asked for — one English and one Arabic dictation into Word against the
+installed v1.4.1 (criterion 5), the three live-dictation checks (criterion
+6), one model download attempted under the block from Settings → Select
+Model (criterion 4). Gives the fork its first 6-of-6 on a published artifact.
+<strong>(b) Cut the next release now</strong> from <span class="mono">0407600</span> and run all six
+against it. That closes the v1.4.1 row inert with its debt moved, as v1.4.0's
+was, and ships the deadlock fix, the offline installer and the sona-kill hook
+to users sooner. Either way, two records first: settle the next version's
+name (v1.4.2 or v1.5.0) in RELEASING.md, and add the deadlock defect to the
+v1.4.1 record and its release notes.
+</p>
+<p>
+Before either: push. Fourteen commits are local to <span class="m">[A]</span>, and
+<span class="m">[B]</span> cannot see any of the indicator work.
+</p>
+<pre class="cmd">cd C:\Users\nasser\Dev\vibe-dictation; git add docs/gate-board.html docs/archive/gate-board-2026-09-04.html docs/dictation-indicator-plan.md; git commit -m "Refresh gate board (indicator rework on main; gate unchanged at 3 of 6)"; git push origin main</pre>
+</div>
+
+<h2>Gates</h2>
+<table>
+  <tr><th>Gate</th><th>Date</th><th>Outcome</th><th>Note</th></tr>
+  <tr><td>v1.0.1 release verification</td><td class="date">not recorded</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Autostart quoting defect (was HIGH) fixed and verified over a real reboot; fork versioning adopted.</td></tr>
+  <tr><td>v1.1.0 release verification</td><td class="date">not recorded</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Opt-in loopback Ollama formatting shipped. Finding: the Ollama connection needs a ~1 s netstat sampler incl. TIME_WAIT to be observed — now part of the procedure.</td></tr>
+  <tr><td>v1.1.1 release verification</td><td class="date">not recorded</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Prompt-injection guard after an in-the-wild incident (a command-shaped dictation was answered, not formatted); the incident pair is a permanent regression test.</td></tr>
+  <tr><td>v1.2.0 release verification</td><td class="date">2026-07-28</td>
+      <td><span class="pill p-passed">PASSED</span></td>
+      <td>Per-language dictation hotkeys (no auto-detect), English-only UI, display-locale/model-language decoupling.</td></tr>
+  <tr><td>v1.3.0 release verification</td><td class="date">2026-08-24</td>
+      <td><span class="pill p-amber">SHIPPED — 3 OF 6</span></td>
+      <td>Published by owner ruling with a partial gate: strings audit, install/autostart, and functional EN+AR passed. Live dictation, custom vocabulary, F9/F10 defaults, opt-in model downloader.</td></tr>
+  <tr><td>v1.4.0 release verification</td><td class="date">2026-08-25</td>
+      <td><span class="pill p-inert">CLOSED — 3 OF 6, DEBT MOVED</span></td>
+      <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria are <strong>no longer runnable against v1.4.0</strong> — both machines' installed build moved on — so they transferred to the v1.4.1 row. Closed inert, not green: it settled a partial gate, not a pass.</td></tr>
+  <tr><td><strong>v1.4.1 release verification</strong></td><td class="date">2026-08-25</td>
+      <td><span class="pill p-open">OPEN — 3 OF 6</span></td>
+      <td>Published by owner ruling 2026-08-25 with 2 of 6: tag, GitHub Release, and installer attached (SHA-256 <span class="mono">a86b6bba…</span>, re-verified by downloading the published asset on <span class="m">[A]</span> 2026-08-25 and on <span class="m">[B]</span> 2026-08-26). Criteria 1 and 2 passed against this artifact on 2026-08-25; criterion 3 (netstat during live dictation) passed on <span class="m">[A]</span> 2026-09-04; 4, 5 and 6 NOT RUN — <strong>no change since the last board</strong>. The only gate still open, which is why this row alone is blue. Carries the debt from v1.3.0 and v1.4.0. Known defects in the published artifact: two installer network paths, the sona-lock upgrade failure (recorded in its RELEASING.md section) and the indicator re-enable deadlock (recorded only in the <em>Unreleased</em> section).</td></tr>
+  <tr><td>Next release (named v1.4.2 in one place, v1.5.0 in another)</td><td class="date">—</td>
+      <td><span class="pill p-inert">QUEUED — NOT BUILT</span></td>
+      <td>Content on <span class="mono">main</span>: installer-hooks sona-kill (<span class="mono">6a980de</span>), offline installer with app-local VC++ runtime (<span class="mono">1f64e26</span>), the dictation-indicator rework (<span class="mono">d53e7c5</span>…<span class="mono">0407600</span>). No installer built, no criterion run. RELEASING.md: "the gate for v1.5.0 is the full six criteria, unchanged."</td></tr>
+</table>
+
+<h2>What the open gate still needs</h2>
+<p class="reminder">Three of six: criteria 4, 5 and 6. All three run against the installed v1.4.1 build (identical bytes on <span class="m">[A]</span> and <span class="m">[B]</span> as of 2026-08-26), and all three need the owner present — a dictating voice for 5 and 6, a model download attempted from the Settings screen for 4. Closing them updates the verification record in RELEASING.md. Nothing below was re-observed this refresh; each status carries the date it was last observed.</p>
+<table>
+  <tr><th>#</th><th>Criterion</th><th>Status</th><th>What was observed / why it falls short</th></tr>
+  <tr><td>4</td><td>Firewall outbound block: dictation works, download fails cleanly</td>
+      <td><span class="pill p-red">NOT RUN</span></td>
+      <td>Half done. Both outbound Block rules (<span class="mono">Vibe Dictation - block outbound</span>, <span class="mono">Vibe Dictation Sona - block outbound</span>) were observed present and enabled on <span class="m">[A]</span> 2026-09-04; RELEASING.md records the owner created them on 2026-09-03 in an elevated shell (firewall events at 20:45:29 UTC and the PowerShell history, <span class="mono">2774b74</span>). The criterion-3 dictations ran under them, which is the "dictation still works" half. The download half has never been attempted: a model download from Settings → Select Model under the block must fail cleanly (error dialog within the 10 s connect timeout, <span class="mono">.part</span> removed, dictation unaffected). Staged on <span class="m">[A]</span> 2026-09-04 by renaming the inactive turbo model to <span class="mono">.bin.hold</span>; whether that fixture is still in place was not observable from this refresh. <span class="m">[B]</span> has not reported a rule check.</td></tr>
+  <tr><td>5</td><td>Functional EN + AR dictation into MS Word, latency ~2 s after warmup</td>
+      <td><span class="pill p-red">NOT RUN</span></td>
+      <td>Needs the owner speaking <em>against the installed build</em>. The owner's 2026-09-05 English and Arabic dictations were on a dev build of the indicator work (docs/dictation-indicator-tests.md) and do not count: RELEASING.md's standing rule is that verification is re-proven per artifact and never inherited. v1.4.0's pass on large-v3-turbo (2026-08-25) does not carry either.</td></tr>
+  <tr><td>6</td><td>Live-dictation functional check</td>
+      <td><span class="pill p-red">NOT RUN</span></td>
+      <td>Needs the owner speaking. Words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing. Note: this criterion appears in every release record since v1.3.0 but not in RELEASING.md's <em>Verify</em> ladder, which lists five.</td></tr>
+</table>
+
+<h2>Open and unresolved</h2>
+<table>
+  <tr><th>Tag</th><th>Item</th></tr>
+  <tr><td><span class="pill p-amber">RECORD FIRST</span></td>
+      <td><strong>The deadlock defect is missing from the v1.4.1 record and the public notes.</strong> RELEASING.md's <em>Unreleased</em> section establishes that re-enabling the status indicator in Settings freezes the installed v1.4.0/v1.4.1 (finding 2.7, reproduced twice 2026-09-04, fixed on <span class="mono">main</span> in <span class="mono">4fdb773</span>). The v1.4.1 section's "still in the published installer" list names three defects and not this one, and the GitHub release notes say nothing. One line in each; a user who hits it today has no warning.</td></tr>
+  <tr><td><span class="pill p-amber">RECORD FIRST</span></td>
+      <td><strong>Next version named two ways.</strong> RELEASING.md's v1.4.1 section: defects persist "until v1.4.2 ships". Its new section: "Unreleased — queued for v1.5.0". Both are on <span class="mono">main</span> at <span class="mono">0407600</span>. Settle it before the release record is opened, or the record will inherit the split.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Five criteria in the procedure, six in every record.</strong> RELEASING.md's <em>Verify</em> section numbers 1–5 (strings, install, netstat, firewall, functional). The v1.3.0, v1.4.0 and v1.4.1 records, the v1.5.0 note ("the full six criteria") and every board count six, the sixth being the live-dictation functional check. Add it to the ladder with its four sub-checks, or the next approver will find the procedure and the records disagreeing on what "full" means.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Fourteen commits unpushed from <span class="m">[A]</span></strong> as of the last recorded fetch (2026-09-04 22:04 local, <span class="mono">origin/main</span> at d8abda4): <span class="mono">2774b74</span>, the previous board refresh <span class="mono">46d3a76</span>, and the twelve indicator commits. <span class="m">[B]</span> has none of the indicator work, the deadlock fix included. Not re-checked this refresh — no fetch was possible.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Transient test fixture on <span class="m">[A]</span>, last observed 2026-09-04:</strong> <span class="mono">ggml-large-v3-turbo.bin</span> renamed to <span class="mono">.bin.hold</span> in the models folder so the criterion-4 download attempt has a model to request. The active model is large-v3; dictation is unaffected. Not observable from this refresh. Closes when the file is renamed back after the attempt is recorded. If this row survives the next refresh from <span class="m">[A]</span>, the rename was forgotten.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Indicator rework: four test rows and two checks still open</strong> (docs/dictation-indicator-plan.md §7, docs/dictation-indicator-tests.md). Rows b (no default microphone / Bluetooth switch), f (exclusive fullscreen, documented as a known limitation in docs/debug.md) and g (hotkey during a real transcription) not run; row d needs a second monitor. The cpal error-text classifier behind "Microphone is busy or unavailable" has never met a real device failure. Nine new Arabic strings plus the reworded Ready/Listening are machine wording awaiting the owner's native check — the owner saw the on-screen Arabic labels correct on 2026-09-05 but did not review every string. Twice after a <span class="mono">tauri dev</span> watcher rebuild the fresh instance flashed "Dictation hotkeys could not be registered" for 5 s; not seen on a normal launch, likely the outgoing process still holding F9/F10, unproven, cannot occur in a release build (second launch is routed to the running instance). None gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>ROADMAP.md's Shipped list lags <span class="mono">main</span>.</strong> By its own key, Shipped means "done, on <span class="mono">main</span>". Missing: the installer-hooks fix (<span class="mono">6a980de</span>), the offline installer (<span class="mono">1f64e26</span>), and the indicator rework beyond the level meter — the redesigned states, the pill-at-key-down and visible-failure changes, the deadlock and z-order fixes (<span class="mono">4fdb773</span>…<span class="mono">e921de6</span>). RELEASING.md records all of it; ROADMAP.md records the meter only. Nothing gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>The published v1.4.1 installer still carries the vc_redist and WebView2 network paths and the sona-lock defect</strong> — fixed on <span class="mono">main</span> (<span class="mono">6a980de</span>, <span class="mono">1f64e26</span>) and verified in real installs, but the asset on the Releases page predates all three. Recorded in RELEASING.md's v1.4.1 section. Closes when the next release is published.</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>Unsigned installer</strong> — needs a code-signing certificate; purchase decision pending (owner ruling 2026-09-03, recorded in ROADMAP.md). SmartScreen warns on download and some antivirus flags the keystroke injection. Not gating any release.</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>RTL text injection</strong> mangles Arabic character order in some target apps; workaround is clipboard output mode. (ROADMAP, known issue)</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>Stale commit stamp</strong> — the installed binary can self-report an older commit than it was built from; <span class="mono">build.rs</span> needs a rerun-if-changed directive. Cosmetic. (ROADMAP + RELEASING deferred list)</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>ffmpeg resolution pin</strong> — the app-side recording conversion resolves ffmpeg from PATH instead of the bundled binary. (RELEASING deferred list)</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation. Registration feedback is now partly covered: a startup-time failure is surfaced on the pill (<span class="mono">4fb99a9</span>), and since <span class="mono">91c6f05</span> every pre-recording failure is an error pill plus a notification; the field itself is unchanged and the recorder is still Planned in ROADMAP.md. (ROADMAP planned + RELEASING deferred list)</td></tr>
+  <tr><td><span class="pill p-inert">DEFERRED</span></td>
+      <td><strong><span class="mono">cli.rs</span> review</strong> — audit which CLI arguments still make sense for a dictation-only tool. (RELEASING deferred list)</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Release tooling recorded for <span class="m">[A]</span>; <span class="m">[B]</span> still to fill in.</strong> RELEASING.md's per-machine <em>Release tooling</em> section has A in full (2026-09-03: Windows 11 build 26200, Git 2.55.0, <span class="mono">gh</span> 2.98.0 as NasserAlh, Node v24.19.0, pnpm 10.4.1 via <span class="mono">corepack</span> only, Tauri CLI 2.10.0 with NSIS 3.11, cargo/rustc 1.97.1, Build Tools 2022 17.14, Python 3.12.14 via uv 0.12.5; installer archive at <span class="mono">..\releases\vibe-dictation\</span>). B: only its SSH key pair name is known.</td></tr>
+</table>
+
+<h2>Recent activity</h2>
+<ul class="activity">
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Indicator rework closed out on <span class="mono">main</span>; gate untouched</strong> (<span class="mono">de63c64</span>, <span class="mono">0407600</span>; board in the commit you make next). Prompt 5: the Prompt 0 instrumentation trimmed to one info line per show and per hide; CLAUDE.md's data-flow step 7 rewritten for the new states and the rules learned; README.md and docs/debug.md (exclusive-fullscreen limitation) updated; RELEASING.md gained the <em>Unreleased — queued for v1.5.0</em> section with the three findings and the statement that the guarantee surface is unchanged. Test matrix rows c, e (short form), h and i re-run against the closeout build after the owner's own dev instance — which had held port 1420 without a debug port — was stopped: all four pass. Meter screenshots re-captured with the dB curve (<span class="mono">4e7121f</span>: a 0.2 raw peak now fills about two thirds of a bar; the owner had found the linear meter subtle). Full check set green: 41 Rust tests, 66 vitest, clippy, tsc, eslint, <span class="mono">check_i18n</span>. Dependency files unchanged against <span class="mono">main</span>.</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Owner microphone run of the reworked pill</strong> (recorded in docs/dictation-indicator-tests.md). Dev build, toggle mode, English then Arabic: "Listening" on the key press with the "F9 to stop" hint for about 2 s, EN badge, red ring, correct colours through transcribing and inserted, Arabic labels correct on screen, five-bar meter following the voice and settling on silence — the cpal → atomic → pill path verified live. Rows b, f, g, h not run.</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Pill redesigned, level meter added</strong> (<span class="mono">91c6f05</span>, <span class="mono">e921de6</span>, <span class="mono">4bada78</span>, <span class="mono">e9073c6</span>, <span class="mono">2500c40</span>). The pill now appears at key-down, before device setup; every pre-recording failure is an amber or red pill plus a notification ("No microphone found", "Microphone is busy or unavailable", "Could not start recording" — new pure module <span class="mono">lib/indicator-messages.ts</span>); a press during transcription says "Still transcribing — wait". States carry a language badge (EN/ع), elapsed time, a type/clipboard glyph, a 2 s stop hint, phases loading-model → transcribing N s → formatting, a word count on completion; errors stay 5 s; amber for no-mic and focus-lost, red for failures. Rendering is decided by the pure, unit-tested <span class="mono">lib/indicator-content.ts</span>. Window widened 280 → 400 logical px; every fixed label measured to fit in both locales (widest 358 of 384 px). Level meter: the capture callback records each buffer's peak in an atomic, a Rust task decays it and emits to the pill window only at ~15 Hz — in-process, status only. ROADMAP.md's "Animated recording indicator" moved to Shipped. Fourteen state screenshots in docs/screenshots/indicator/ (seventeen once the three meter captures were added).</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Deadlock and z-order fixed</strong> (<span class="mono">4fdb773</span>; plan committed as <span class="mono">76040fc</span>). The three indicator commands made <span class="mono">async fn</span>; verified by hand — indicator toggled off and on twice, 13–83 ms per call, app responsive, pill returned. Every show now re-raises with <span class="mono">SetWindowPos(HWND_TOPMOST …)</span>; re-run of the TopMost stand-in test showed nothing but system helper windows above the pill. The pill is placed on the foreground window's monitor (owner types there; the mouse may rest elsewhere) and sized physically for that monitor's scale, position before size; a 150 ms fade precedes every hide; the pill component registers its listener before fetching state; six unit tests for the positioning maths. No new crates, features or plugins.</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Indicator instrumented and two causes reproduced</strong> (<span class="mono">d53e7c5</span>). Show/hide snapshots with visibility, position, size, monitor scales and the window directly above in z-order; a nine-row manual test matrix (docs/dictation-indicator-tests.md). Driven through the WebView2 debug port without touching microphone, clipboard or keystrokes. Reproduced: a TopMost stand-in covering a pill that Rust reported visible; and — new — <span class="mono">set_dictation_indicator_enabled(true)</span> never returning, every later IPC call hanging until the process was killed, matching tauri 2.10.3's documented deadlock for window creation in synchronous commands. Refuted: hidden-webview timer throttling (<span class="mono">visibilityState</span> stayed "visible", 272 timers within 1500–1516 ms over 411 s). Measured: <span class="mono">get_audio_devices</span> at 5–9 ms, so enumeration is not the startup cost.</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Firewall-rule provenance recorded; criterion-4 download attempt staged</strong> (<span class="mono">2774b74</span>; board <span class="mono">46d3a76</span>). RELEASING.md now records that the owner created the two outbound-block rules on 2026-09-03 in an elevated shell, corroborated by two firewall "rule has been added" events at 20:45:29 UTC and the PowerShell history. The inactive turbo model renamed to <span class="mono">.bin.hold</span> so the downloader will offer it. Vitest 43/43 at 2774b74.</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Criterion 3 closed against the installed v1.4.1; gate 2 of 6 → 3 of 6.</strong> Installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>; a ~1 s <span class="mono">netstat</span> sampler including TIME_WAIT ran 175 samples while the owner dictated six sessions through the loopback Ollama pass — 28 distinct rows, zero non-loopback, sona LISTENING on <span class="mono">127.0.0.1:59645</span> throughout; a second independent sampler (467 samples) agreed. Recorded in RELEASING.md.</li>
+  <li><span class="date">2026-09-03</span> <span class="m">[A]</span> — <strong>Installer audited, ruled offline, fixed on <span class="mono">main</span> and verified</strong> (<span class="mono">1f64e26</span>). Four network paths found; the five VC++ runtime DLLs that only <span class="mono">sona.exe</span> needs now ship app-local and content-pinned, <span class="mono">webviewInstallMode</span> is <span class="mono">skip</span>; built, installed <span class="mono">/S</span>, DLL hashes confirmed, Sona transcribed a TTS clip loopback-only; published bytes restored afterwards. Same day: five housekeeping items closed in the documents (v1.4.1 tag ruling, pre-squash releases recorded unrecoverable, unsigned installer deferred, locale-trim re-verification closed, A's release tooling recorded).</li>
+</ul>
+
+<h2>Where things are written down</h2>
+<ul class="docs">
+  <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk; data-flow step 7 now describes the reworked indicator and the three rules learned (async window-creating commands, re-raise on show, foreground-window monitor).</li>
+  <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder (five numbered criteria — see the housekeeping row), rules learned the hard way, per-machine release tooling, and the per-release record — v1.4.1's partial gate (3 of 6, criterion 3 with full netstat evidence, firewall-rule provenance), its known defects, and — new — the <em>Unreleased — queued for v1.5.0</em> section: the indicator rework commit by commit, the three findings (sync-command deadlock, tao z-order, refuted timer throttling), the test-matrix status and the unchanged guarantee surface.</li>
+  <li><span class="mono">ROADMAP.md</span> — known issues, planned and considered work, non-goals, shipped features; Shipped now lists the level meter (<span class="mono">e9073c6</span>) and still omits the two installer changes and the rest of the indicator rework.</li>
+  <li><span class="mono">docs/dictation-indicator-plan.md</span> and <span class="mono">docs/dictation-indicator-tests.md</span> — the rework's diagnosis, design, the six prompts it was built from, the commit log with rulings, the manual test matrix with the owner's observed results, and (§7) what is still open. Referenced from RELEASING.md and CLAUDE.md.</li>
+  <li><span class="mono">docs/deployment.md</span> — putting a release on a new machine, including the two <span class="mono">New-NetFirewallRule</span> outbound-block commands criterion 4 depends on. <span class="mono">docs/debug.md</span> — now also the exclusive-fullscreen limitation of the pill and how to read its show line.</li>
+  <li><span class="mono">docs/archive/</span> — previous boards, one per refresh, date-suffixed (nothing is deleted).</li>
+</ul>
+<p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
+
+<footer>
+Vibe Dictation — privacy-locked, Windows-only, on-device dictation. Rust/Tauri + React/TS; unsigned NSIS releases, hand-verified zero egress.<br>
+Refresh with "refresh the gate board". Procedure: <span class="mono">docs/STATUS-BOARD.md</span>.
+</footer>
+
+</main>
+</body>
+</html>
