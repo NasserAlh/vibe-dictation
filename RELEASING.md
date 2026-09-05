@@ -456,10 +456,18 @@ Hashes: installer
   the one the published artifact was built from, which is what the hashes
   need. Anyone reading the record at the tag is reading an overstated gate;
   `main` carries the correction. Not retagged.
-- **Still in the published v1.4.1 installer until v1.4.2 ships:** both
-  installer network paths (vc_redist download from `aka.ms`, WebView2
-  bootstrapper download when WebView2 is absent) and the sona-lock upgrade
-  defect. All three are fixed on `main` (`6a980de`, `1f64e26`).
+- **Still in the published v1.4.1 installer until v1.5.0 ships** (the next
+  release was named v1.4.2 here until 2026-09-05; v1.5.0 is the settled
+  name): both installer network paths (vc_redist download from `aka.ms`,
+  WebView2 bootstrapper download when WebView2 is absent) and the sona-lock
+  upgrade defect. All three are fixed on `main` (`6a980de`, `1f64e26`).
+- **Also in the published v1.4.1 (and v1.4.0): turning the status indicator
+  off and on again in Settings freezes the app.** Every Tauri command hangs
+  until the process is killed; the setting is already saved, so a restart
+  comes back with the indicator enabled. Found and reproduced twice on
+  2026-09-04 (finding 2.7 in the v1.5.0 section), fixed on `main` in
+  `4fdb773`. Workaround until v1.5.0: do not toggle the indicator setting;
+  if the app freezes, end `vibe.exe` from Task Manager and relaunch.
 
 ## Shipped in v1.4.0 (2026-08-25)
 

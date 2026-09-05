@@ -309,6 +309,13 @@ Read CLAUDE.md and RELEASING.md. Close out the indicator work.
 - Commit the Prompt 0 work on its own before Prompt 1, so the fix diff is clean: instrumentation + docs/dictation-indicator-tests.md.
 - Run the remaining matrix rows with a microphone: a, b, d, f, g, and h/i after Prompt 1. Row a's `sinceDownMs` decides whether Prompt 2 step 1 is needed.
 - Closed: the main window re-appearing during the Prompt 0 tray wait was the owner opening it. Not a bug.
+
+## 7. Open after closeout (2026-09-05, at `0407600`)
+
+- Test rows b (no default microphone; Bluetooth profile switch), f (exclusive fullscreen) and g (hotkey pressed during a real transcription) are not run. Row d (two monitors, different scale) is not testable on the owner's single monitor. The cpal error-text classifier in `classifyStartRecordError` (`lib/indicator-messages.ts`) keys on "device" / "stream" in cpal's error text and has never been checked against a real device failure.
+- Arabic wording: nine new keys plus the reworded Ready/Listening strings in `i18n/translations/ar-SA/desktop.json` are machine wording awaiting the owner's native check. The owner's 2026-09-05 run found the Arabic labels correct on screen, but did not review every new string.
+- Startup registration flash: twice, after a `tauri dev` watcher rebuild, the fresh instance showed the amber "Dictation hotkeys could not be registered" pill for 5 s. Not seen on a normal launch. Likely the outgoing process still holding F9/F10 during the restart; a release build cannot hit that path because a second launch is routed to the running instance. Unproven. A single registration retry after one second, before showing the error, would cover it and any other app briefly holding the key. Not gating.
+- Row h was verified through the same commands the Settings switch and the hotkey call, not by a click followed by a key press within one second.
 - Decide the hint wording for toggle mode ("F9 to stop" vs "press F9 again").
 - Look at the Arabic labels on a real AR dictation; machine wording for "release to finish" needs a native check.
 - Owner decision to re-confirm: status only, no transcript text. The plan assumes it stands.

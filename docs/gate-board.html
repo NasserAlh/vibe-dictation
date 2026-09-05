@@ -54,7 +54,8 @@
     background: #fdf6e3; border: 1px solid var(--provisional); border-radius: 6px;
     padding: 1rem 1.2rem;
   }
-  .next-action p { margin: 0; }
+  .next-action p { margin: 0 0 .6rem; }
+  .next-action p:last-child { margin-bottom: 0; }
   pre.cmd {
     font-family: Consolas, "Cascadia Mono", monospace; font-size: .8rem;
     background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
@@ -79,152 +80,104 @@
 
 <h1>🎙️🔒 Vibe Dictation Gate Board</h1>
 <div class="header-strip">
-  <span><b>phase</b> v1.4.1 publicly released — gate open at 3 of 6 (criterion 3 closed 2026-09-04); on <span class="mono">main</span>, unreleased and both verified in a real install: the installer-hooks fix and the installer made offline (VC++ runtime app-local, WebView2 from Windows)</span>
+  <span><b>phase</b> v1.4.1 publicly released — gate open at 3 of 6, unchanged since 2026-09-04; on <span class="mono">main</span>, unreleased and queued for the next release: the installer-hooks fix, the offline installer, and — new since the last board — the dictation-indicator rework (twelve commits <span class="mono">d53e7c5</span>…<span class="mono">0407600</span>, no dependency change, guarantee surface unchanged per RELEASING.md)</span>
   <span><b>branch</b> main</span>
-  <span><b>commit</b> 2774b74, 23 commits past tag <span class="mono">v1.4.1</span> (board/docs commits — the latest two being the criterion-3 record with its board, d8abda4, and the firewall-rule provenance record, 2774b74 — plus two packaging changes, the installer-hooks rework and the app-local VC++ runtime; no <span class="mono">.rs</span> file changed). Fetched before building: <span class="mono">origin/main</span> is at d8abda4, nothing from the other machine outstanding; 2774b74 and this board's own refresh commit (docs-only, supersedes nothing) are local on <span class="m">[A]</span> until pushed</span>
-  <span><b>tests</b> 43/43 frontend (vitest), run 2026-09-04 on <span class="m">[A]</span> at 2774b74 through <span class="mono">corepack pnpm</span> 10.4.1 (bare <span class="mono">pnpm</span> is not on A's PATH); previously 43/43 on <span class="m">[B]</span> 2026-08-26 at 6a980de; 31/31 Rust (cargo test) last observed at 009ef8d — <span class="mono">git diff</span> confirms no <span class="mono">.rs</span> file has changed since; build tree: <span class="m">[B]</span> reported it removed by <span class="mono">cargo clean</span> after the 2026-08-26 hook test (3.5 GiB), <span class="m">[A]</span> removed its own on 2026-08-25 (7.2 GiB), rebuilt it for the 2026-09-03 verification build of 1f64e26 and removed it again by <span class="mono">cargo clean</span> afterwards</span>
-  <span><b>updated</b> 2026-09-04</span>
-  <span><b>tree</b> clean at 2774b74</span>
-  <span><b>machines</b> two clones refresh this board: <span class="m">[A]</span> = this workstation (commits authored as Nasser Al-Husayan, including this refresh); <span class="m">[B]</span> = the machine that committed on 2026-08-26 (commits authored as nasser, 6a980de..9671726). Every observation of an installed build, build tree, archive folder, key inventory, firewall rule, model-folder fixture or sibling clone below is tagged with the machine that reported it</span>
+  <span><b>commit</b> 0407600, 36 commits past tag <span class="mono">v1.4.1</span>. Not fetched this session (this refresh ran from an environment without GitHub access); at the last fetch on <span class="m">[A]</span> (2026-09-04 22:04 local) <span class="mono">origin/main</span> was at d8abda4, so <strong>14 local commits are unpushed</strong>: 2774b74, the previous board refresh 46d3a76, and the twelve indicator commits</span>
+  <span><b>tests</b> <strong>not run this refresh</strong> — the configured command (<span class="mono">pnpm i18n:generate &amp;&amp; pnpm test</span>) cannot run from this environment (Windows-installed <span class="mono">node_modules</span>; vitest does not resolve here). Last recorded figure: <strong>66/66 vitest and 41/41 Rust</strong> at the Prompt 5 closeout, 2026-09-05, commit <span class="mono">de63c64</span> (docs/dictation-indicator-tests.md); the one commit since, <span class="mono">0407600</span>, changed only screenshots and the test matrix. Previously 43/43 vitest and 31/31 Rust at 2774b74 — the indicator work added 23 frontend and 10 Rust tests. Build tree on <span class="m">[A]</span>: dev builds ran 2026-09-04/05 for the indicator work; whether <span class="mono">cargo clean</span> was run afterwards is not recorded</span>
+  <span><b>updated</b> 2026-09-05</span>
+  <span><b>tree</b> clean at 0407600 before this refresh; this refresh adds the board, an archive copy of the previous board (<span class="mono">docs/archive/gate-board-2026-09-04.html</span>), and section 7 of <span class="mono">docs/dictation-indicator-plan.md</span> — uncommitted until you commit them</span>
+  <span><b>machines</b> two clones refresh this board: <span class="m">[A]</span> = the owner's workstation (commits authored as Nasser Al-Husayan, including all twelve indicator commits); <span class="m">[B]</span> = the machine that committed on 2026-08-26 (commits authored as nasser). This refresh was made from a Cowork session with A's working copy mounted; it could read the repository and run <span class="mono">git</span>, but not the test command, the models folder, the firewall, or the installed build. Every observation below is tagged with the machine that reported it</span>
 </div>
 
 <h2>Right now</h2>
 <p>
-<strong>Criterion 3 closed on 2026-09-04: the installed v1.4.1 was sampled
-with <span class="mono">netstat</span> while the owner dictated, and every socket was loopback.</strong>
-On <span class="m">[A]</span>, with the installed <span class="mono">vibe.exe</span> re-hashed to the published
-<span class="mono">37186b76…</span> first, a ~1 s sampler including TIME_WAIT rows ran
-16:30:17–16:33:17 UTC (175 samples) while the app log shows six hotkey
-dictations (sessions 24–29) recorded, transcribed and passed through the
-loopback Ollama formatter, plus a seventh recording: 28 distinct rows, zero
-non-loopback; sona LISTENING on <span class="mono">127.0.0.1:59645</span> in all 175 samples,
-never <span class="mono">0.0.0.0</span>; the <span class="mono">vibe.exe</span>→<span class="mono">127.0.0.1:11434</span>
-Ollama connection caught ESTABLISHED and then in TIME_WAIT, the v1.1.0 finding
-reproduced. A second, independent sampler of the same design ran in parallel
-in two more windows (292 and 175 samples, sessions 24–26 and 28–30 inside),
-also zero non-loopback — 642 samples across ~2.6 min of dictation-active
-sampling. Two limits, both recorded: the app log carries no per-session
-language, so the EN/AR split is not recorded, and live dictation was off, so
-no partial-pass snapshot was sampled.
-<strong>v1.4.1 is public, its record says so, and on 2026-08-26 it
-produced the fork's first in-the-wild installer defect.</strong> Upgrading on
-<span class="m">[B]</span> failed with
-<span class="mono">Error opening file for writing: …\sona.exe</span> — two
-orphaned <span class="mono">sona.exe</span> processes from an earlier run still
-held locks on the install directory. The stock Tauri NSIS template closes only
-the main executable before installing and knows nothing about sidecars, so any
-Sona process that outlives an app crash blocks every future upgrade. The
-processes were killed by hand and the install completed. Fixed at the source in
-<span class="mono">6a980de</span>: pre-install and pre-uninstall hooks now
-<span class="mono">taskkill sona.exe</span> before any file is touched
-(<span class="mono">windows/hooks.nsh</span>), the pre-existing vc_redist logic
-was merged into that same file (Tauri accepts one hooks file per build), and
-<span class="mono">tauri.windows.conf.json</span> — a cross-platform leftover
-whose own <span class="mono">installerHooks</span> entry silently overrode the
-main config — was merged into <span class="mono">tauri.conf.json</span> and
-deleted. <strong>The fix is proven in a real install on
-<span class="m">[B]</span></strong> (2026-08-26, recorded in RELEASING.md): a
-detached <span class="mono">sona.exe serve</span> was spawned from the install
-directory to hold the lock — the exact condition that produced the file-write
-error — and the hooks-bearing locally built installer ran silently to exit
-code 0, killed the orphan, and rewrote the install directory. The published
-artifact was then restored on <span class="m">[B]</span> by re-downloading the
-GitHub asset (hash <span class="mono">a86b6bba…</span>, exact match) and
-reinstalling it; the installed <span class="mono">vibe.exe</span> re-hashed to
-<span class="mono">37186b76…</span>, byte-identical to the published record.
-The published v1.4.1 installer still lacks the hook — it first ships in the
-next release. <strong>The installer is now offline on <span class="mono">main</span></strong>
-(<span class="mono">1f64e26</span>, ruled 2026-09-03 after a read-only audit found four
-network paths): the inherited vc_redist download from <span class="mono">aka.ms</span> is gone,
-the five Microsoft VC++ runtime DLLs that only <span class="mono">sona.exe</span> needs ship
-app-local beside it (content-pinned, 961,168 bytes raw, +263,503 bytes on the
-installer), and <span class="mono">webviewInstallMode</span> is <span class="mono">skip</span> so Tauri's
-WebView2 bootstrapper download is not compiled in — Windows 11 ships WebView2.
-Verified on <span class="m">[A]</span>: built, installed silently, the five DLLs landed with pinned
-hashes, the installed Sona loaded all five from the install directory and
-transcribed a Windows-TTS clip correctly, the app spawned it on loopback only,
-and the compiled script contains no download plugin command and no URL. The
-published v1.4.1 installer still has both paths, and the sona-lock defect, until
-v1.4.2 ships. Separately, as of 2026-09-03 the v1.4.1 release notes carry the
-same partial-gate disclosure that the v1.3.0 and v1.4.0 notes carry, and name
-the installer by the dotted filename GitHub actually serves (the v1.2.0 notes got the same filename fix the same day, closing that defect); RELEASING.md's
-v1.4.1 record, which had still said "Not published", now states the
-2026-08-25 publication and the owner's 2-of-6 ruling.
+<strong>The v1.4.1 gate did not move.</strong> It stands at 3 of 6 exactly as
+the 2026-09-04 board left it: criteria 1 and 2 passed on <span class="m">[A]</span>
+2026-08-25, criterion 3 on <span class="m">[A]</span> 2026-09-04, criteria 4, 5 and 6
+NOT RUN. The previous board's next action — ten minutes of owner dictation
+against the installed v1.4.1 plus one model download attempted under the
+firewall block — was not done. What happened instead, on 2026-09-04/05, was
+a rework of the floating dictation indicator ("the pill"), landed on
+<span class="mono">main</span> in twelve commits and recorded in RELEASING.md as
+<em>Unreleased — queued for v1.5.0</em>.
 </p>
 <p>
-The gate stands at 3 of 6 — level with v1.3.0 and v1.4.0, no longer the
-weakest published release, and the first v1.4.1 criterion closed since
-ship day. Criteria 1 (strings audit on both exes) and 2 (NSIS <span class="mono">/S</span>
-install with the quoted HKCU Run entry) passed on <span class="m">[A]</span>
-2026-08-25; criterion 3 on <span class="m">[A]</span> 2026-09-04. What cannot be proven
-from either machine without the owner: <strong>criteria 4, 5 and 6.</strong>
-Criteria 5 and 6 need a dictating voice. Criterion 4 no longer needs an
-elevated shell: the two outbound-block rules were created by the owner on
-<span class="m">[A]</span> on 2026-09-03 in an elevated shell (recorded 2026-09-04, <span class="mono">2774b74</span>;
-corroborated by the firewall event log and the PowerShell history), the
-criterion-3 dictations ran under them, and what remains is a model download
-attempted under the block failing cleanly — a few minutes at the Settings
-screen. That attempt is set up on <span class="m">[A]</span>: the inactive
-<span class="mono">ggml-large-v3-turbo.bin</span> is temporarily renamed to <span class="mono">.bin.hold</span> so the
-downloader offers it (it refuses a model already present); the active model
-is large-v3, dictation is unaffected, and the file is renamed back once the
-attempt is recorded. Both machines hold
-the same installed v1.4.1 bytes (<span class="mono">37186b76…</span>, hashed on
-each), so all three can be closed from either.
+<strong>That rework found a defect in the published release.</strong>
+RELEASING.md (finding 1 of the new section, "2.7"): turning the status
+indicator off and on again in Settings <strong>freezes the app</strong> — every
+Tauri command hangs until the process is killed — because two synchronous
+commands could create a window, and tauri 2.10.3 documents that
+<span class="mono">WebviewWindowBuilder::build()</span> deadlocks inside a synchronous
+command on Windows. Reproduced twice on 2026-09-04. It is in the installed
+v1.4.0 and v1.4.1 builds; the fix (<span class="mono">4fdb773</span>, the three commands
+made <span class="mono">async</span>) is on <span class="mono">main</span> only. A second finding
+explains why the pill was sometimes invisible: tao 0.34.6 never raises a
+re-shown window, so any topmost window raised later covered it (reproduced
+with a stand-in; fixed by re-raising with <span class="mono">SetWindowPos</span> on every
+show). A third hypothesis — timer throttling in the hidden main webview — was
+measured and refuted (272 timers within 16 ms of schedule over 411 s). The
+owner ran the result with a microphone on 2026-09-05: English and Arabic
+dictation, badge, colours, hint and the new five-bar level meter all correct
+(docs/dictation-indicator-tests.md).
 </p>
 <p>
-Two contradictions stand. <strong>First, the standing one:</strong>
-RELEASING.md opens by stating every release re-runs the full verification, yet
-the published v1.4.1 artifact shipped with two of six criteria — the third
-consecutive release to rest its runtime zero-egress proof on the strings audit
-and compile-time deletions alone. The netstat half of that proof now exists
-for v1.4.1, ten days after publication; the firewall half still does not.
-Since 2026-09-03 the public notes disclose the partial gate, though the
-disclosure sits under a first paragraph that still reads "Nothing leaves
-the machine.", and the notes still say 2 of 6 — not amended for today's
-closure. <strong>Second:</strong> the two machines differ. The 2026-08-26 refresh from
-<span class="m">[B]</span> stated the machine's only key pair is
-<span class="mono">~/.ssh/id_ed25519_vps</span>; <span class="m">[A]</span> holds two key pairs,
-neither by that name. Both statements are true where they were made — the
-board was written as if there were one machine, and now tags each
-observation. Resolved since the last refresh: the firewall rules' provenance — the
-previous board reported both rules present on <span class="m">[A]</span> with no controlled document
-saying when or by whom they were made; RELEASING.md now records that the
-owner created them on <span class="m">[A]</span> on 2026-09-03 in an elevated shell, corroborated by
-two "rule has been added" firewall events at 20:45:29 UTC under the owner's
-account and by the two <span class="mono">New-NetFirewallRule</span> commands in the PowerShell
-history (<span class="mono">2774b74</span>). Also resolved earlier: RELEASING.md's v1.4.1 record no
-longer contradicts the Releases page; the stale sibling clone that existed
-only on A was deleted on 2026-09-03, so both machines now agree on that; and
-the v1.4.0 installer missing from A's archive was re-archived from the GitHub
-asset with its hash verified. Also resolved: the installer's own network
-behaviour, found 2026-08-26 and until now ruled on by no controlled document,
-is audited in full, ruled, and fixed on <span class="mono">main</span> — RELEASING.md's scope
-statement now covers the installer, and its v1.4.1 section records the four
-paths (the dormant WebView2 one included) and the finding that the NSIS wiki's
-"NSISdl cannot do HTTPS" claim is wrong in practice: a probe fetched both URLs.
-One absence to report: ROADMAP.md defines <em>Shipped</em> as "done, on
-<span class="mono">main</span>", yet its Shipped list does not mention the installer-hooks fix
-(<span class="mono">6a980de</span>) or the offline installer (<span class="mono">1f64e26</span>), both on
-<span class="mono">main</span> and both verified in real installs. RELEASING.md records both;
-ROADMAP.md does not — not recorded there, so the board says so rather than
-filling the gap.
+<strong>What that changes for the approver.</strong> First, the published v1.4.1
+now carries four known defects until the next release: the vc_redist and
+WebView2 network paths, the sona-lock upgrade failure (all three recorded in
+RELEASING.md's v1.4.1 section), and the indicator re-enable deadlock — which
+is recorded only in the new <em>Unreleased</em> section, <strong>not in the v1.4.1
+record and not in the public release notes</strong>. Second, the dictation the
+owner did on 2026-09-05 was on a <em>dev build</em>; by RELEASING.md's no-inheritance
+rule it counts for nothing on the v1.4.1 gate, whose criterion 5 still needs
+one English and one Arabic dictation into MS Word against the <em>installed</em>
+build. Third, the guarantee surface is unchanged and RELEASING.md says how it
+knows: <span class="mono">git diff main</span> on the four dependency files is empty, and the
+only new runtime traffic is two in-process Tauri events from Rust to the pill
+window.
+</p>
+<p>
+Contradictions and absences to report. <strong>Standing:</strong> RELEASING.md
+opens by stating every release re-runs the full verification, yet the
+published v1.4.1 shipped at 2 of 6 and sits at 3 of 6 eleven days later; the
+public notes disclose the partial gate but still say 2 of 6. <strong>New:</strong>
+RELEASING.md's <em>Verify</em> ladder enumerates <strong>five</strong> criteria
+(strings, install, netstat, firewall, functional), while every per-release
+record since v1.3.0, the previous boards and the new v1.5.0 note count
+<strong>six</strong> — the sixth, the live-dictation functional check, exists only in
+the records, never in the procedure. <strong>New:</strong> the next release is named
+two ways — the v1.4.1 section says its defects persist "until v1.4.2 ships",
+the new section is "queued for v1.5.0". <strong>New:</strong> the v1.4.1 record does
+not list the deadlock defect (above). <strong>Carried:</strong> ROADMAP.md's Shipped
+list ("done, on <span class="mono">main</span>") still omits the installer-hooks fix and the
+offline installer, and now records the indicator rework only as the level
+meter — the redesigned states, the deadlock fix and the z-order fix are on
+<span class="mono">main</span> and in RELEASING.md but not there. <strong>Not observable from
+this refresh:</strong> the test run, the <span class="mono">.bin.hold</span> fixture, the firewall
+rules and the installed build — each is stated with the commit or date it
+was last observed, not re-observed.
 </p>
 
 <h2>Your next action</h2>
 <div class="next-action">
 <p>
-<strong>Dictate criteria 5 and 6 into MS Word against the installed v1.4.1,
-in the same sitting as today's sample.</strong> The app is installed, the
-model is loaded, the firewall rules are in place, and you were dictating
-into it an hour ago — one English and one Arabic dictation with latency
-noted (criterion 5), then live dictation on for the three checks in the
-criterion-6 row (words at the cursor while speaking, focus-steal falls back
-to clipboard, one word plus 20 s of silence appends nothing). Add one model
-download attempted under the block from Settings → Select Model and
-criterion 4 closes too. Roughly ten minutes; gives the fork its first full
-6-of-6 gate and retires debt carried since v1.2.0.
+<strong>Decide which artifact carries the gate.</strong> Two honest paths, and
+only you can choose. <strong>(a) Finish v1.4.1:</strong> the same ten minutes the last
+board asked for — one English and one Arabic dictation into Word against the
+installed v1.4.1 (criterion 5), the three live-dictation checks (criterion
+6), one model download attempted under the block from Settings → Select
+Model (criterion 4). Gives the fork its first 6-of-6 on a published artifact.
+<strong>(b) Cut the next release now</strong> from <span class="mono">0407600</span> and run all six
+against it. That closes the v1.4.1 row inert with its debt moved, as v1.4.0's
+was, and ships the deadlock fix, the offline installer and the sona-kill hook
+to users sooner. Either way, two records first: settle the next version's
+name (v1.4.2 or v1.5.0) in RELEASING.md, and add the deadlock defect to the
+v1.4.1 record and its release notes.
 </p>
+<p>
+Before either: push. Fourteen commits are local to <span class="m">[A]</span>, and
+<span class="m">[B]</span> cannot see any of the indicator work.
+</p>
+<pre class="cmd">cd C:\Users\nasser\Dev\vibe-dictation; git add docs/gate-board.html docs/archive/gate-board-2026-09-04.html docs/dictation-indicator-plan.md; git commit -m "Refresh gate board (indicator rework on main; gate unchanged at 3 of 6)"; git push origin main</pre>
 </div>
 
 <h2>Gates</h2>
@@ -250,37 +203,48 @@ criterion 4 closes too. Roughly ten minutes; gives the fork its first full
       <td>Published by owner ruling: strings audit on both exes, install/autostart, and functional EN+AR (on large-v3-turbo) passed. Its three owed criteria are <strong>no longer runnable against v1.4.0</strong> — both machines' installed build moved on — so they transferred to the v1.4.1 row. Closed inert, not green: it settled a partial gate, not a pass.</td></tr>
   <tr><td><strong>v1.4.1 release verification</strong></td><td class="date">2026-08-25</td>
       <td><span class="pill p-open">OPEN — 3 OF 6</span></td>
-      <td>Published by owner ruling 2026-08-25 with 2 of 6: tag, GitHub Release, and installer attached (SHA-256 <span class="mono">a86b6bba…</span>, re-verified by downloading the published asset on <span class="m">[A]</span> 2026-08-25 and again on <span class="m">[B]</span> 2026-08-26). Criteria 1 and 2 passed against this artifact on 2026-08-25; criterion 3 (netstat during live dictation) passed on <span class="m">[A]</span> 2026-09-04; 4, 5 and 6 NOT RUN. The only gate still open, which is why this row alone is blue. Carries the debt from v1.3.0 and v1.4.0. Shortcut-relaunch fix (<span class="mono">009ef8d</span>). Record in RELEASING.md corrected 2026-09-03 to state the publication and the ruling; criterion-3 record added 2026-09-04.</td></tr>
+      <td>Published by owner ruling 2026-08-25 with 2 of 6: tag, GitHub Release, and installer attached (SHA-256 <span class="mono">a86b6bba…</span>, re-verified by downloading the published asset on <span class="m">[A]</span> 2026-08-25 and on <span class="m">[B]</span> 2026-08-26). Criteria 1 and 2 passed against this artifact on 2026-08-25; criterion 3 (netstat during live dictation) passed on <span class="m">[A]</span> 2026-09-04; 4, 5 and 6 NOT RUN — <strong>no change since the last board</strong>. The only gate still open, which is why this row alone is blue. Carries the debt from v1.3.0 and v1.4.0. Known defects in the published artifact: two installer network paths, the sona-lock upgrade failure (recorded in its RELEASING.md section) and the indicator re-enable deadlock (recorded only in the <em>Unreleased</em> section).</td></tr>
+  <tr><td>Next release (named v1.4.2 in one place, v1.5.0 in another)</td><td class="date">—</td>
+      <td><span class="pill p-inert">QUEUED — NOT BUILT</span></td>
+      <td>Content on <span class="mono">main</span>: installer-hooks sona-kill (<span class="mono">6a980de</span>), offline installer with app-local VC++ runtime (<span class="mono">1f64e26</span>), the dictation-indicator rework (<span class="mono">d53e7c5</span>…<span class="mono">0407600</span>). No installer built, no criterion run. RELEASING.md: "the gate for v1.5.0 is the full six criteria, unchanged."</td></tr>
 </table>
 
 <h2>What the open gate still needs</h2>
-<p class="reminder">Three of six: criteria 4, 5 and 6. All three run against the installed v1.4.1 build (identical bytes on <span class="m">[A]</span> and <span class="m">[B]</span>), and all three need the owner present — a dictating voice for 5 and 6, a model download attempted from the Settings screen for 4. Closing them updates the verification record in RELEASING.md.</p>
+<p class="reminder">Three of six: criteria 4, 5 and 6. All three run against the installed v1.4.1 build (identical bytes on <span class="m">[A]</span> and <span class="m">[B]</span> as of 2026-08-26), and all three need the owner present — a dictating voice for 5 and 6, a model download attempted from the Settings screen for 4. Closing them updates the verification record in RELEASING.md. Nothing below was re-observed this refresh; each status carries the date it was last observed.</p>
 <table>
   <tr><th>#</th><th>Criterion</th><th>Status</th><th>What was observed / why it falls short</th></tr>
   <tr><td>4</td><td>Firewall outbound block: dictation works, download fails cleanly</td>
       <td><span class="pill p-red">NOT RUN</span></td>
-      <td>No longer blocked. On <span class="m">[A]</span> 2026-09-04 both outbound Block rules were observed present and enabled, profile Any: <span class="mono">Vibe Dictation - block outbound</span> on the installed <span class="mono">vibe.exe</span> and <span class="mono">Vibe Dictation Sona - block outbound</span> on the installed <span class="mono">sona.exe</span> — the same two <span class="mono">docs/deployment.md</span> prescribes. Created by the owner on <span class="m">[A]</span> on 2026-09-03 in an elevated shell (RELEASING.md, recorded 2026-09-04: two firewall "rule has been added" events at 20:45:29 UTC under the owner's account, and the two <span class="mono">New-NetFirewallRule</span> commands in the PowerShell history; the 2026-08-25 check had found none). The criterion-3 dictations ran with the rules enabled, which is the "dictation still works under the block" half. The other half has never been attempted: a model download from Settings → Select Model under the block must fail cleanly — error dialog within the downloader's 10 s connect timeout, <span class="mono">.part</span> file removed, dictation unaffected. The attempt is staged on <span class="m">[A]</span> (turbo model renamed aside so the downloader offers it) and awaits the owner's click. <span class="m">[B]</span> has not reported a rule check.</td></tr>
+      <td>Half done. Both outbound Block rules (<span class="mono">Vibe Dictation - block outbound</span>, <span class="mono">Vibe Dictation Sona - block outbound</span>) were observed present and enabled on <span class="m">[A]</span> 2026-09-04; RELEASING.md records the owner created them on 2026-09-03 in an elevated shell (firewall events at 20:45:29 UTC and the PowerShell history, <span class="mono">2774b74</span>). The criterion-3 dictations ran under them, which is the "dictation still works" half. The download half has never been attempted: a model download from Settings → Select Model under the block must fail cleanly (error dialog within the 10 s connect timeout, <span class="mono">.part</span> removed, dictation unaffected). Staged on <span class="m">[A]</span> 2026-09-04 by renaming the inactive turbo model to <span class="mono">.bin.hold</span>; whether that fixture is still in place was not observable from this refresh. <span class="m">[B]</span> has not reported a rule check.</td></tr>
   <tr><td>5</td><td>Functional EN + AR dictation into MS Word, latency ~2 s after warmup</td>
       <td><span class="pill p-red">NOT RUN</span></td>
-      <td>Needs the owner speaking. v1.4.0 passed this on large-v3-turbo on 2026-08-25, but RELEASING.md's standing rule is that verification is re-proven per artifact and never inherited, so that pass does not carry to v1.4.1.</td></tr>
+      <td>Needs the owner speaking <em>against the installed build</em>. The owner's 2026-09-05 English and Arabic dictations were on a dev build of the indicator work (docs/dictation-indicator-tests.md) and do not count: RELEASING.md's standing rule is that verification is re-proven per artifact and never inherited. v1.4.0's pass on large-v3-turbo (2026-08-25) does not carry either.</td></tr>
   <tr><td>6</td><td>Live-dictation functional check</td>
       <td><span class="pill p-red">NOT RUN</span></td>
-      <td>Needs the owner speaking. Words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing.</td></tr>
+      <td>Needs the owner speaking. Words at cursor while speaking; final matches non-live; focus-steal mid-dictation falls back to clipboard + notification; one word + 20 s held silence appends nothing. Note: this criterion appears in every release record since v1.3.0 but not in RELEASING.md's <em>Verify</em> ladder, which lists five.</td></tr>
 </table>
 
 <h2>Open and unresolved</h2>
 <table>
   <tr><th>Tag</th><th>Item</th></tr>
+  <tr><td><span class="pill p-amber">RECORD FIRST</span></td>
+      <td><strong>The deadlock defect is missing from the v1.4.1 record and the public notes.</strong> RELEASING.md's <em>Unreleased</em> section establishes that re-enabling the status indicator in Settings freezes the installed v1.4.0/v1.4.1 (finding 2.7, reproduced twice 2026-09-04, fixed on <span class="mono">main</span> in <span class="mono">4fdb773</span>). The v1.4.1 section's "still in the published installer" list names three defects and not this one, and the GitHub release notes say nothing. One line in each; a user who hits it today has no warning.</td></tr>
+  <tr><td><span class="pill p-amber">RECORD FIRST</span></td>
+      <td><strong>Next version named two ways.</strong> RELEASING.md's v1.4.1 section: defects persist "until v1.4.2 ships". Its new section: "Unreleased — queued for v1.5.0". Both are on <span class="mono">main</span> at <span class="mono">0407600</span>. Settle it before the release record is opened, or the record will inherit the split.</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Transient test fixture on <span class="m">[A]</span>:</strong> <span class="mono">ggml-large-v3-turbo.bin</span> in the models folder is renamed to <span class="mono">ggml-large-v3-turbo.bin.hold</span> (2026-09-04, after the criterion-3 sample) so that the criterion-4 download-under-block attempt has a model to request — the downloader refuses any model already present. The active model is large-v3; dictation is unaffected. Closes when the file is renamed back after the attempt is recorded. If this row survives the next refresh, the rename was forgotten.</td></tr>
+      <td><strong>Five criteria in the procedure, six in every record.</strong> RELEASING.md's <em>Verify</em> section numbers 1–5 (strings, install, netstat, firewall, functional). The v1.3.0, v1.4.0 and v1.4.1 records, the v1.5.0 note ("the full six criteria") and every board count six, the sixth being the live-dictation functional check. Add it to the ladder with its four sub-checks, or the next approver will find the procedure and the records disagreeing on what "full" means.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Fourteen commits unpushed from <span class="m">[A]</span></strong> as of the last recorded fetch (2026-09-04 22:04 local, <span class="mono">origin/main</span> at d8abda4): <span class="mono">2774b74</span>, the previous board refresh <span class="mono">46d3a76</span>, and the twelve indicator commits. <span class="m">[B]</span> has none of the indicator work, the deadlock fix included. Not re-checked this refresh — no fetch was possible.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Transient test fixture on <span class="m">[A]</span>, last observed 2026-09-04:</strong> <span class="mono">ggml-large-v3-turbo.bin</span> renamed to <span class="mono">.bin.hold</span> in the models folder so the criterion-4 download attempt has a model to request. The active model is large-v3; dictation is unaffected. Not observable from this refresh. Closes when the file is renamed back after the attempt is recorded. If this row survives the next refresh from <span class="m">[A]</span>, the rename was forgotten.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>Indicator rework: four test rows and two checks still open</strong> (docs/dictation-indicator-plan.md §7, docs/dictation-indicator-tests.md). Rows b (no default microphone / Bluetooth switch), f (exclusive fullscreen, documented as a known limitation in docs/debug.md) and g (hotkey during a real transcription) not run; row d needs a second monitor. The cpal error-text classifier behind "Microphone is busy or unavailable" has never met a real device failure. Nine new Arabic strings plus the reworded Ready/Listening are machine wording awaiting the owner's native check — the owner saw the on-screen Arabic labels correct on 2026-09-05 but did not review every string. Twice after a <span class="mono">tauri dev</span> watcher rebuild the fresh instance flashed "Dictation hotkeys could not be registered" for 5 s; not seen on a normal launch, likely the outgoing process still holding F9/F10, unproven, cannot occur in a release build (second launch is routed to the running instance). None gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>ROADMAP.md's Shipped list lags <span class="mono">main</span>.</strong> By its own key, Shipped means "done, on <span class="mono">main</span>". Missing: the installer-hooks fix (<span class="mono">6a980de</span>), the offline installer (<span class="mono">1f64e26</span>), and the indicator rework beyond the level meter — the redesigned states, the pill-at-key-down and visible-failure changes, the deadlock and z-order fixes (<span class="mono">4fdb773</span>…<span class="mono">e921de6</span>). RELEASING.md records all of it; ROADMAP.md records the meter only. Nothing gating.</td></tr>
+  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
+      <td><strong>The published v1.4.1 installer still carries the vc_redist and WebView2 network paths and the sona-lock defect</strong> — fixed on <span class="mono">main</span> (<span class="mono">6a980de</span>, <span class="mono">1f64e26</span>) and verified in real installs, but the asset on the Releases page predates all three. Recorded in RELEASING.md's v1.4.1 section. Closes when the next release is published.</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Unsigned installer</strong> — needs a code-signing certificate; purchase decision pending (owner ruling 2026-09-03, recorded in ROADMAP.md). SmartScreen warns on download and some antivirus flags the keystroke injection — user-facing, since the repo and its releases are public on GitHub. Not gating any release.</td></tr>
-  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Firewall rules of unrecorded origin.</strong> The two outbound-block rules criterion 4 depends on exist and are enabled on <span class="m">[A]</span> as of 2026-09-04, but no document says when they were created or by whom; the last recorded check (2026-08-25) found none. Worth one line in RELEASING.md from whoever created them, so the criterion-4 record does not rest on rules nobody remembers making.</td></tr>
-  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>ROADMAP.md's Shipped list lags <span class="mono">main</span> by two entries.</strong> By ROADMAP.md's own status key, Shipped means "done, on <span class="mono">main</span>"; the installer-hooks fix (<span class="mono">6a980de</span>, 2026-08-26) and the offline installer with app-local VC++ runtime (<span class="mono">1f64e26</span>, 2026-09-03) are on <span class="mono">main</span> and recorded in RELEASING.md, but ROADMAP.md lists neither. A two-bullet addition when convenient; nothing gating.</td></tr>
-  <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>The published v1.4.1 installer still carries both network paths and the sona-lock defect until v1.4.2 ships.</strong> The vc_redist download from <span class="mono">aka.ms</span>, the WebView2 bootstrapper download when WebView2 is absent, and the upgrade failure over an orphaned <span class="mono">sona.exe</span> are all fixed on <span class="mono">main</span> (<span class="mono">6a980de</span>, <span class="mono">1f64e26</span>) and verified in real installs, but the asset on the Releases page predates all three. Recorded in RELEASING.md's v1.4.1 section. Closes when v1.4.2 is published.</td></tr>
+      <td><strong>Unsigned installer</strong> — needs a code-signing certificate; purchase decision pending (owner ruling 2026-09-03, recorded in ROADMAP.md). SmartScreen warns on download and some antivirus flags the keystroke injection. Not gating any release.</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>RTL text injection</strong> mangles Arabic character order in some target apps; workaround is clipboard output mode. (ROADMAP, known issue)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
@@ -288,31 +252,33 @@ criterion 4 closes too. Roughly ten minutes; gives the fork its first full
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong>ffmpeg resolution pin</strong> — the app-side recording conversion resolves ffmpeg from PATH instead of the bundled binary. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
-      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation, no registration feedback. Partial mitigation landed in <span class="mono">4fb99a9</span>: a startup-time registration failure is surfaced on the indicator instead of passing silently; the field itself is unchanged. (ROADMAP planned + RELEASING deferred list)</td></tr>
+      <td><strong>Hotkey shortcut field</strong> — plain text input: no key capture, no validation. Registration feedback is now partly covered: a startup-time failure is surfaced on the pill (<span class="mono">4fb99a9</span>), and since <span class="mono">91c6f05</span> every pre-recording failure is an error pill plus a notification; the field itself is unchanged and the recorder is still Planned in ROADMAP.md. (ROADMAP planned + RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">DEFERRED</span></td>
       <td><strong><span class="mono">cli.rs</span> review</strong> — audit which CLI arguments still make sense for a dictation-only tool. (RELEASING deferred list)</td></tr>
   <tr><td><span class="pill p-inert">HOUSEKEEPING</span></td>
-      <td><strong>Release tooling recorded for <span class="m">[A]</span>; <span class="m">[B]</span> still to fill in.</strong> RELEASING.md now has a per-machine <em>Release tooling</em> section. A (2026-09-03): Windows 11 build 26200, Git 2.55.0, <span class="mono">gh</span> 2.98.0 logged in as NasserAlh (the only machine that can cut Releases), Node v24.19.0, pnpm 10.4.1 through <span class="mono">corepack pnpm</span> only (bare <span class="mono">pnpm</span> is not on PATH — <span class="mono">tauri build</span> needs a shim), Tauri CLI 2.10.0 with NSIS 3.11 in its cache, cargo/rustc 1.97.1, Build Tools 2022 17.14 with MSVC 14.44.35207 and redist 14.44.35112, Python 3.12.14 via uv 0.12.5; installer archive at <span class="mono">..\releases\vibe-dictation\</span> holding v1.4.0 and v1.4.1. B: only its SSH key pair name is known; tooling and archive unrecorded. v1.0.1, v1.1.0 and v1.1.1 are now recorded in RELEASING.md as unrecoverable — no tag, no asset, no hash — so that item is closed.</td></tr>
+      <td><strong>Release tooling recorded for <span class="m">[A]</span>; <span class="m">[B]</span> still to fill in.</strong> RELEASING.md's per-machine <em>Release tooling</em> section has A in full (2026-09-03: Windows 11 build 26200, Git 2.55.0, <span class="mono">gh</span> 2.98.0 as NasserAlh, Node v24.19.0, pnpm 10.4.1 via <span class="mono">corepack</span> only, Tauri CLI 2.10.0 with NSIS 3.11, cargo/rustc 1.97.1, Build Tools 2022 17.14, Python 3.12.14 via uv 0.12.5; installer archive at <span class="mono">..\releases\vibe-dictation\</span>). B: only its SSH key pair name is known.</td></tr>
 </table>
 
 <h2>Recent activity</h2>
 <ul class="activity">
-  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Firewall-rule provenance recorded; criterion-4 download attempt staged</strong> (<span class="mono">2774b74</span>; board in the following commit). The owner stated the two outbound-block rules were their own work; on <span class="m">[A]</span> the firewall event log holds two "rule has been added" events (id 2097) at 2026-09-03 20:45:29 UTC naming <span class="mono">Vibe Dictation - block outbound</span> and <span class="mono">Vibe Dictation Sona - block outbound</span>, modifying user the owner's account SID via the WMI provider <span class="mono">New-NetFirewallRule</span> uses, and the PowerShell history holds the two commands from <span class="mono">docs/deployment.md</span> on one line. RELEASING.md's criterion-4 record now says so; the previous board's "not recorded" is retired. d8abda4 pushed to <span class="mono">origin/main</span>. For the download half of criterion 4 the inactive turbo model was renamed aside on <span class="m">[A]</span> so the downloader offers it; the owner has been given what a clean failure (error dialog inside the 10 s connect timeout, no <span class="mono">.part</span> left) and a hang (progress at 0 bytes past 30 s) each look like. Vitest re-run at 2774b74: 43/43.</li>
-  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Criterion 3 closed against the installed v1.4.1; gate moves from 2 of 6 to 3 of 6</strong> (this refresh commit, which also carries the RELEASING.md record). Installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span> first. A ~1 s <span class="mono">netstat -ano</span> sampler keeping every state including TIME_WAIT ran 16:30:17–16:33:17 UTC (175 samples) while the owner dictated: six sessions (24–29) recorded, transcribed by sona and formatted by the loopback Ollama pass inside the window, a seventh recording as it closed. 28 distinct rows, zero non-loopback; sona LISTENING on <span class="mono">127.0.0.1:59645</span> throughout; the <span class="mono">vibe.exe</span>→<span class="mono">127.0.0.1:11434</span> connection observed ESTABLISHED then TIME_WAIT per session. A second independent sampler ran in parallel in two windows (16:26–16:31 and 16:31–16:34 UTC, 292 and 175 samples), also zero non-loopback. Incidental: session 29's Ollama output diverged (131 chars in, 1246 out) and the divergence guard fell back to the raw transcript as designed. Found while checking preconditions: both outbound-block firewall rules now exist and are enabled — criterion 4 re-tagged from BLOCKED to NOT RUN, its download half still unattempted, the rules' origin unrecorded. 43/43 vitest re-run. Not run: criteria 5 and 6.</li>
-  <li><span class="date">2026-09-03</span> <span class="m">[A]</span> — <strong>Five housekeeping items closed or re-tagged, all recorded in the documents first.</strong> The <span class="mono">v1.4.1</span> tag stays: RELEASING.md now says the tagged tree's record overstates the gate (4 of 6 at <span class="mono">4f5ab3d</span>) and <span class="mono">main</span> carries the correction. v1.0.1, v1.1.0 and v1.1.1 are recorded as unrecoverable — no tag, no asset, no hash, no archive copy. The unsigned-installer item moved from YOUR CALL to DEFERRED in ROADMAP.md: needs a code-signing certificate, purchase decision pending. The locale-trim re-verification ran against the current lockfile (<span class="mono">@inlang/paraglide-js</span> 2.21.0): <span class="mono">check_i18n.py</span> passed, paraglide compiled, <span class="mono">tsc</span> clean — closed. A's release tooling is recorded in full in a new per-machine section of RELEASING.md, with a line left for B. A new row states that the published v1.4.1 installer keeps both network paths and the sona-lock defect until v1.4.2.</li>
-  <li><span class="date">2026-09-03</span> <span class="m">[A]</span> — <strong>Installer audited, ruled offline, fixed on <span class="mono">main</span> and verified</strong> (<span class="mono">1f64e26</span>; docs in this commit). Read-only audit of the NSIS installer found four network paths: the inherited vc_redist <span class="mono">NSISdl::download</span> from <span class="mono">aka.ms</span> (25,635,768 bytes, elevation needed to install), its browser fallback, the template's WebView2 bootstrapper download (<span class="mono">webviewInstallMode</span> was unset and the CLI default is <span class="mono">downloadBootstrapper</span> — dormant on Windows 11, silent, undocumented), and a Chromium-updater path that is not configured. Import tables showed only <span class="mono">sona.exe</span> needs the VC++ runtime (five DLLs, OpenMP included); <span class="mono">vibe.exe</span> and <span class="mono">ffmpeg.exe</span> use the in-box Universal CRT. Ruling: bundle the five DLLs app-local from Build Tools 14.44 (tracked, content-pinned, licence cited — the Build Tools EULA page itself is script-rendered and was not quoted; confirm once from the installer's licence view) and set <span class="mono">webviewInstallMode</span> to <span class="mono">skip</span>; the vc_redist section and its registry check are gone from <span class="mono">hooks.nsh</span>. Verified on A: installer built (44,405,731 bytes), installed <span class="mono">/S</span> to exit 0, DLLs beside <span class="mono">sona.exe</span> with pinned hashes, <span class="mono">installer.nsi</span> compiled with <span class="mono">INSTALLWEBVIEW2MODE ""</span> and a <span class="mono">/V4</span> recompile shows no download plugin command, the installed Sona loaded all five DLLs from the install directory and transcribed a TTS clip ("Testing the bundled runtime 1, 2, 3"), the app spawned it loopback-only. Published bytes restored (<span class="mono">37186b76…</span>; the hook-less v1.4.1 installer left the five DLLs behind, removed by hand); <span class="mono">cargo clean</span> run. Owner's hotkey dictation not run — criteria 5 and 6 unchanged.</li>
-  <li><span class="date">2026-09-03</span> <span class="m">[A]</span> — <strong>Record and notes brought into line with the published release; board rebased onto B's five commits.</strong> This refresh commit, following a code review of <span class="mono">a9729f8</span>. RELEASING.md's v1.4.1 record no longer says "not published": it now states the 2026-08-25 publication, the owner's 2-of-6 ruling, and the four unrun criteria (3, 4, 5, 6). The v1.4.1 GitHub Release notes were amended with the partial-gate disclosure the v1.3.0 and v1.4.0 notes already carry, and their three spaced-filename references corrected to the dotted asset name. The filename defect was scoped against every published release (v1.2.0 affected, v1.3.0 and v1.4.0 not) and recorded in RELEASING.md. A's clone had not fetched since 2026-08-25, so the first push was rejected; the commit was rebased onto B's <span class="mono">6a980de..9671726</span> with B's board as the base. Board re-derived on top: one criteria list everywhere, the open gate's blue pill restored, vitest re-run at 9671726, firewall commands printed, counts and dates re-checked, activity trimmed to eight, and every machine-relative observation tagged <span class="m">[A]</span> or <span class="m">[B]</span>. In a second docs commit the same day: the v1.2.0 release notes were corrected live (three occurrences of the spaced filename, verified by re-reading the body) together with the in-repo copy <span class="mono">RELEASE-NOTES-v1.2.0.md</span> (since removed: it was a one-off from the v1.2.0 publish, identical to the live body, and its hashes now live in RELEASING.md's v1.2.0 record), closing the filename defect, and a YOUR CALL item was opened for the v1.4.0 installer copy missing from A's archive. Then two housekeeping closures: the v1.4.0 installer was downloaded from the GitHub Release asset, its SHA-256 matched the RELEASING.md record (<span class="mono">42161e09…</span>, 44,185,081 bytes), and the copy was placed in A's archive and re-hashed (recorded in RELEASING.md, <span class="mono">4e30bd3</span> — whose archive path came out with control characters in place of backslashes; repaired in the commit carrying this board); and the stale sibling clone on A (<span class="mono">4dc197b</span>, clean, no stash, an ancestor of <span class="mono">main</span>) was deleted, so the item is closed on both machines.</li>
-  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>GitHub SSH root-caused and restored; item closed</strong> (<span class="mono">9671726</span>). The key was never removed from the account: B's only key pair is <span class="mono">~/.ssh/id_ed25519_vps</span> — a non-default filename SSH offers to github.com only via config or a loaded agent, and <span class="mono">~/.ssh/config</span> had no <span class="mono">github.com</span> entry. The 2026-08-25 success rode a transient agent session; when it went, so did auth. Fixed durably on B: a <span class="mono">Host github.com</span> block (<span class="mono">IdentityFile ~/.ssh/id_ed25519_vps</span>, <span class="mono">IdentitiesOnly yes</span>) added to <span class="mono">~/.ssh/config</span>; <span class="mono">ssh -T git@github.com</span> answers "Hi NasserAlh!" with no agent; <span class="mono">origin</span> switched back to <span class="mono">git@github.com:NasserAlh/vibe-dictation.git</span> and <span class="mono">git ls-remote</span> confirmed over SSH. The owner's SSH-only rule holds again. (A's origin was already on SSH with a different key pair; A never had the HTTPS regression.)</li>
-  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>Sona-kill hook proven in a real install; item closed.</strong> A detached <span class="mono">sona.exe serve</span> spawned from the install dir (PID 122536, path confirmed) reproduced the lock condition; the hooks-bearing installer ran <span class="mono">/S</span> to exit 0, the orphan was gone afterwards, and the install dir was rewritten. Published bytes then restored: GitHub asset re-downloaded and hash-verified (<span class="mono">a86b6bba…</span>), reinstalled, installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>. Evidence recorded in RELEASING.md (<span class="mono">c69244d</span>); <span class="mono">cargo clean</span> run (3.5 GiB). <strong>Correction:</strong> the previous refresh's claim that the build tree had been removed was wrong — the check ran in the wrong directory; the tree was present until today's clean.</li>
-  <li><span class="date">2026-08-26</span> <span class="m">[B]</span> — <strong>Installer hooks reworked and pushed</strong> (<span class="mono">6a980de</span>). New <span class="mono">windows/hooks.nsh</span>: pre-install and pre-uninstall <span class="mono">taskkill /F /IM sona.exe /T</span>, plus the vc_redist logic moved in unchanged (Tauri accepts one hooks file). <span class="mono">tauri.windows.conf.json</span> merged into <span class="mono">tauri.conf.json</span> and deleted — the overlay's own <span class="mono">installerHooks</span> entry was silently overriding the main config, and the partial file tripped false schema diagnostics; the config's <span class="mono">$schema</span> now points at the CLI's real config schema instead of the capabilities schema. Verified by rebuilding: the generated <span class="mono">installer.nsi</span> includes the hooks file at line 28 and inserts the kill macro before file extraction. The vc_redist section's aka.ms download was discovered during the merge and documented in place.</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Indicator rework closed out on <span class="mono">main</span>; gate untouched</strong> (<span class="mono">de63c64</span>, <span class="mono">0407600</span>; board in the commit you make next). Prompt 5: the Prompt 0 instrumentation trimmed to one info line per show and per hide; CLAUDE.md's data-flow step 7 rewritten for the new states and the rules learned; README.md and docs/debug.md (exclusive-fullscreen limitation) updated; RELEASING.md gained the <em>Unreleased — queued for v1.5.0</em> section with the three findings and the statement that the guarantee surface is unchanged. Test matrix rows c, e (short form), h and i re-run against the closeout build after the owner's own dev instance — which had held port 1420 without a debug port — was stopped: all four pass. Meter screenshots re-captured with the dB curve (<span class="mono">4e7121f</span>: a 0.2 raw peak now fills about two thirds of a bar; the owner had found the linear meter subtle). Full check set green: 41 Rust tests, 66 vitest, clippy, tsc, eslint, <span class="mono">check_i18n</span>. Dependency files unchanged against <span class="mono">main</span>.</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Owner microphone run of the reworked pill</strong> (recorded in docs/dictation-indicator-tests.md). Dev build, toggle mode, English then Arabic: "Listening" on the key press with the "F9 to stop" hint for about 2 s, EN badge, red ring, correct colours through transcribing and inserted, Arabic labels correct on screen, five-bar meter following the voice and settling on silence — the cpal → atomic → pill path verified live. Rows b, f, g, h not run.</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Pill redesigned, level meter added</strong> (<span class="mono">91c6f05</span>, <span class="mono">e921de6</span>, <span class="mono">4bada78</span>, <span class="mono">e9073c6</span>, <span class="mono">2500c40</span>). The pill now appears at key-down, before device setup; every pre-recording failure is an amber or red pill plus a notification ("No microphone found", "Microphone is busy or unavailable", "Could not start recording" — new pure module <span class="mono">lib/indicator-messages.ts</span>); a press during transcription says "Still transcribing — wait". States carry a language badge (EN/ع), elapsed time, a type/clipboard glyph, a 2 s stop hint, phases loading-model → transcribing N s → formatting, a word count on completion; errors stay 5 s; amber for no-mic and focus-lost, red for failures. Rendering is decided by the pure, unit-tested <span class="mono">lib/indicator-content.ts</span>. Window widened 280 → 400 logical px; every fixed label measured to fit in both locales (widest 358 of 384 px). Level meter: the capture callback records each buffer's peak in an atomic, a Rust task decays it and emits to the pill window only at ~15 Hz — in-process, status only. ROADMAP.md's "Animated recording indicator" moved to Shipped. Fourteen state screenshots in docs/screenshots/indicator/ (seventeen once the three meter captures were added).</li>
+  <li><span class="date">2026-09-05</span> <span class="m">[A]</span> — <strong>Deadlock and z-order fixed</strong> (<span class="mono">4fdb773</span>; plan committed as <span class="mono">76040fc</span>). The three indicator commands made <span class="mono">async fn</span>; verified by hand — indicator toggled off and on twice, 13–83 ms per call, app responsive, pill returned. Every show now re-raises with <span class="mono">SetWindowPos(HWND_TOPMOST …)</span>; re-run of the TopMost stand-in test showed nothing but system helper windows above the pill. The pill is placed on the foreground window's monitor (owner types there; the mouse may rest elsewhere) and sized physically for that monitor's scale, position before size; a 150 ms fade precedes every hide; the pill component registers its listener before fetching state; six unit tests for the positioning maths. No new crates, features or plugins.</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Indicator instrumented and two causes reproduced</strong> (<span class="mono">d53e7c5</span>). Show/hide snapshots with visibility, position, size, monitor scales and the window directly above in z-order; a nine-row manual test matrix (docs/dictation-indicator-tests.md). Driven through the WebView2 debug port without touching microphone, clipboard or keystrokes. Reproduced: a TopMost stand-in covering a pill that Rust reported visible; and — new — <span class="mono">set_dictation_indicator_enabled(true)</span> never returning, every later IPC call hanging until the process was killed, matching tauri 2.10.3's documented deadlock for window creation in synchronous commands. Refuted: hidden-webview timer throttling (<span class="mono">visibilityState</span> stayed "visible", 272 timers within 1500–1516 ms over 411 s). Measured: <span class="mono">get_audio_devices</span> at 5–9 ms, so enumeration is not the startup cost.</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Firewall-rule provenance recorded; criterion-4 download attempt staged</strong> (<span class="mono">2774b74</span>; board <span class="mono">46d3a76</span>). RELEASING.md now records that the owner created the two outbound-block rules on 2026-09-03 in an elevated shell, corroborated by two firewall "rule has been added" events at 20:45:29 UTC and the PowerShell history. The inactive turbo model renamed to <span class="mono">.bin.hold</span> so the downloader will offer it. Vitest 43/43 at 2774b74.</li>
+  <li><span class="date">2026-09-04</span> <span class="m">[A]</span> — <strong>Criterion 3 closed against the installed v1.4.1; gate 2 of 6 → 3 of 6.</strong> Installed <span class="mono">vibe.exe</span> re-hashed to <span class="mono">37186b76…</span>; a ~1 s <span class="mono">netstat</span> sampler including TIME_WAIT ran 175 samples while the owner dictated six sessions through the loopback Ollama pass — 28 distinct rows, zero non-loopback, sona LISTENING on <span class="mono">127.0.0.1:59645</span> throughout; a second independent sampler (467 samples) agreed. Recorded in RELEASING.md.</li>
+  <li><span class="date">2026-09-03</span> <span class="m">[A]</span> — <strong>Installer audited, ruled offline, fixed on <span class="mono">main</span> and verified</strong> (<span class="mono">1f64e26</span>). Four network paths found; the five VC++ runtime DLLs that only <span class="mono">sona.exe</span> needs now ship app-local and content-pinned, <span class="mono">webviewInstallMode</span> is <span class="mono">skip</span>; built, installed <span class="mono">/S</span>, DLL hashes confirmed, Sona transcribed a TTS clip loopback-only; published bytes restored afterwards. Same day: five housekeeping items closed in the documents (v1.4.1 tag ruling, pre-squash releases recorded unrecoverable, unsigned installer deferred, locale-trim re-verification closed, A's release tooling recorded).</li>
 </ul>
 
 <h2>Where things are written down</h2>
 <ul class="docs">
-  <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk.</li>
-  <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder, rules learned the hard way, and the per-release record — including the 2026-09-04 provenance of the two firewall rules (criterion 4), v1.4.1's partial-gate record (shipped at 2 of 6, criterion 3 passed 2026-09-04 with the full netstat evidence, now 3 of 6), its publication and ruling, its artifact hashes, the installer sona-lock defect and its fix, the release-notes filename defect, and — new — the scope statement extending zero egress to the installer, the 2026-09-03 installer audit record and ruling, the pin table for the five app-local VC++ runtime DLLs, the per-machine release-tooling section, the v1.4.1 tag ruling, and the pre-squash artifacts recorded as unrecoverable.</li>
-  <li><span class="mono">ROADMAP.md</span> — known issues (the unsigned installer now carries its deferral: purchase decision pending), planned and considered work, deliberate non-goals, shipped features — its Shipped list currently lags <span class="mono">main</span> by the two installer changes.</li>
-  <li><span class="mono">docs/deployment.md</span> — putting a release on a new machine, including the two <span class="mono">New-NetFirewallRule</span> outbound-block commands that criterion 4 depends on; now says the VC++ runtime is no longer needed system-wide (as does <span class="mono">docs/debug.md</span>).</li>
+  <li><span class="mono">CLAUDE.md</span> — control: architecture, the zero-egress constraint and its one deliberate exception, build/runtime conventions, the autostart quirk; data-flow step 7 now describes the reworked indicator and the three rules learned (async window-creating commands, re-raise on show, foreground-window monitor).</li>
+  <li><span class="mono">RELEASING.md</span> — the gate: the per-release verification ladder (five numbered criteria — see the housekeeping row), rules learned the hard way, per-machine release tooling, and the per-release record — v1.4.1's partial gate (3 of 6, criterion 3 with full netstat evidence, firewall-rule provenance), its known defects, and — new — the <em>Unreleased — queued for v1.5.0</em> section: the indicator rework commit by commit, the three findings (sync-command deadlock, tao z-order, refuted timer throttling), the test-matrix status and the unchanged guarantee surface.</li>
+  <li><span class="mono">ROADMAP.md</span> — known issues, planned and considered work, non-goals, shipped features; Shipped now lists the level meter (<span class="mono">e9073c6</span>) and still omits the two installer changes and the rest of the indicator rework.</li>
+  <li><span class="mono">docs/dictation-indicator-plan.md</span> and <span class="mono">docs/dictation-indicator-tests.md</span> — the rework's diagnosis, design, the six prompts it was built from, the commit log with rulings, the manual test matrix with the owner's observed results, and (§7) what is still open. Referenced from RELEASING.md and CLAUDE.md.</li>
+  <li><span class="mono">docs/deployment.md</span> — putting a release on a new machine, including the two <span class="mono">New-NetFirewallRule</span> outbound-block commands criterion 4 depends on. <span class="mono">docs/debug.md</span> — now also the exclusive-fullscreen limitation of the pill and how to read its show line.</li>
+  <li><span class="mono">docs/archive/</span> — previous boards, one per refresh, date-suffixed (nothing is deleted).</li>
 </ul>
 <p class="reminder">This board summarises those documents and never replaces them. A decision, defect, or gate outcome recorded only here does not exist — if the board disagrees with the documents, the documents win and the board is stale.</p>
 
