@@ -176,8 +176,9 @@ listed. Fill this in from B.
 
 ## Unreleased — queued for v1.5.0 (dictation indicator rework, 2026-09-04/05)
 
-**Not yet built or gated.** Everything below is on `main` only; the six
-verification criteria run when the installer is cut. Nothing here changes
+**Built, not gated** (release candidate installed on A on 2026-09-05, see
+the subsection at the end of this section). Everything below is on `main`;
+the six verification criteria have not been run against the candidate. Nothing here changes
 the guarantee surface: no new crates, crate features or Tauri plugins, and
 `git diff main -- desktop/src-tauri/Cargo.toml Cargo.lock desktop/package.json
 pnpm-lock.yaml` is empty. The only new runtime traffic is two **in-process**
@@ -244,6 +245,53 @@ microphone run 2026-09-05 after Prompts 1–4 — English and Arabic dictation,
 hint, badge, colours and meter all correct. Rows b, f, g not run; d not
 testable on one monitor; c, h, i verified through the same commands the UI
 calls. The gate for v1.5.0 is the full six criteria, unchanged.
+
+### Release candidate built and installed on machine A, 2026-09-05 (not gated)
+
+**All six criteria are NOT RUN against this artifact. Nothing is tagged and
+nothing is published.** This is a build-and-install record only; the gate
+ladder is unchanged (v1.4.1 stays at 3 of 6, v1.5.0 at 0 of 6).
+
+- Built from commit `f51fa20` (tree clean, `main` level with `origin/main`,
+  `tauri.conf.json` at 1.5.0) in the MSVC shell via the corepack `pnpm`
+  shim; `pnpm install` then `pnpm exec tauri build`, 2 m 27 s.
+- Build-step check: `pre_build.py` skipped both fetches (already present);
+  `sona` and `ffmpeg` in `desktop/src-tauri/binaries/` hash exactly to the
+  `exe:` / `ffmpeg:` pins in `docs/sona-sidecar-sha256.txt`, and the five
+  VC++ DLLs under `windows/vcredist` match their pins, all verified before
+  the build.
+- Installer `Vibe Dictation_1.5.0_x64-setup.exe` SHA-256
+  `71EA839DCBD252A5AD63608358C9B7C29DFD4D42F03EBBB5368EF685A57DE122`,
+  44,410,905 bytes. Raw `target\release\vibe.exe` SHA-256
+  `D1CACE56C76D6ADC491E067068B744EF5F455CD6A1742A33B8BD41EED90DD04A`.
+- Install: no `vibe.exe`/`sona.exe` running beforehand; NSIS `/S` over
+  v1.4.1, exit 0, nothing auto-launched. Installed
+  `%LOCALAPPDATA%\Vibe Dictation\vibe.exe` SHA-256
+  `F72E57EC175346CAE28D8B42D6BC537A46C9C6A1DC655A0A5C27E3FDB6F585A8`,
+  8,612,352 bytes — differs from the raw build hash as in every prior
+  record (NSIS bundle stamp). `sona.exe`, `ffmpeg.exe` and the five DLLs
+  beside them match the pin table byte for byte. Uninstall key reads 1.5.0.
+- HKCU Run entry unchanged, quoted, pointing at the installed exe, and
+  still unchanged after launch. Both outbound-block firewall rules
+  (`Vibe Dictation - block outbound`, `Vibe Dictation Sona - block
+  outbound`) still enabled and still bound to the installed `vibe.exe` /
+  `sona.exe` paths.
+- Launched from the Start-menu shortcut (`Start Menu\Programs\Vibe
+  Dictation.lnk`, target the installed exe): log shows the Ready pill at
+  t=211 ms; the capture shows "Ready · F9 EN · F10 AR" with the green
+  ring; `sona.exe` runs from the install folder. Tray icon not confirmed
+  from the screenshot (not in the visible tray; overflow not expanded).
+- Archive copy at `C:\Users\nasser\Dev\releases\vibe-dictation\v1.5.0\`
+  re-hashed to the same `71EA839D…DE122`, 44,410,905 bytes.
+- `cargo clean` (per "Rules learned the hard way"): the first run removed every file but failed with
+  os error 32 on the `target\` directory itself, held by rust-analyzer from
+  the VS Code window open on the repo; `target\release\vibe.exe` and the
+  bundle were already gone, so no stray release exe remained. Re-run after
+  closing VS Code: exit 0, `target\` removed.
+- Housekeeping: the installed exe's file-version resource reads 0.0.6
+  because `desktop/src-tauri/Cargo.toml` still carries `version = "0.0.6"`
+  while `tauri.conf.json` carries 1.5.0 — cosmetic, like the stale commit
+  stamp; `Cargo.toml` is deliberately not being changed now.
 
 ## Shipped in v1.4.1 (2026-08-25)
 
