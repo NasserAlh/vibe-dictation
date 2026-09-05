@@ -809,20 +809,68 @@ Artifact under test: installed `vibe.exe` `A5D1E7E9…C125`, `sona.exe`
    record; HKCU Run `Vibe Dictation` = the quoted installed path, unchanged
    after the Start-menu launch; store `app_config.json`
    `"autostart_enabled": true`, matching the entry's presence.
-3. **Netstat sampler during live dictation — NOT RUN** (owner;
-   `scripts/netstat-sampler.ps1`; LLM formatting is on and the model is
-   `qwen3.5:9b`, so the sample will cover the Ollama loopback path and the
-   new warm-up request).
-4. **Firewall-block test — PROVISIONAL.** Passed on the second candidate
-   (record above: rules enabled, five dictations under the block, four
-   downloads failed cleanly with no `.part`). `3b5cf08` changed no
-   downloader, firewall or installer code and no dependency, but the
-   artifact is new; counts as MET only after one download attempt fails
-   cleanly on this build with the `vibe.exe` rule enabled — the rule is
-   still enabled, and `ggml-large-v3-turbo.bin` is present, so the attempt
-   needs the fixture rename again or a fresh models folder.
-5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
-6. **Live-dictation functional check — NOT RUN** (owner).
+3. **Netstat sampler during live dictation — PASSED 2026-09-05** (owner
+   run, 23:51–23:54 local; analysed 2026-09-06 with
+   `scripts/netstat-sampler.ps1 -Analyze`, after fixing the analyser's
+   handling of a listener's `0.0.0.0:0` placeholder remote, `c72f0b8`).
+   Sample directory `%TEMP%\vibe-netstat\20260905T205143Z`: **149 samples**
+   at ~1 s, 20:51:43–20:54:13 UTC, every `netstat -ano` row kept raw;
+   LLM formatting on (`qwen3.5:9b`), the installed third candidate running
+   (`vibe.exe` `A5D1E7E9…C125`, launched 23:26 local). Result: **44 distinct
+   attributable rows, zero non-loopback.** `sona.exe` LISTENING on
+   `127.0.0.1:62737` in all 149 samples (never `0.0.0.0`); the
+   `vibe.exe`↔`sona.exe` pair (`62770`↔`62737`) ESTABLISHED in 135 of 149;
+   `vibe.exe`→`127.0.0.1:11434` ESTABLISHED in one sample and its TIME_WAIT
+   traces (PID 0, as documented) in every sample — **twenty distinct
+   client ports in TIME_WAIT pairs**, which is the new pattern: each
+   dictation now opens two Ollama connections at key-down (`/api/tags` then
+   the warm-up `/api/chat`) and two at transcript time (`/api/tags` then
+   the formatting `/api/chat`), so pairs of consecutive ports appear per
+   dictation, all to `127.0.0.1:11434`; Ollama's own loopback connection to
+   its runner (`59877`↔`54142`) is Ollama's, not the app's. Owner
+   statement: eight dictations (four English, four Arabic) into MS Word
+   inside the window. Limitation of this record: the app log for
+   2026-09-05 no longer exists — the app keeps only the current day's log
+   file, and the 00:09 relaunch on 2026-09-06 left only `log_2026-09-06.txt`
+   — so the per-session log lines for the sample window cannot be quoted
+   (the netstat rows and the owner's statement are the evidence). Raw
+   sample kept in the owner's `%TEMP%`, not in the repository.
+4. **Firewall-block test — PASSED 2026-09-06** (re-run on this build by
+   owner ruling "re-run it"). Both rules enabled at the time of the attempt:
+   the firewall event log shows the `vibe.exe` rule modified at 23:30:50
+   (owner disabled it after the fixture ruling) and again at 00:08:36
+   (re-enabled for this test), and `Get-NetFirewallRule` read Enabled=True
+   for both rules at 00:1x. The fixture `ggml-large-v3-turbo.bin.hold` was
+   staged at 00:05. Log: `model download start` for large-v3-turbo at
+   00:09:26 local (21:09:26 UTC), in the instance launched 00:09:17; owner
+   observation: the confirmation, then "failed to reach huggingface.co"
+   within a few seconds. No `.part` file afterwards. Dictation unaffected:
+   session 1 of that instance (00:09:57, warm-up 2 ms, formatting 135 ms)
+   completed under the block. Fixture retired again at 00:12 local:
+   renamed back to `ggml-large-v3-turbo.bin`, SHA-256 `1FC70F77…2BC69`,
+   equal to the pin. The `vibe.exe` rule is the owner's to disable again.
+5. **Functional EN + AR dictation into MS Word — PASSED 2026-09-05** (owner
+   statement, 2026-09-06 00:1x): four English and four Arabic sentences
+   dictated into MS Word on this build during the criterion-3 window,
+   latency **under 1 s** in both languages with the models resident (the
+   first dictation of the 23:26 instance paid a 2.6 s Ollama warm-up during
+   recording and 231 ms of formatting afterwards; every later formatting
+   call 135–704 ms). The per-session log lines are gone with the 2026-09-05
+   log file (see item 3); the netstat rows show the dictation traffic.
+6. **Live-dictation functional check — PASSED 2026-09-05** (owner statement):
+   live dictation on — words appeared at the cursor while speaking and the
+   final text matched a non-live dictation of the same sentence; a focus
+   change mid-sentence delivered the text by clipboard with the notification
+   and the amber "Focus changed" pill; one word followed by 20 s of held
+   silence appended nothing.
+
+**Gate result: six of six PASSED against this artifact** — installer
+`1AC9051B…9EC6`, installed `vibe.exe` `A5D1E7E9…C125` — the first v1.5.x
+artifact, and the first release of this fork since v1.2.0, to clear the full
+gate before publication. Two limitations stand in the record above: the
+2026-09-05 app log is gone (items 3 and 5 rest on netstat rows and the
+owner's statement), and criteria 5 and 6 are, as always, the owner's
+observation.
 
 ## Shipped in v1.4.1 (2026-08-25)
 
