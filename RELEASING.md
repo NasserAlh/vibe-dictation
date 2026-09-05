@@ -585,6 +585,27 @@ results above do not carry. Nothing is tagged or published.
 5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
 6. **Live-dictation functional check — NOT RUN** (owner).
 
+Model selection after the store repair (owner ruling, step 5): the
+installed build was relaunched with the WebView2 debugging port, Settings →
+Select Model opened through the UI, the dropdown showed its placeholder
+("Select Model", nothing saved) and exactly one item, "Large V3" — the
+`.bin.hold` fixture is not listed — and the item was chosen through the
+dropdown itself (pointer events on the Radix trigger and option). Saved
+value `…\ggml-large-v3.bin` on disk at 16:44:00 UTC; after an in-app
+restart (16:44:16 UTC) leveldb reopened with no corruption line, the value
+read back unchanged, and the new startup check passed silently (file
+present, Ready pill at t=169 ms). That instance was then ended with
+`Stop-Process` (the webview exposes restart but no exit command; no write
+was pending) and the app relaunched from the Start-menu shortcut without
+the debugging port (Ready pill at t=139 ms), which is the instance the
+owner's criteria 3–6 run starts from. `Stop-Process` skips the app's
+teardown, so the ended instance's `sona.exe` (spawned at launch, listening
+on `127.0.0.1:52005`) survived as an orphan — the exact condition behind
+the v1.4.1 sona-lock finding — and was killed by hand before the owner's
+run; the preflight afterwards shows one `sona.exe`, child of the clean
+instance, listening on `127.0.0.1:64855`.
+`ggml-large-v3-turbo.bin.hold` left staged for criterion 4.
+
 ## Shipped in v1.4.1 (2026-08-25)
 
 **Verification record (partial gate — owner ruling, 2026-08-25): shipped
