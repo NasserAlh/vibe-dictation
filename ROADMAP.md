@@ -19,6 +19,16 @@ issue** = a defect that exists today, **Shipped** = done, on main.
   some target applications. The workaround today is clipboard output mode. A
   proper fix means changing how synthetic keystrokes are sent, or detecting
   RTL and switching output mode automatically.
+- **Preferences can silently stop persisting.** Every preference except the
+  indicator flag and autostart lives in WebView2 localStorage, a leveldb
+  write-ahead log under the app's profile. One corrupt record in that log
+  makes leveldb discard every later write at the next launch, with no error
+  anywhere the user can see — the app simply comes back with whatever was
+  saved before the bad record (found 2026-09-05 on the owner's machine, where
+  it had been happening since 2026-08-28; details in RELEASING.md). The
+  durable fix is to move the preferences to the tauri store — a plain JSON
+  file, already used for the indicator flag — which fails loudly instead.
+  **Planned, not for v1.5.0.**
 - **No signed installer.** Releases are unsigned, so Windows SmartScreen warns on
   download and some antivirus flags the keystroke-injection behaviour. Signing
   needs a code-signing certificate. Deferred (owner ruling, 2026-09-03): purchase

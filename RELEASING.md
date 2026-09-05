@@ -350,9 +350,10 @@ Evidence and cause, from the app log and the WebView2 profile:
   session opening Settings after the rename) and today's two nulls all sit
   past the bad record and are discarded at the next launch. So every launch
   on machine A since at least 2026-08-29 has started from the turbo
-  selection, whatever was chosen in the session before — which also means
-  the v1.4.1 criterion-3 dictations of 2026-09-04 ran on large-v3-turbo,
-  not large-v3 (that record names no whisper model; nothing in it changes).
+  selection, whatever was chosen in the session before. (A first reading of
+  this concluded the v1.4.1 criterion-3 dictations of 2026-09-04 had run on
+  turbo; the archived store shows they ran in the instance configured on
+  2026-09-03 20:30 UTC with large-v3 — see the model note in that record.)
   The corruption is environmental (a torn write in the WebView2 profile,
   origin not determinable — the last intact record is a launch on
   2026-08-28 09:21 UTC); no code change can repair it. **Not touched:**
@@ -368,6 +369,46 @@ Evidence and cause, from the app log and the WebView2 profile:
   empty (in this folder that file is `ggml-large-v3.bin`) — and it is
   removed by the fix; whether it ran in the owner's session cannot be told
   from the log.
+
+**Finding — corrupt WebView2 localStorage store on machine A (found
+2026-09-05 while diagnosing the defect above; repaired the same day by owner
+ruling).** Symptom: preferences silently reverting on relaunch — the owner
+had re-enabled LLM formatting and re-selected qwen3.5:9b in nearly every
+session since 2026-08-29 (writes on 08-29, 08-30, 09-02, 09-03) without
+noticing why, and the model selection kept coming back as large-v3-turbo.
+Evidence: `…\EBWebView\Default\Local Storage\leveldb\000003.log`, record at
+byte 2631, CRC32C stored `a741fd9b` versus computed `fd781406` (verified
+with an independent CRC32C implementation over the record's type byte and
+payload); leveldb's LOG at every open: "Recovering log #3 … dropping N
+bytes; Corruption: checksum mismatch", then "Reusing old log" — so new
+writes were appended *after* the unreadable region and lost at the next
+open. The last intact record is a launch on 2026-08-28 09:21 UTC; the first
+lost write is 2026-08-29 01:57 UTC. Consequence: every launch from
+2026-08-29 to 2026-09-05 started from the 2026-08-28 state — model
+large-v3-turbo (selected 2026-08-25), LLM formatting off, gemma4:e4b, output
+mode type, toggle activation, warmup on, vocabulary "CC = Claude Code /
+KOTC / KBC = KPC" — whatever had been set since. Repair (2026-09-05, app
+fully closed, no `vibe.exe`/`sona.exe`/profile-bound WebView2 process):
+the whole leveldb directory **moved, not deleted**, to
+`C:\Users\nasser\Dev\releases\vibe-dictation\archive\localstorage-leveldb-2026-09-05\`
+(its `000003.log` SHA-256 `E618896E4C601BBAD30AAF22D952AB022D64DCD740DBE62C82BEB84103489D7A`,
+6,549 bytes; every write ever made, readable or not, is recoverable from it
+with a raw scan). Verification: the installed candidate launched at
+19:27:46 local and leveldb created a fresh store ("Creating DB … since it
+was missing"), Ready pill at t=222 ms, localStorage empty; a preference
+write (`prefs_hotkey_output_mode` = `"type"`, the owner's previous value)
+was made, reached `000003.log` on disk, and after an in-app restart
+(`plugin:process|restart`, 19:28:46 local) leveldb reopened with no
+corruption line and the value read back as `"type"`. Both verification
+launches ran the installed exe from the install path with WebView2's
+remote-debugging port enabled through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`
+(a loopback listener in `msedgewebview2.exe`, used only to read and write
+localStorage and to trigger the restart); the criterion launches do not use
+it. **Every other stored preference is now at its default** — the owner
+must re-enter: LLM formatting on with `qwen3.5:9b` (last chosen 2026-09-03),
+activation mode toggle, model warmup, the three vocabulary lines, GPU
+device 0, and the model (step 5 of the rebuild). Recorded in ROADMAP.md as
+a known issue with the durable fix (tauri store) marked Planned.
 
 So, of the two candidate causes, it was the **stale path to the renamed
 file** (the 2026-08-25 turbo selection resurrected by the corrupt storage
@@ -537,6 +578,25 @@ Run and passed:
    Across all three windows: 642 samples, ~2.6 min of dictation-active
    sampling, zero non-loopback rows. Raw sample logs and summaries were kept
    only in session scratch space, as for every earlier release record.
+   **Model note (2026-09-05).** This record names no whisper model; the
+   2026-09-04 board called large-v3 the active model. While diagnosing the
+   v1.5.0 gating defect it was first concluded that these sessions must have
+   run on large-v3-turbo, because machine A's WebView2 localStorage log had
+   been corrupt since 2026-08-28 (finding in the v1.5.0 section) and every
+   *launch* since then started from the 2026-08-25 turbo selection. The
+   archived store then showed that conclusion to be wrong for this sample:
+   the app instance that ran it was the one bound on 2026-09-03 20:30:09 UTC
+   (after the published v1.4.1 was reinstalled), in which the owner set LLM
+   formatting on, `qwen3.5:9b` and **large-v3** at 20:30:58 UTC; no further
+   storage access or preference write exists before 2026-09-04 19:56:04 UTC,
+   and the sample's own evidence — the Ollama formatting pass ran, which a
+   fresh launch (LLM formatting off at launch since 2026-08-28) could not
+   have done without a visible write — confirms it was that same instance,
+   holding large-v3 and LLM on in memory. **So these dictations ran on
+   large-v3, as the board said.** The 2026-09-04 19:56 UTC null write is a
+   later instance (relaunched during the indicator deadlock work, hence
+   started on turbo) meeting the `.bin.hold` rename. The loopback-only result
+   is model-independent either way.
 
 Not passed (carried debt, now against v1.4.1):
 
