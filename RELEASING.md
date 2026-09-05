@@ -248,9 +248,10 @@ calls. The gate for v1.5.0 is the full six criteria, unchanged.
 
 ### Release candidate built and installed on machine A, 2026-09-05 (not gated)
 
-**All six criteria are NOT RUN against this artifact. Nothing is tagged and
-nothing is published.** This is a build-and-install record only; the gate
-ladder is unchanged (v1.4.1 stays at 3 of 6, v1.5.0 at 0 of 6).
+**Nothing is tagged and nothing is published.** This is the build-and-install
+record; the gate against this artifact is the verification record that
+follows it, opened 2026-09-05 (v1.4.1 closed at 3 of 6 the same day, its
+debt moved here).
 
 - Built from commit `f51fa20` (tree clean, `main` level with `origin/main`,
   `tauri.conf.json` at 1.5.0) in the MSVC shell via the corepack `pnpm`
@@ -292,6 +293,78 @@ ladder is unchanged (v1.4.1 stays at 3 of 6, v1.5.0 at 0 of 6).
   because `desktop/src-tauri/Cargo.toml` still carries `version = "0.0.6"`
   while `tauri.conf.json` carries 1.5.0 — cosmetic, like the stale commit
   stamp; `Cargo.toml` is deliberately not being changed now.
+
+### Verification record against the installed v1.5.0 candidate (opened 2026-09-05)
+
+Artifact under test: the installed `%LOCALAPPDATA%\Vibe Dictation\` from the
+subsection above — `vibe.exe` `F72E57EC…F585A8`, `sona.exe` `96C7BA10…F1207`.
+Carries the debt moved from v1.4.1 (criteria 4, 5, 6) plus everything else:
+the full six, no inheritance. Nothing is tagged or published.
+
+1. **Strings audit — PASSED 2026-09-05.** The raw `target\release\vibe.exe`
+   of the candidate no longer existed (`cargo clean` in the install record),
+   so the audit ran on the **installed** exes, scanning the bytes both as
+   Latin-1 (ASCII/UTF-8 strings) and as UTF-16LE, patterns as an array.
+   - Installed `vibe.exe` (`F72E57EC…F585A8`, 8,612,352 bytes): all six
+     forbidden patterns zero in both encodings; positive control `sona` 91×
+     ASCII (+3 UTF-16); all five `updater` hits are the known substrings
+     (h2 `next_window_update` / `is_pending_window_update`, rustls
+     `KeyUpdateRequest` / `KeyUpdateReceivedInQuic` /
+     `TooManyKeyUpdateRequests`, Win32 `GetUpdateRect`); both
+     `huggingface.co` hits are the downloader manifest prefix
+     `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/` and the
+     "failed to reach huggingface.co" error string; no VC++ DLL name hits
+     (`vibe.exe` imports only Universal CRT api-sets, as found 2026-09-03).
+   - Installed `sona.exe` (`96C7BA10…F1207`, 91,194,880 bytes, equal to the
+     pin — the first time the sidecar itself is strings-audited in a record):
+     forbidden patterns zero; control `sona` 73×; `huggingface.co` zero; the
+     DLL-name hits are exactly the import table (`MSVCP140.dll`,
+     `MSVCP140_1.dll`, `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll`,
+     `VCOMP140.DLL`, one entry each); `updater` hits 82 case-insensitive,
+     every one an identifier inside embedded minified JavaScript (React's
+     `this.updater` / `enqueueSetState`, Immutable.js `updater` / `updateIn`,
+     `updateResolved`, `updateReadableListening`) — a bundled web UI, not an
+     update mechanism.
+   - **Installer-script audit and `--no-default-features` check** needed a
+     tree, so the candidate's sources (`f31498b`, same code as `f51fa20`; the
+     commits between change only RELEASING.md and the board) were rebuilt
+     once in the MSVC shell (`link.exe` resolved to MSVC 14.44.35207, pnpm
+     10.4.1 via corepack; cargo 2 m 19 s, 191 s end to end). **These rebuilt
+     binaries are NOT the installed artifact** — rebuilt raw `vibe.exe`
+     `063d2036…3aa2`, rebuilt installer `7e151616…0b1e` (44,406,888 bytes),
+     both differing from the candidate's `D1CACE56…` / `71EA839D…` as a fresh
+     build does — they were used only for the two checks below, never
+     launched, never installed, not archived.
+     `target\release\nsis\x64\installer.nsi` carries
+     `!define INSTALLWEBVIEW2MODE ""` (line 51) and includes
+     `desktop\src-tauri\windows\hooks.nsh` (line 28); the template's only
+     `NSISdl::download` (line 535, the WebView2 bootstrapper) sits inside
+     `!if "${INSTALLWEBVIEW2MODE}" == "downloadBootstrapper"` and is
+     compiled out; the remaining `ExecWait`s run the previous version's own
+     uninstaller (reinstall flow, lines 327/334) or sit inside the excluded
+     WebView2 branches. `hooks.nsh` (29 lines): no `NSISdl`, no `inetc`, no
+     `ExecShell`, no URL — two macros, each `nsExec::Exec 'taskkill /F /IM
+     sona.exe /T'`. `makensis /V4` recompile of that script to a scratch
+     path: exit 0, 44,409,185 bytes; packed files are `vibe.exe`, the five
+     DLLs, `ffmpeg.exe`, `sona.exe` and the plugins `System.dll`,
+     `nsExec.dll`, `nsis_tauri_utils.dll`; 170 plugin commands, all
+     `System::Call/Alloc/Free`, `nsExec::Exec` ×2 (the hooks),
+     `nsis_tauri_utils` (`FindProcessCurrentUser`, `KillProcessCurrentUser`,
+     `RunAsUser`, `SemverCompare`) and nsDialogs — **zero from `NSISdl`**
+     (the two "+ NSISdl::download" lines in a /V4 log are the plugin-directory
+     inventory, not commands). Then `tauri build --no-bundle --
+     --no-default-features` (1 m 37 s): `vibe.exe` 8,588,800 bytes,
+     `393473FE…1EFD` — `huggingface.co` **zero**, forbidden zero, control
+     91×. `cargo clean` afterwards removed 5,306 files (2.3 GiB); `target\`
+     confirmed gone; no `vibe.exe`/`sona.exe` process running.
+
+3. **Netstat sampler during live dictation — NOT RUN** (owner run pending;
+   `scripts/netstat-sampler.ps1` prepared).
+4. **Firewall-block test — NOT RUN** (owner run pending; preflight at
+   12:32 local: both rules enabled on the installed paths,
+   `ggml-large-v3-turbo.bin.hold` staged).
+5. **Functional EN + AR dictation into MS Word — NOT RUN** (owner).
+6. **Live-dictation functional check — NOT RUN** (owner).
 
 ## Shipped in v1.4.1 (2026-08-25)
 
