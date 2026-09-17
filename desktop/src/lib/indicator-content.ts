@@ -9,8 +9,9 @@ export type PillRing = 'grey' | 'green' | 'red' | 'blue' | 'amber'
 /**
  * `meter` is the five-bar live level meter shown while recording; the
  * component substitutes the pulsing `dot` under prefers-reduced-motion.
+ * `orb` means "draw the resting orb instead of a pill" (status `idle`).
  */
-export type PillLeft = 'spinner' | 'check' | 'warning' | 'dot' | 'meter'
+export type PillLeft = 'spinner' | 'check' | 'warning' | 'dot' | 'meter' | 'orb'
 
 // --- Level meter (plan §4, ROADMAP "Animated recording indicator") -----------
 // Rust emits "dictation-indicator-level" { level: 0..1 } at ~15 Hz while
@@ -139,6 +140,11 @@ export function pillContent(state: PillInput, now: number): PillContent {
 			}
 			return { ring: 'green', left: 'check', label, right: null, sub: null }
 		}
+		case 'idle':
+			// The resting orb of the floating control (docs/dictation-control-plan.md
+			// §4). No text is drawn; the label is the orb's accessible name. It
+			// must stay static — no clock, no animation at rest (§2.5).
+			return { ring: 'grey', left: 'orb', label: m.dictationControlOrbLabel(), right: null, sub: null }
 		case 'error':
 			return {
 				ring: state.severity === 'warning' ? 'amber' : 'red',

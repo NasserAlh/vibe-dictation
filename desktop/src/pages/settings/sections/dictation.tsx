@@ -8,7 +8,7 @@ import { Switch } from '~/components/ui/switch'
 import { Textarea } from '~/components/ui/textarea'
 import { useHotkeyProvider, type HotkeyActivationMode, type HotkeyOutputMode } from '~/providers/hotkey'
 import { Field, SectionCard } from './shared'
-import { getDictationIndicatorEnabled, setDictationIndicatorEnabled } from '~/lib/dictation-indicator'
+import { getDictationControlEnabled, getDictationIndicatorEnabled, setDictationControlEnabled, setDictationIndicatorEnabled } from '~/lib/dictation-indicator'
 import { listOllamaModels, type OllamaModel } from '~/lib/ollama'
 import { acceleratorsCollide } from '~/lib/accelerator'
 
@@ -24,6 +24,20 @@ export function DictationSection() {
 			await setDictationIndicatorEnabled(enabled)
 		} catch (error) {
 			setIndicatorEnabled(!enabled)
+			console.error(error)
+		}
+	}
+	// Floating control (resting orb): opt-in, off by default, tauri store.
+	const [controlEnabled, setControlEnabled] = useState(false)
+	useEffect(() => {
+		getDictationControlEnabled().then(setControlEnabled).catch(console.error)
+	}, [])
+	async function changeControlEnabled(enabled: boolean) {
+		setControlEnabled(enabled)
+		try {
+			await setDictationControlEnabled(enabled)
+		} catch (error) {
+			setControlEnabled(!enabled)
 			console.error(error)
 		}
 	}
@@ -86,6 +100,13 @@ export function DictationSection() {
 													{m.dictationIndicatorSetting()}
 												</span>
 												<Switch checked={indicatorEnabled} onCheckedChange={changeIndicatorEnabled} />
+											</div>
+											<div className="flex items-center justify-between gap-3 ps-5">
+												<span className="flex items-center gap-1 text-sm font-medium">
+													<InfoTooltip text={m.dictationControlSettingInfo()} />
+													{m.dictationControlSetting()}
+												</span>
+												<Switch checked={controlEnabled && indicatorEnabled} onCheckedChange={changeControlEnabled} disabled={!indicatorEnabled} />
 											</div>
 											<div className="flex items-center justify-between gap-3">
 												<span className="flex items-center gap-1 text-sm font-medium">

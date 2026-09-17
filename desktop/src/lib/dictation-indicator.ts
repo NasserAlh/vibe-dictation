@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 
-export type DictationIndicatorStatus = 'starting' | 'ready' | 'recording' | 'transcribing' | 'completed' | 'error'
+/** `idle` is the resting orb of the floating control (docs/dictation-control-plan.md); only sent when that setting is on. */
+export type DictationIndicatorStatus = 'starting' | 'ready' | 'recording' | 'transcribing' | 'completed' | 'error' | 'idle'
 export type DictationIndicatorLang = 'en' | 'ar'
 export type DictationIndicatorPhase = 'loading-model' | 'transcribing' | 'formatting'
 export type DictationIndicatorHint = 'release' | 'toggle'
@@ -27,6 +28,9 @@ export interface DictationIndicatorState {
 export const getDictationIndicatorEnabled = () => invoke<boolean>('get_dictation_indicator_enabled')
 export const setDictationIndicatorEnabled = (enabled: boolean) => invoke<void>('set_dictation_indicator_enabled', { enabled })
 export const getDictationIndicatorState = () => invoke<DictationIndicatorState | null>('get_dictation_indicator_state')
+// The floating control (resting orb): opt-in, off by default, kept in the tauri store.
+export const getDictationControlEnabled = () => invoke<boolean>('get_dictation_control_enabled')
+export const setDictationControlEnabled = (enabled: boolean) => invoke<void>('set_dictation_control_enabled', { enabled })
 
 export async function showDictationIndicator(state: DictationIndicatorState) {
 	try {

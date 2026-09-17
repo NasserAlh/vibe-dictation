@@ -154,6 +154,13 @@ describe('pillContent', () => {
 		expect(pillContent({ sessionId: 7, status: 'completed' }, 0).label).toBe('Copied')
 	})
 
+	it('idle: the resting orb — grey, no text slots, static whatever the clock says', () => {
+		const expected = { ring: 'grey', left: 'orb', label: 'Dictation control', right: null, sub: null }
+		expect(pillContent({ sessionId: 9, status: 'idle' }, 0)).toEqual(expected)
+		// No elapsed time, no hint window: the orb must never need the 4 Hz clock.
+		expect(pillContent({ sessionId: 9, status: 'idle', since: 0, lang: 'ar', output: 'type', hint: 'release' }, 123_456)).toEqual(expected)
+	})
+
 	it('error: red by default, amber for warnings, message or generic fallback', () => {
 		expect(pillContent({ sessionId: 8, status: 'error', message: 'Could not start recording' }, 0)).toEqual({
 			ring: 'red',

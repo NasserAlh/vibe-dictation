@@ -148,6 +148,8 @@ async fn main() -> Result<()> {
             cmd::permissions::open_system_audio_settings,
             dictation_indicator::get_dictation_indicator_enabled,
             dictation_indicator::set_dictation_indicator_enabled,
+            dictation_indicator::get_dictation_control_enabled,
+            dictation_indicator::set_dictation_control_enabled,
             dictation_indicator::show_dictation_indicator,
             dictation_indicator::get_dictation_indicator_state,
             dictation_indicator::dictation_indicator_ready,

@@ -84,6 +84,9 @@ function LeftSlot({ kind, ring, reducedMotion, level }: { kind: PillLeft; ring: 
 			return <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
 		case 'dot':
 			return <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
+		case 'orb':
+			// The orb is drawn instead of the pill, never inside it (see the component).
+			return null
 	}
 }
 
@@ -239,6 +242,24 @@ export default function DictationIndicator() {
 	if (content) lastContentRef.current = content
 
 	if (!view || !content) return null
+
+	if (content.left === 'orb') {
+		// Resting orb of the floating control (docs/dictation-control-plan.md §4).
+		// Rust sizes the window to this shape (a 40 px square): the tight window
+		// is the hit-testing. So no drop shadow — the pill's would be clipped to
+		// a visible square — and nothing animates at rest. Inert until Prompt 2.
+		return (
+			<div className="flex h-screen w-screen items-center justify-center">
+				<div
+					className={`pill flex h-9 w-9 items-center justify-center rounded-full bg-zinc-950 ring-1 ring-inset ring-zinc-500/50 ${hiding ? 'pill-hiding' : ''} ${reducedMotion ? 'pill-no-motion' : ''}`}
+					role="status"
+					aria-label={content.label}
+				>
+					<img src={logoUrl} alt="" className="h-6 w-6 rounded-full" draggable={false} />
+				</div>
+			</div>
+		)
+	}
 
 	const motion = reducedMotion ? 'pill-no-motion' : ''
 	return (
