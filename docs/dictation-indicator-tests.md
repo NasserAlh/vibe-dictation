@@ -111,3 +111,138 @@ ever been considered hidden, and none appeared. The live-dictation interval and
 the hide timers are therefore **not** the source of lingering "Inserted" on
 this machine; Prompt 1's Rust-owned auto-hide is still worthwhile for
 robustness, but not to fix 2.5.
+
+## Floating control rows (j–v)
+
+Added 2026-09-17 for [dictation-control-plan.md](dictation-control-plan.md).
+Same matrix, same columns, continuing the letters. Two differences from rows
+a–i: the "expected" column describes the **target** behaviour (nothing is
+built yet, so there is no pre-fix behaviour to contrast), and the "cause"
+column points at a section of the control plan. Rows j and k are the spike's
+hand checks. Observed is empty until a prompt or the owner fills it. Row s
+(tray entries) was deleted on 2026-09-18: the tray is a start route only and
+no stop route that would record the menu window as the target is being
+built; the letter is not reused.
+
+| # | Case | Steps | Expected (target) | Cause | Observed | Log excerpt |
+|---|------|-------|-------------------|-------|----------|-------------|
+| j | Click with Word focused | Orb setting on. Put the caret in a Word document. Click the orb's EN target, say a sentence, click the pill to stop. | Word's title bar never loses its active colour and the caret keeps blinking through both clicks; the text is typed into Word, green "Inserted". No amber "Focus changed". | control §2.1, §2.10 items 1–2 | Spike 2026-09-17 (C1, C2, C5): click reached the webview and Rust 1–2 ms apart; Word (`hwnd=131994`) foreground before and after, pill never focused; click-started session stopped by F9 delivered 105 characters into Word, `type_text_if_foreground` true. Physical-keyboard check (C3) **not run — owner**. | see "Control spike" below |
+| k | Transparency with click-through cleared | Orb setting on. Rest the orb over a bright, busy background (a photo, a web page). | Only the orb is drawn; its bounding square shows the background, not black or white, and no frame. | control §2.3, §2.10 item 3 | Spike 2026-09-17 (C4): screenshots with click-through off show the background right up to the pill, at 400×64 and at 40 px; no rectangle, no outline. Owner's eyes **not run**. | see "Control spike" below |
+| l | Click beside the shape | Rest the orb over a window with a clickable target under the corner of the orb's bounding square. Click that corner, then a point 2 px outside the square. | The point outside reaches the app underneath. The corner inside the square is the accepted loss of option (a): note whether it is noticeable; if it is, option (b) is the remedy. | control §2.4 | Spike 2026-09-17 (C6), synthetic clicks over a logging window: inside the 400×64 window's transparent area the click is eaten; with a 40 px window the transparent corner is eaten, 20 px outside passes through, and the area the big window used to cover passes through. The dead zone is exactly the window rectangle. Owner's hand check **not run**. | see "Control spike" below |
+| m | Stopping and ownership, all four combinations | For each of hotkey→hotkey, hotkey→click, click→hotkey, click→click, in both activation modes and both languages: start, speak, stop. Then: hold F9 (push-to-talk) and tap F10 while speaking; in toggle mode start with F9 and press F10; start an Arabic session by click and tap F9. | Every combination in the list stops and delivers. A **hotkey-started** session is stopped only by its own language's hotkey, exactly as today: the F10 tap during a held F9 session and the F10 press during a toggled F9 session do **not** stop it. A **click-started** session is stopped by any input — a click, or either language's hotkey, press or release — and is transcribed in the session's own language, not the pressed key's (the click-started Arabic session stopped by F9 comes out Arabic). A click stops any session. | owner ruling 2 as refined by control §2.11; §2.7 | | |
+| n | Click-stop while another app is in front | Start in Word (type mode). Alt-Tab to Notepad, leave the caret there, click the pill to stop. | The text is typed into **Notepad**: the target is recorded at the stop instant. Same as releasing the hotkey in Notepad today; recorded so it is a known behaviour, not a surprise. | control §2.7 | | |
+| o | Click during "Transcribing…" | Dictate ~10 s with a cold model. While the pill says "Transcribing…", click the pill, then hover where the orb rests. | "Still transcribing — wait" for 1 s, then the phase label returns. No second recording, no unfold while a session runs. | control §4 (one busy guard, hotkey.tsx:305-321) | | |
+| p | Fullscreen and presenting | With the orb resting: browser F11; a PowerPoint slide show; a borderless-windowed game; an exclusive-fullscreen game; Win+L and back. Note the `QUNS_*` value logged for each. | The orb hides within about a second in each case and returns within about a second afterwards, re-raised. A dictation started by hotkey during fullscreen still shows the pill as today. | owner ruling 3; control §2.6 | | |
+| q | Drag and persisted position | Drag the orb to a corner. Quit from the tray, relaunch. Then change the display layout (unplug a monitor, or change scale), and with two monitors at different scales drag it across. | The orb comes back where it was left. After a layout change it is fully on a visible monitor. It keeps its physical size ratio across DPI. A hotkey session in between does not move where the orb rests afterwards. | control §2.8 | | |
+| r | Setting off means today's behaviour | Fresh profile: confirm the orb switch is off. Dictate by hotkey. Turn the orb on, then turn the indicator off. | Off: no orb, the pill hides when idle, the pill cannot be clicked (clicks pass through). Indicator off: no orb either, and the orb switch is disabled. | owner ruling 1 | | |
+| t | Resting cost | Orb resting for five minutes, nothing else happening. Sample CPU and GPU of the app's WebView2 processes (Task Manager or `Get-Counter`), then the same with the orb setting off. | No measurable difference at rest; no animation frames while resting (the 4 Hz clock runs only for recording/transcribing). | control §2.5 | | |
+| u | Live dictation started by click | Live dictation on, type mode, caret in Word. Click EN, speak ~10 s, click to stop. Repeat, but Alt-Tab away mid-sentence. | Partials are typed into Word while speaking; the final pass reconciles. After Alt-Tab the session freezes and ends as the amber clipboard fallback — the target was armed at the start click. | control §2.7 (`start_live_typing`, app.rs:146-151) | | |
+| v | Arabic by click | Click the `ع` target, dictate in Arabic, in clipboard mode and in type mode into Word. | Transcribed as Arabic (language forced by the target, as by F10). `ع` badge, no mirroring of badge or elapsed time; "click to stop" hint readable in the Arabic locale. | control §4 | | |
+
+## Control spike (Prompt 0), 2026-09-17 — criteria C1–C8
+
+Throwaway spike on branch `spike/dictation-control-noactivate` (never merged).
+Spike state: commit `4bbfd8e`; reverted by `53fb9cd`, so the branch tip's
+product files equal `main`. Dev build, one monitor 3440×1440 at 150 %, pill
+window 600×96 physical at (1420,1272). Mouse and keyboard input was
+synthesized with `SetCursorPos` / `mouse_event` / `keybd_event` / `SendKeys`
+(real OS-level input, not DOM events); the pill's console was read over the
+WebView2 debug port. Screenshots and the distinct C7 transition frames are in
+[screenshots/control-spike/](screenshots/control-spike/); raw logs are not
+kept — the numbers are in the table below.
+
+### How the owner's criteria map onto plan §2.10
+
+C1–C8 are the owner's and are authoritative. Plan §2.10 and rows j–v were
+written before them. Nothing was renumbered; this is the mapping:
+
+| Criterion | Plan §2.10 item | Matrix row | What changed |
+|---|---|---|---|
+| C1 click reaches the webview, with latency | item 1, first half | j | Latency is new. **Hover without a click** (item 1, second half) is in none of C1–C8 and was not tested — still open. |
+| C2 click does not activate | item 2, first half | j | Adds `is_focused()`; §2.10 only spoke of the foreground window. |
+| C3 keyboard still goes to the target app | item 2 ("Word keeps its caret") | j | Made its own criterion, physical keyboard, owner-run. |
+| C4 transparency survives | item 3 | k | Same. |
+| C5 delivery end to end | item 2, second half | j, m (click→hotkey) | Adds "did the pill ever become the recorded target". |
+| C6 click-through damage, measured | **none — missing from §2.10** | l | §2.4 ranked the options and deferred the measurement to row l. C6 makes it a spike criterion because it decides Prompt 1. |
+| C7 tight-window viability | item 4 | — | Adds "does tao accept a ~40 px window" (was unverified claim 5). |
+| C8 drag | item 5 | q (drag part) | Adds a worst-case lag number. |
+
+### Results
+
+| # | Verdict | Evidence |
+|---|---|---|
+| C1 | **PASS** | 10 clicks, 10 `pointerdown`s in the pill's webview, 10 matching Rust lines. Pointerdown → Rust log: 1–2 ms (median 1). `invoke` round trip seen from JS: 2–16 ms (median 5). OS click → JS pointerdown: ≤ 17 ms (upper bound; includes the harness's own call overhead). Pair: `[spike] pointerdown t=228523.0ms js_epoch_ms=1789657752341 client=(200,32) … button=0 mode=log` ↔ `[spike] t=228640ms rust_epoch_ms=1789657752343 click reached: note="pointerdown button=0 mode=log js_epoch_ms=1789657752341" foreground=131994 title="Document1 - Word" pid=26952 own_pid=47164 pill_hwnd=198504 pill_is_focused=Some(false) pill_is_foreground=false`. **C1 without C3 is not a pass** — see C3. |
+| C2 | **PASS** | Foreground before click `hwnd=131994 'Document1 - Word'`, after click the same; a 50 ms foreground watch across `show()` + click recorded no change in 11 s. Every Rust line: `pill_is_focused=Some(false) pill_is_foreground=false`. Also held with Chrome in front (`foreground=1574924`, unchanged). `show()` itself did not change the foreground either. |
+| C3 | **UNRUN (owner)** — synthetic pre-check passes | Pre-check with synthesized keys only: caret placed in Word by a click, pill clicked, then `SendKeys` with no further click → Word's text became `Control2 after-pill-click`. A physical keyboard is the criterion; run sheet below. |
+| C4 | **UNRUN (owner's eyes)** — automated look passes | Screenshot with click-through off: background visible all round the pill, no opaque or black rectangle, no bounding box; same at 40 px over a solid blue window. Compared with `docs/screenshots/indicator/05-recording-en-elapsed.png`: no visible difference in the pill. |
+| C5 | **PASS** | Click on the pill → `[spike] control press -> handleHotkeyDown(en)` → `show: session=1 status=recording`; synthetic F9 tap → `[spike] stop: recorded target=131994 lang=en` → `[spike] type_text_if_foreground: target=131994 current=131994 will_type=true` → JS `applied=true target=131994 chars=105 words=19`; Word's document gained those 105 characters. **The pill (hwnd 198504) was never the recorded target.** The audio was whatever the room microphone heard. |
+| C6 | **Measured** (owner re-check pending) | **400×64 window, click-through off:** a click 40 logical px left of the visible pill (1473,1320), inside the window's transparent area, was taken by the pill's document (`DOC pointerdown client=(35.3,32) target=DIV`) and the window underneath received **nothing**. Control click just outside the window (1400,1320): received underneath. **40 px window:** its transparent corner (1423,1275) → taken by the pill (`client=(2,2)`), nothing underneath; 20 logical px outside (1390,1302) → received underneath; a point the big window used to cover (1500,1302) → received underneath. Conclusion: the dead zone is exactly the window rectangle. A full-size window is not acceptable with click-through off; a tight window loses only its own corners. |
+| C7 | **UNRUN (owner's eyes)** — capture shows no flash | tao accepted the small window: `set_size: requested=60x60 (logical 40x40, scale 1.5) -> outer_size=Some((60, 60)) inner_size=Some((60, 60))`, `GetWindowRect` 60×60. Screen captured at ~30 ms per frame across both transitions: growing, the first changed frame already shows the complete pill, the next 7 frames differ only by the ring colour fading in (~160 ms); shrinking is a single-frame swap. No black, white or half-drawn frame. The content **jumps** from the window's left edge to its centre because the spike keeps the top-left corner fixed — an anchoring choice for Prompt 1, not a rendering fault. A 30 fps capture can miss a single bad 16 ms frame, hence the owner's eyes. |
+| C8 | **PASS** | App command `spike_move_by` driven by `setPointerCapture` + `pointermove`. Four drags, 175 samples, speeds ~780 to ~2000 px/s: window exactly under the cursor at every sample (`worst_lag_px=0`), `fg_changed_samples=0`, foreground identical before and after. The sampler cannot resolve below about 15 ms per step, so the honest figure is "lag below one 15 ms sample", not zero. Synthetic motion, not a hand. |
+
+Checks with the spike code in place: `cargo fmt`, `cargo clippy` (no
+warnings), `cargo test` 43 passed; `pnpm i18n:generate`, `tsc --noEmit`,
+`pnpm lint`, `pnpm test` 77 passed. No crate, crate feature or plugin added.
+
+### Run sheet for the owner — C3, C4, C6, C7
+
+Setup (once):
+
+1. Quit the installed app from the tray (a dev instance is absorbed by it
+   otherwise). In an MSVC shell at the repo root:
+   `git checkout spike/dictation-control-noactivate` then
+   `git checkout 4bbfd8e -- desktop` (restores the spike code into the working
+   tree). From `desktop/`: `pnpm exec tauri dev`.
+2. In the dev window: Settings → Dictation → activation **Toggle**. Open Word
+   with some text and put the caret in it. Press **F9** once: the pill stays
+   up ("Listening") until F9 is pressed again. Leave it up for all four rows.
+   In this state: **left-click** the pill only logs; **right-click** toggles
+   the window between 400×64 and a 40 px square with an orb.
+
+Rows:
+
+3. **C3.** Click in Word so the caret blinks. Left-click the pill once. Without
+   clicking anywhere else, type a few words on the physical keyboard.
+   PASS: the words appear in Word at the caret; Word's title bar never dims.
+   FAIL: nothing appears, or a click back into Word is needed first.
+4. **C4.** Move a bright, busy window (a photo, a web page) under the pill.
+   Look at the area around the pill, inside where its 400×64 window is.
+   PASS: only the pill is drawn; the background shows right up to its rounded
+   edge. FAIL: any black, white or grey rectangle, or a visible box outline.
+   Compare with `docs/screenshots/indicator/05-recording-en-elapsed.png`.
+5. **C6.** Put a text editor under the pill. (a) Click about 40 px to the left
+   of the visible pill. Expected from the measurement: the editor's caret does
+   **not** move — the click is eaten. (b) Right-click the pill: it becomes a
+   40 px orb. Click the orb square's transparent corner, just outside the
+   circle: expected eaten. Click 20 px outside the square: expected to land in
+   the editor. Record whether your hand agrees with the measurement, and
+   whether the corner loss is noticeable in practice.
+6. **C7.** Right-click the pill/orb six times, watching closely. PASS: each
+   change is a clean swap. FAIL: any black or white flash, a frame where the
+   pill is half drawn or stretched, or the orb appearing somewhere other than
+   the window's top-left. Note separately whether the jump of the content from
+   left edge to centre bothers you — that is an anchoring choice, not a fault.
+
+Teardown: press F9 to end the dictation, close the dev app, then
+`git checkout HEAD -- desktop` (back to the reverted tip; `git status` must show
+docs only), and start the installed app again.
+
+### Notes from the run
+
+- Reloading the dev main page leaves F9/F10 registered in Rust against the
+  old page; the new page's registration fails and the pill shows "hotkeys
+  could not be registered". Dev-only (a release page never reloads), and the
+  same family as the unproven startup flash in the indicator plan §7. Worked
+  around in the spike by unregistering first; not fixed.
+- The first dev launch exited by itself ~50 s after start with code −1 and a
+  WebView2 teardown message, shortly after the installed app had been stopped.
+  The two share one WebView2 user-data folder; the likely cause is the
+  stopped app's browser process shutting down underneath the new instance.
+  Not investigated further.
+- The dev origin (`http://localhost:1420`) had no saved preferences at all.
+  The spike set a model path and type mode there for C5 and removed both
+  again.
+- Harness incident: one batch of synthesized keystrokes was sent while the
+  owner had switched to a Chrome/YouTube tab, so that page received them. The
+  harness was then changed to refuse to type unless the expected window is
+  foreground.

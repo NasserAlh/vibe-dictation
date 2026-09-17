@@ -80,6 +80,11 @@ topmost band on every show. If the pill is missing elsewhere, run the dev
 build with `RUST_LOG=vibe=debug` and read the `[indicator]` show line: it
 records visibility, position and size.
 
+### Development builds only
+
+- Reloading the main window's page (Ctrl+R, a DevTools reload) leaves F9/F10 registered against the old page, so the new page cannot register them and the pill shows "Dictation hotkeys could not be registered" — restart `tauri dev` instead; an installed build never reloads its page.
+- A dev instance started within seconds of stopping the installed app can exit by itself about a minute later (code −1, WebView2 teardown message): both use one WebView2 user-data folder — quit the installed app, wait a few seconds, then start `tauri dev`.
+
 ### Autostart didn't launch at login
 
 v1.0.1 writes a **quoted** HKCU Run entry and works natively; confirm it:
