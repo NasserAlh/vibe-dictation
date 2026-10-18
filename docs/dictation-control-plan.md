@@ -3,7 +3,14 @@
 Date: 2026-09-17. Based on a read of the code at `main` (`b8e8572`, v1.5.0
 published). Revised 2026-09-18 after the Prompt 0 spike: §2.4, §2.8 and §2.10
 now record decisions and measurements, §2.11 is new, and the prompts in §6
-were updated to match. Nothing was renumbered. Companion to
+were updated to match. Revised a second time on 2026-09-18, after Prompt 1 was
+committed (`8938e5b`) and a read-through review of the code at that commit:
+§2.12 is new (the clickable-icon routes, ranked, and the startup-resting
+defect), Prompt 1b is new, Prompt 2 is **split** into 2a and 2b — its owner
+text is unchanged and now sits under 2b — the tray entries move out of
+Prompt 3 into a new Prompt 4, and §5, §7 and §8 are updated to match. Nothing
+was renumbered: the split and the new prompts take lettered ids after the
+prompt they belong to. Companion to
 [dictation-indicator-plan.md](dictation-indicator-plan.md); same shape, same
 discipline. Claims are tagged **[verified]** (read in source, file:line
 given), **[measured]** (spike, 2026-09-17) or **[unverified]**; section 10
@@ -300,7 +307,97 @@ release) and the early return at hotkey.tsx:304-311 (the head of
 recording starts nothing). The per-language ownership itself is the guard in
 `handleHotkeyUp` at hotkey.tsx:396 (`activeLangRef.current !== lang`), which
 is why the invariant says to pass `activeLangRef.current`. **[verified]**
-Implemented in Prompt 2, not Prompt 1.
+Implemented in Prompt 2a, not Prompt 1.
+
+### 2.12 The clickable-icon routes, ranked (review of 2026-09-18, at `8938e5b`)
+
+The goal stated for this work is dictation that starts from an icon — floating
+or fixed — and not from a keyboard key. Four routes can carry that, and they
+differ in cost by two orders of magnitude. Findings below are from reading the
+code at `8938e5b`; the orb commit built the resting state (window mode, size,
+clamp, anchor math, setting, render) and stopped, so **nothing in the tree can
+start a dictation from a click yet**:
+
+- The orb is inert on purpose: it carries no pointer handler at all, and its
+  render ends "Inert until Prompt 2" — rename that to 2a when 2a runs
+  (components/dictation-indicator.tsx:250). Grepping
+  `dictation-control-press` across `desktop/src` returns nothing.
+  **[verified]**
+- The tray has two entries, Show and Quit (setup.rs:144-145). **[verified]**
+- The main window's dictation page is a Mic glyph, the two hotkey chips and a
+  Settings button (pages/dictation-home/page.tsx:26-53). **[verified]**
+- `nearest_anchor` and `anchored_origin` are built, unit-tested and
+  `dead_code`-annotated "first caller: control plan Prompt 2"
+  (dictation_indicator.rs:48, :260, :279). **[verified]**
+
+**What the mechanism already gives us.** The delivery target is recorded when
+the recording *stops* (`handleHotkeyUp` → `foreground_window_handle`,
+hotkey.tsx:394-404), and a click on the control cannot change it because the
+window never activates (§2.1, spike C2). So click-start needs no new delivery
+rule at all — it is the same rule the hotkeys already follow (§2.7). That is
+why the orb route is cheap: it is wiring, not mechanism.
+
+| # | Route | Cost | Depends on | Delivery caveat |
+|---|---|---|---|---|
+| a | **Main-window start/stop button** | ~40 lines in `dictation-home/page.tsx` + two context entries | Nothing at all — calls `handleHotkeyDown` / `handleHotkeyUp` directly, in the same provider | While that window is focused it *is* the recorded target, so the transcript should land in an in-app text panel (below) |
+| b | **Tray entries** "Dictate — English / العربية" | ~15 lines in `build_tray` + one emit | Nothing — start route only, per §7 | The menu takes focus (to the shell) and the target is recorded at stop, so it lands correctly in toggle mode; in push-to-talk the release instant decides |
+| c | **The resting orb** (tap a language target) | Prompt 2a: wiring + the permanently-unfolded orb. Prompt 2b adds the geometry | 2a needs nothing; 2b needs C7; the hover unfold needs the open hover claim | None — the click never activates (§2.1) |
+| d | **A desktop/taskbar shortcut** (`vibe.exe --dictate`) | A new start route in `main.rs`/`cli.rs` + `single-instance` handoff | A ruling, and the cold-start race | Same as (b) |
+
+**Route (a) closes a hole that exists today.** With hotkeys switched off, or
+when registration failed (hotkey.tsx:693-699 — "Dictation hotkeys could not be
+registered"), there is currently **no way to start a dictation at all**: no
+button, no tray entry, no orb that responds. **[verified]** A window button is
+that fallback, and it needs no capability, no window, and no event — the
+button lives in the same React tree as `handleHotkeyDown`. Its one honest
+consequence is that the main window is the focused window, so the recorded
+target is the app itself; the clean landing is a transcript panel with a Copy
+button, which is also the "I lost the text" fallback the app does not have.
+That is a product decision, not a mechanism one — question 5 below.
+
+**Route (b) is the cheapest fixed icon, and Prompt 3's tray step was
+overloaded.** The menu entries themselves are Rust and need no frontend work;
+only the "(F9)" / "(F10)" suffixes need the registered accelerators, which
+live in the frontend. Splitting them (Prompt 4 for the entries, Prompt 3 keeps
+the labels) lets the entries ship without waiting on the unfold at all.
+**[verified]**
+
+**Route (d) is the literal reading of "fixed icon", and it is one argument
+away.** A shortcut can only launch a process, and `is_cli_detected()` treats
+*any* first argument as CLI mode and forwards it to the bundled sona binary
+(cli.rs:28-45). So a `--dictate` shortcut would be swallowed by the CLI path
+today. **[verified]** But `tauri-plugin-single-instance` is already registered
+and already routes a second launch into the running instance — so a second
+launch whose argv is `--dictate` can emit the same in-process start event the
+orb emits, giving a pinnable Start-menu or taskbar icon that dictates in the
+background with no new plugin, no new host, and no socket. What it needs is a
+ruling that `--dictate` is ours and not sona's, plus a first-run rule: on a
+*stopped* app the shortcut must launch, arm, and then start dictation once the
+page has loaded and the model path is known — the same startup race the ready
+flash already covers. Not built; ranked here because it is the only route that
+survives the main window being closed to tray.
+
+**Route (c) sequencing, and why the split matters.** The owner's Prompt 2 text
+does five things at once: the event and its routing, the §2.11 ownership
+rules, the click hint and stop target, the grow-in-place geometry under the
+anchor rule, and drag. Only the last two depend on anything unproven (C7, and
+for the unfold the open hover claim), and only the last two are large. So 2a
+takes the wiring and the permanently-unfolded orb — the shortest path to a
+working click-to-dictate — and 2b takes the transitions and drag. The 2a build
+also *exercises hover's successor*: it is the first time a real cursor reaches
+the no-activate webview, so the hover check rides along in 2b.
+
+**Defect found in the resting state (new; §7).** With the control setting on,
+the orb does **not** appear at launch: `initialize` seeds a `"starting"` state
+and `create_window` builds pill-sized, runs `position_window` and shows
+(dictation_indicator.rs:424-443, :416). It only folds to the orb when the ready
+flash's timed `hideDictationIndicator(0)` returns
+(hotkey.tsx:682-703 → dictation_indicator.rs:689-692). So the pill appears
+first and the orb arrives ~5 s later, which contradicts §7 ("at launch, the
+ready flash would fold into the orb") and question 9.3. It also means the
+**pill-sized clickable window is briefly live**, which §2.4 spent a whole
+spike criterion ruling out — with click-through cleared, that rectangle eats
+every click in it for those seconds. Prompt 1b fixes it.
 
 ## 3. Why the orb is the right shape
 
@@ -375,7 +472,17 @@ Rust:
   the fallback if the owner's C3 run fails and the only route to the same
   action that does not need the orb. The accelerators live in the frontend,
   so the labels are set from the frontend after registration, or shown
-  without the key until then.
+  without the key until then. **Revised 2026-09-18 (§2.12): the entries are
+  Prompt 4, on their own, because only the key suffixes need that frontend
+  step** — the menu items and their emit are Rust-only and need no capability
+  entry.
+- The **dictation shortcut route** (§2.12 d, not built, no prompt until
+  question 5 is answered): `single-instance` already hands a second launch to
+  the running app, so an argv marker such as `--dictate` becomes a pinnable
+  desktop/taskbar icon that starts a dictation in the background. It must be
+  taken out of `cli.rs`'s "any argument means CLI mode" rule (:28) and must
+  not collide with the args that are forwarded to sona. No new plugin, no new
+  host.
 - `Cargo.toml` — no `windows` feature is added by Prompts 1–3 as revised.
   `Win32_UI_Shell` arrives with the fullscreen auto-hide when that gets a
   prompt; `Win32_Graphics_Gdi` only if the `SetWindowRgn` fallback is ever
@@ -396,9 +503,20 @@ Frontend:
 - [components/dictation-indicator.tsx](../desktop/src/components/dictation-indicator.tsx) —
   renders the orb, the unfold and the click targets; emits the control
   event; draws the pill's logo at the anchored end when it grows in place.
+  **Prompt 1 built the resting render** (:246-262). **[verified]**
+- [desktop/src/pages/dictation-home/page.tsx](../desktop/src/pages/dictation-home/page.tsx)
+  — the main-window start/stop button (§2.12 a, added by this revision):
+  a Start button that calls the same two provider functions a hotkey calls,
+  and the transcript panel the text lands in. This is the only route that
+  works when the hotkeys are off or failed to register, and it is the only
+  one that needs no event. One new provider field exposes the in-flight
+  session's start/stop so the button can render as a stop target while
+  recording.
 - Settings → Dictation — one switch under the indicator switch
-  (`pages/settings/sections/dictation.tsx:88`), disabled when the indicator
-  is off. Strings in both locale files.
+  (`pages/settings/sections/dictation.tsx:104-110`), disabled when the
+  indicator is off. Strings in both locale files. **Built by Prompt 1**
+  (`dictationControlSetting`, `dictationControlSettingInfo`,
+  `dictationControlOrbLabel` in both locales). **[verified]**
 
 Docs: rows j–v in [dictation-indicator-tests.md](dictation-indicator-tests.md)
 (row s deleted 2026-09-18, the letter is not reused); CLAUDE.md step 7,
@@ -408,7 +526,15 @@ README, RELEASING.md at closeout (a later plan revision).
 
 Run them in order. Each one is self-contained. Paste one at a time. Commit
 between prompts. Prompt 0 has been run (§2.10); its three owner-run rows are
-the only part outstanding.
+the only part outstanding. **Prompt 1 has been run and committed** (`8938e5b`:
+steps 1-5 and 7; step 6, drag and the hover check, deliberately not built
+because those owner rows are unrun).
+
+Revised 2026-09-18 (§2.12): **Prompt 1b is new** (the launch resting state),
+**Prompt 2 is split** into 2a (wiring and the permanently-unfolded orb) and 2b
+(transitions and drag), and **the tray entries move out of Prompt 3** into a
+new Prompt 4, because only their key suffixes need frontend work. Prompt 2's
+owner text is unchanged and now appears under 2b.
 
 ### Prompt 0 — Spike
 
@@ -473,7 +599,70 @@ Read CLAUDE.md and docs/dictation-control-plan.md sections 2 and 4. The spike pr
 9. Commit as one change. In the message, name C6 as the reason for the tight window and C7 for the anchor rule, and state that no crate, feature or plugin was added, so the RELEASING.md dependency rule is visibly satisfied.
 ```
 
-### Prompt 2 — Click to start and stop, one loop
+**Status: run and committed as `8938e5b`** (steps 1-5 and 7). Step 6 was not
+built — the owner's C3, C4 and C7 rows are still unrun, and the prompt says to
+stop before it in that case. So drag, the position write-back and the
+hover-without-a-click check are all still outstanding; 2b carries them.
+
+### Prompt 1b — The resting orb at launch (review, 2026-09-18)
+
+Drafted from the §2.12 read of `8938e5b`. Small, self-contained, and
+independent of C3/C4/C7.
+
+```
+Read CLAUDE.md and docs/dictation-control-plan.md §2.12 (the defect paragraph at the end) and §7. Prompt 1 is committed at 8938e5b. This prompt fixes one ordering defect it left: with the control setting on, the orb does not appear at launch.
+
+1. Today: initialize seeds status "starting" (dictation_indicator.rs:424-443) and create_window builds pill-sized, runs position_window and shows (:416). The orb only arrives when the ready flash's timed hide_dictation_indicator(0) returns (hotkey.tsx:682-703 -> dictation_indicator.rs:689-692), so the pill is on screen first and the fold happens about 5 s later. Section 7 says "at launch", question 9.3 expects it, and meanwhile a pill-sized clickable window is live — which is exactly the dead zone §2.4 and spike criterion C6 ruled out.
+
+2. Fix: when is_control_enabled, seed status "idle" instead of "starting", create the window at ORB size through the existing window_size path, and enter resting instead of leaving it pill-sized. Do not duplicate the resting placement logic — enter_resting already sets position, size, click-through and the state; call it. Keep the ready flash: with the control on, the ready flash should still be able to show (it is the "hotkeys are armed" signal) and fold back to the orb when it ends. Decide and say which you chose: (a) the flash replaces the orb briefly and hide folds back to it, or (b) the flash is suppressed when the control is on and the orb carries the ready signal. Prefer (a) if it does not flicker; the pill already folds back through hide_dictation_indicator.
+
+3. The first-run case stays intact: no stored position means the default bottom-right inset, and the position is written back (resting_rect already does this). The setting off path must behave byte-for-byte as before: seeded "starting", pill-sized, hidden when idle.
+
+4. Add a unit test for the pure part you touch. The window geometry is already tested; if the choice in step 2 is expressible as a pure function (e.g. "which status to seed and which mode to create in, given control_enabled"), extract it and test both settings, rather than asserting on Tauri calls.
+
+5. Run cargo fmt, clippy, cargo test from desktop/src-tauri and pnpm i18n:generate, pnpm exec tsc --noEmit -p tsconfig.json, pnpm lint, pnpm test from desktop/, in a shell with the MSVC environment loaded. Do not force-stop my installed app without asking.
+
+6. Commit as one change, naming the defect and the §2.12 paragraph, and state that no crate, feature or plugin was added. If you cannot verify the launch behaviour on a dev build without stopping my installed app, say so in the report instead of claiming it works.
+```
+
+### Prompt 2a — Wire the control into the loop (review, 2026-09-18)
+
+Drafted from §2.12. This is the shortest path to dictation that starts from an
+icon: it needs no geometry, no drag and no hover, so it is independent of
+C3/C4/C7. The owner's Prompt 2 text follows under 2b and now covers only what
+is left after this.
+
+```
+Read CLAUDE.md and docs/dictation-control-plan.md sections 2.1, 2.4, 2.7, 2.11 and 4, and §2.12. The orb, the setting and the tight window are built and committed (8938e5b). This prompt makes a click start and stop dictation. It deliberately does NOT touch the window geometry, dragging or hover — that is 2b. There must be one dictation loop, not two.
+
+1. One event. The pill window emits a single event to the main window, name it dictation-control-press, carrying { action: 'start' | 'stop', lang?: 'en' | 'ar' }. No new capability entry: app-defined commands and core:event:default already covered this in the spike (§2.9, §2.10 item 12). Emit it from the component when a target is clicked.
+
+2. The orb unfolds permanently. Until 2b builds the hover unfold, the resting orb shows its two language targets permanently — EN and ع — inside the existing idle state. Keep the window sized to what is visible (§2.4): ORB is 40 logical px and the targets do not fit beside it inside a square, so either raise a named constant for the unfolded resting size (pure function of mode and scale, unit-tested like window_size) or stack the two targets under the orb inside a taller resting rect. Pick the one that keeps the clickable area to the drawn shape, and say which you picked and why in the commit. No hover, no transition, no animation at rest (§2.5).
+
+3. Route, do not copy. In desktop/src/providers/hotkey.tsx listen for that event and route 'start' into handleHotkeyDown(lang) and 'stop' into the existing stop path. Do not duplicate either function, and do not add a second recording loop.
+
+4. Ownership (§2.11). Record what started the session: a hotkey with its language, or the control. A hotkey-started session is stopped only by its own language's hotkey, exactly as today — do not change that path. A click-started session is stopped by any input: a click, or either language's hotkey, release or press. A click stops any session, whoever started it. Invariant: when stopping a session owned by a different language, pass activeLangRef.current into the stop path, never the pressed key's language. Extract the decision into a pure function in desktop/src/lib/ with vitest cases for every start/stop combination in §2.7, in both activation modes, including the "click stops a hotkey-started session" and "a foreign hotkey does not stop a held session" rows.
+
+5. The pill is the stop target. While a session runs and the control setting is on, the whole active pill is a click target that emits action 'stop', and the window is sized to the pill's visible shape (§2.4 — a full-size clickable window is not acceptable). With the setting off the pill stays click-through and unclickable, exactly as today. A click during transcription goes through the existing busy guard (§4, hotkey.tsx:304-321) and shows "Still transcribing — wait": the same guard, not a second one.
+
+6. Hint. A click-started session shows hint 'click' ("click to stop"): extend the hint union in lib/dictation-indicator.ts and lib/indicator-content.ts with its tests, the Rust doc comment on `hint` in dictation_indicator.rs, and both locale files. A hotkey-started session keeps release/toggle exactly as today.
+
+7. Do not build: grow-in-place, the anchor math, drag, the hover unfold, tray entries. §2.12 sequences those into 2b, Prompt 3 and Prompt 4.
+
+8. Run cargo fmt, clippy, cargo test from desktop/src-tauri and pnpm i18n:generate, pnpm exec tsc --noEmit -p tsconfig.json, pnpm lint, pnpm test from desktop/, in a shell with the MSVC environment loaded. Fill rows j, m and o of docs/dictation-indicator-tests.md as far as automation can; rows needing a microphone stay for the owner. Do not force-stop my installed app without asking.
+
+9. Commit as one change. State in the message that no crate, feature or plugin was added (the RELEASING.md dependency rule), and that C7 and the hover claim are untouched by this prompt.
+```
+
+### Prompt 2b — Grow in place and drag
+
+The owner's Prompt 2, text unchanged. After 2a it covers the residue: the
+geometry steps (4, and the second half of 5), drag and the position
+write-back, and step 6's hover check. Its step 3 — the ownership rules — was
+already implemented in 2a; running it twice is harmless but redundant, so drop
+it if 2a's pure function and tests are in place. **Not pasteable until the
+owner's C3 and C7 rows are run**: 2b resizes a clickable window around a
+remembered anchor, which is exactly what C7 measures.
 
 ```
 Read CLAUDE.md and docs/dictation-control-plan.md sections 2.7, 2.11, 4 and the owner rulings. Wire the orb into the existing dictation loop. There must be one loop, not two.
@@ -493,20 +682,49 @@ Read CLAUDE.md and docs/dictation-control-plan.md sections 2.7, 2.11, 4 and the 
 7. Run the full lint and test set from CLAUDE.md. Fill rows j, m, n, o, u and v of docs/dictation-indicator-tests.md as far as the automation can; rows that need a microphone stay for the owner. State in the commit: no new crates, features or plugins.
 ```
 
-### Prompt 3 — Unfold, motion, tray entry, screenshots
+### Prompt 3 — Unfold, motion, screenshots
+
+The owner's text, with **the tray step moved out to Prompt 4** (this revision,
+§2.12: only the "(F9)" / "(F10)" suffixes need the frontend, so the entries
+themselves are no longer gated on the unfold). Step 3 below is struck in the
+listing only — the step numbers are kept so the remaining steps still read as
+the owner wrote them. Still not pasteable until the hover claim is settled.
 
 ```
 Read CLAUDE.md and docs/dictation-control-plan.md sections 4 and 5. Finish the design.
 
-1. Hover unfold: the resting orb shows only the logo mark; pointer over it unfolds the EN and ع targets, pointer away folds them after a short delay. The window is resized to the unfolded shape, under the anchor rule of section 2.4, before the targets become clickable. 150 ms transitions; no running animation at rest. prefers-reduced-motion: swap without motion. Depends on hover reaching the no-activate webview — confirmed or refuted by Prompt 1 step 6.
+1. Hover unfold: the resting orb shows only the logo mark; pointer over it unfolds the EN and ع targets, pointer away folds them after a short delay. The window is resized to the unfolded shape, under the anchor rule of section 2.4, before the targets become clickable. 150 ms transitions; no running animation at rest. prefers-reduced-motion: swap without motion. Depends on hover reaching the no-activate webview — confirmed or refuted by Prompt 1 step 6 (carried by 2b).
 
 2. Resting opacity lowers when the pointer is far and rises when it is near, using CSS only.
 
-3. Tray: add "Dictate — English" and "Dictate — العربية" to the tray menu in desktop/src-tauri/src/setup.rs, emitting the same dictation-control-press start event. Start route only: no stop item, and the entries do nothing while a recording runs. The frontend sends the registered accelerators to Rust after registration so the labels can read "(F9)" / "(F10)"; without them the labels have no key.
+3. The frontend sends the registered accelerators to Rust after registration so the tray labels can read "(F9)" / "(F10)"; without them the labels have no key. (The menu entries and their emit are Prompt 4 and are already built by the time this runs.)
 
 4. Screenshots of every appearance — resting, unfolded, active click-started pill with the "click to stop" hint, fold-back — under docs/screenshots/control/, both at a screen edge and mid-screen, for owner review.
 
 5. Both locales, uv run scripts/check_i18n.py, then the full lint and test set. State in the commit: no new crates, features or plugins.
+```
+
+### Prompt 4 — Tray entries: dictation from a fixed icon (review, 2026-09-18)
+
+Drafted from §2.12. No dependency on C3/C4/C7, on the unfold, or on hover: the
+entries emit the same event 2a already routes. Paste after 2a.
+
+```
+Read CLAUDE.md and docs/dictation-control-plan.md sections 2.7, 2.11, 5 and §2.12 (route b). 2a is committed: the pill emits dictation-control-press and the main window routes it into the existing loop. This prompt adds the tray as a second route to the same event.
+
+1. In desktop/src-tauri/src/setup.rs build_tray (:143-172), add two entries next to Show and Quit: "Dictate — English" and "Dictate — العربية", ids dictate-en and dictate-ar. On click they emit the same dictation-control-press start payload the pill emits, to the main window. No stop item (plan §7): a stop issued from the tray menu would record the menu's own window as the delivery target.
+
+2. Start route only, and never a second loop. While a recording or a transcription is in flight the entries do nothing beyond the existing busy guard — do not add a queue, and do not start a second recording. The guard is the one in handleHotkeyDown (hotkey.tsx:304-321); route through the same listener 2a added rather than a new one.
+
+3. The tray menu takes focus to the shell, and the delivery target is recorded at stop (hotkey.tsx:394-404). That is correct behaviour for toggle-mode sessions and must not be "fixed": do not add a foreground-window capture at menu-open time. Say this in a code comment with the §2.7 reason, so nobody later mistakes it for a bug.
+
+4. Labels carry no key for now: the accelerators live in the frontend and reach Rust in Prompt 3. If it is cheap, read the registered EN/AR accelerators from the store and append them; if not, ship the plain labels and note it in the commit.
+
+5. Both locales if any user-visible string moves into the frontend; the tray labels themselves are Rust strings (the tray menu is built in Rust and does not go through the frontend i18n). Run uv run scripts/check_i18n.py anyway.
+
+6. Run cargo fmt, clippy, cargo test from desktop/src-tauri and pnpm i18n:generate, pnpm exec tsc --noEmit -p tsconfig.json, pnpm lint, pnpm test from desktop/, in a shell with the MSVC environment loaded. Do not force-stop my installed app without asking.
+
+7. Commit as one change. State that no crate, feature or plugin was added, and that the tray is a start route only.
 ```
 
 Verification and closeout are deliberately not written. They belong to a
@@ -519,8 +737,12 @@ Only you:
 - Run C3, then C4 and C7, from the run sheet in
   [dictation-indicator-tests.md](dictation-indicator-tests.md) ("Control
   spike"). C3 is the authority row: if it fails the design flips to
-  Rust-mediated presses (§2.10). Prompt 1 stops before its drag step until
-  they are in.
+  Rust-mediated presses (§2.10). Prompt 1 stopped before its drag step because
+  of them, and §2.12's split keeps everything that depends on them inside
+  Prompt 2b — **2a and Prompt 4 are built and pasteable without them**.
+  Reproducible: the spike branch is still present locally
+  (`spike/dictation-control-noactivate`, tip `53fb9cd`) and
+  `git checkout 4bbfd8e -- desktop` restores the spike state.
 - Answer the questions in section 9.
 - Rows that need a microphone, a second monitor, a slide show or a game:
   m, n, p, q (two monitors), u, v.
@@ -533,6 +755,19 @@ entries stop a recording (they do not — start route only).
 
 Open list:
 
+- **NEW (review, 2026-09-18): the resting orb does not appear at launch.** The
+  startup ordering defect in §2.12's last paragraph: the pill is built and
+  shown first, and the fold to the orb only happens when the ready flash's
+  timed hide returns, ~5 s later. Until Prompt 1b runs, a pill-sized clickable
+  window is live in that window of time. Prompt 1b fixes it.
+- **NEW: the main-window start button's landing (question 5).** Route (a) of
+  §2.12 works today and closes the "hotkeys off or failed to register" hole,
+  but while that window is focused it is the recorded delivery target. Needs a
+  ruling: type into an in-app transcript panel, or clipboard. Not built.
+- **NEW: the desktop/taskbar shortcut route (route d of §2.12).** The only
+  route that survives the main window being closed to tray, and it needs one
+  ruling — that a marker such as `--dictate` belongs to the app and not to
+  `cli.rs`'s arg-forwarding to sona — plus a cold-start rule. No prompt.
 - **Hover without a click.** Whether a `pointermove` with no button reaches
   the no-activate WebView2 was not among C1–C8. The unfold in §4 depends on
   it. Prompt 1 step 6 checks it; if hover does not arrive, stop and report —
@@ -566,8 +801,10 @@ Open list:
 Unchanged, and each prompt's commit says so.
 
 - No new crates. No new Tauri plugins.
-- Prompts 1–3 as revised add **no** `windows` crate feature. When the
-  fullscreen auto-hide gets a prompt it will add `Win32_UI_Shell` for
+- Prompts 1, 1b, 2a, 2b, 3 and 4 as revised add **no** `windows` crate
+  feature, and Prompt 4 adds no frontend dependency: the tray entries are
+  `tauri::menu::MenuItem`s in the existing tray, emitting an in-process event.
+  When the fullscreen auto-hide gets a prompt it will add `Win32_UI_Shell` for
   `SHQueryUserNotificationState`, and `Win32_Graphics_Gdi` would come only
   with the `SetWindowRgn` fallback; each is named in the prompt and the commit
   that adds it — the same disclosure RELEASING.md made for
@@ -617,6 +854,24 @@ Not decided here.
    tested, so question 1 cannot be closed yet: if hover does not reach the
    webview, hover-unfold is off the table and the choice is between a
    permanently unfolded orb and press-and-hold.
+
+5. **NEW (review, 2026-09-18): where does a dictation started *inside the main
+   window* land?** §2.12 route (a) is the cheapest click-to-dictate there is,
+   and the only route that works when the hotkeys are off or failed to
+   register. But the main window is the foreground window while it is used, so
+   the target recorded at stop is the app itself. Options: (i) an in-app
+   transcript panel with a Copy button — nothing is lost, and it doubles as
+   the missing "I lost the text" fallback; (ii) clipboard, with the existing
+   green "Copied" pill; (iii) do not build it, and rely on the orb and the
+   tray. Not decided here.
+6. **NEW: does the tray route need push-to-talk to behave?** Route (b) takes
+   focus to the shell, so in push-to-talk the release instant decides the
+   target, and a tray-started session is stopped by a hotkey release the user
+   may never press. Is "tray entries are for toggle mode" acceptable, or
+   should the tray entry arm push-to-talk against the window that was in front
+   when the menu opened? Ruling 2's symmetry argues for the second, and the
+   stored-target mechanism for it already exists (`type_text_if_foreground`
+   compares at delivery time). Not built either way.
 
 ## 10. Claims not verified from source
 
